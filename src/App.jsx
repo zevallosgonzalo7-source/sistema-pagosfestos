@@ -4,6 +4,17 @@ import OneSignal from 'react-onesignal';
 import './App.css';
 
 function App() {
+  // 1. Estado para el nombre de usuario obligatorio
+  const [nombreUsuario, setNombreUsuario] = useState(localStorage.getItem('festos_usuario') || '');
+  const [inputTemp, setInputTemp] = useState('');
+
+  const guardarNombre = (e) => {
+    e.preventDefault();
+    if (!inputTemp.trim()) return;
+    localStorage.setItem('festos_usuario', inputTemp.trim());
+    setNombreUsuario(inputTemp.trim());
+  };
+
   const [vista, setVista] = useState('subir'); 
   const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
@@ -37,8 +48,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    obtenerPagos();
-  }, []);
+    if (nombreUsuario) {
+      obtenerPagos();
+    }
+  }, [nombreUsuario]);
 
   const obtenerPagos = async () => {
     const { data, error } = await supabase.from('pagos').select('*');
@@ -98,7 +111,8 @@ function App() {
         url_archivo: urlArchivoFinal,
         estado: 'Pendiente',
         fecha_creacion: fechaActualStr,
-        fecha_legible: new Date().toLocaleDateString()
+        fecha_legible: new Date().toLocaleDateString(),
+        registrado_por: nombreUsuario // <--- Aquí se guarda el nombre obligatorio de quién lo registró
       };
 
       const { error: insertError } = await supabase.from('pagos').insert([nuevoPagoDB]);
@@ -144,6 +158,27 @@ function App() {
     return true;
   });
 
+  // 2. Pantalla de bloqueo obligatoria si no hay nombre registrado en el navegador
+  if (!nombreUsuario) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: '#224248', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', padding: '20px' }}>
+        <form onSubmit={guardarNombre} style={{ background: '#ffffff', color: '#1e293b', padding: '30px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', textAlign: 'center', width: '100%', maxWidth: '360px' }}>
+          <h2 style={{ marginBottom: '8px', color: '#224248' }}>Control Festos</h2>
+          <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '20px' }}>Ingresa tu nombre para continuar y registrar pagos</p>
+          <input 
+            type="text" 
+            placeholder="Tu nombre completo" 
+            value={inputTemp} 
+            onChange={(e) => setInputTemp(e.target.value)} 
+            required
+            style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '1rem', outline: 'none', marginBottom: '20px' }}
+          />
+          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#224248', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>Entrar</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', minHeight: '100vh', backgroundColor: '#f8fafc', color: '#1e293b', paddingBottom: '40px' }}>
       
@@ -157,8 +192,13 @@ function App() {
           />
           <h1 style={{ fontSize: '1.2rem', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Control de Pagos y Facturas</h1>
         </div>
-        <div style={{ backgroundColor: '#d4e036', color: '#1e293b', fontWeight: '700', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.8rem' }}>
-          FESTOS
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: '8px', color: '#ffffff' }}>
+            👤 {nombreUsuario} (<span style={{ cursor: 'pointer', color: '#d4e036', textDecoration: 'underline' }} onClick={() => { localStorage.removeItem('festos_usuario'); setNombreUsuario(''); }}>cambiar</span>)
+          </span>
+          <div style={{ backgroundColor: '#d4e036', color: '#1e293b', fontWeight: '700', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.8rem' }}>
+            FESTOS
+          </div>
         </div>
       </header>
 
@@ -301,6 +341,7 @@ function App() {
                   <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
                   <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
                   <p style={{ margin: '6px 0' }}><b>Monto Total:</b> <span style={{ color: '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
+                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
                   <p style={{ margin: '6px 0' }}>
                     <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
                   </p>
@@ -331,6 +372,7 @@ function App() {
                   <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
                   <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
                   <p style={{ margin: '6px 0' }}><b>Total a Pagar:</b> <span style={{ color: '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
+                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
                   <p style={{ margin: '6px 0' }}>
                     <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
                   </p>
@@ -377,6 +419,7 @@ function App() {
                   <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
                   <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
                   <p style={{ margin: '6px 0' }}><b>Total Pagado:</b> <span style={{ color: '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
+                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
                   <p style={{ margin: '6px 0' }}>
                     <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
                   </p>
