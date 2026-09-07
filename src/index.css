@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, button, textarea, select {
+  font-family: inherit;
+}
+
+/* Barra de desplazamiento elegante */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+/* --- ADAPTACIÓN RESPONSIVA PARA CELULARES --- */
+@media (max-width: 640px) {
+  /* Ajusta los márgenes generales en pantallas pequeñas */
+  div[style*="max-width: 750px"] {
+    margin: 10px auto !important;
+    padding: 0 10px !important;
+  }
+
+  /* Hace que el menú superior se adapte mejor en columna o filas compactas */
+  header {
+    padding: 12px 16px !important;
+  }
+
+  header h1 {
+    font-size: 1rem !important;
+  }
+
+  /* Los botones del menú superior se acomodan con fuente más pequeña */
+  div[style*="flexWrap: 'wrap'"] button {
+    font-size: 0.75rem !important;
+    padding: 6px 10px !important;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  /* Formularios y tarjetas ocupan el ancho completo con padding cómodo */
+  form, div[style*="border: 1px solid"] {
+    padding: 16px !important;
+  }
+}
