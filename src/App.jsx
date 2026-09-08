@@ -36,15 +36,27 @@ function App() {
   const valorBase = parseFloat(montoIngresado) || 0;
   const precioFinalCalculado = aplicarIgv ? (valorBase * 1.18).toFixed(2) : valorBase.toFixed(2);
 
-  // Inicializar OneSignal para Notificaciones Push
+  // Inicializar OneSignal para Notificaciones Push (Seguro para localhost)
   useEffect(() => {
-    OneSignal.init({
-      appId: "ef5bdb2f-ce76-4f50-b664-071d1c526642",
-      allowLocalhostAsSecureOrigin: true, // Permite probar en localhost sin HTTPS
-    }).then(() => {
-      // Solicita permisos de notificación al usuario
-      OneSignal.SlidedefaultPrompt.showPrompt();
-    });
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return; 
+    }
+
+    if (window.OneSignalInitialized) return;
+    window.OneSignalInitialized = true;
+
+    try {
+      OneSignal.init({
+        appId: "ef5bdb2f-ce76-4f50-b664-071d1c526642",
+        allowLocalhostAsSecureOrigin: true,
+      }).then(() => {
+        if (OneSignal.SlidedefaultPrompt && typeof OneSignal.SlidedefaultPrompt.showPrompt === 'function') {
+          OneSignal.SlidedefaultPrompt.showPrompt();
+        }
+      });
+    } catch (err) {
+      console.warn("OneSignal notice:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -112,7 +124,7 @@ function App() {
         estado: 'Pendiente',
         fecha_creacion: fechaActualStr,
         fecha_legible: new Date().toLocaleDateString(),
-        registrado_por: nombreUsuario // <--- Aquí se guarda el nombre obligatorio de quién lo registró
+        registrado_por: nombreUsuario
       };
 
       const { error: insertError } = await supabase.from('pagos').insert([nuevoPagoDB]);
