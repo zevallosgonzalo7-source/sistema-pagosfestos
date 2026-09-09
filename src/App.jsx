@@ -22,7 +22,7 @@ function App() {
     setNombreUsuario(inputTemp.trim());
   };
 
-  const [vista, setVista] = useState('subir'); 
+  const [vista, setVista] = useState('dashboard'); 
   const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
 
@@ -39,6 +39,9 @@ function App() {
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+
+  // Estado para la Búsqueda Inteligente (Asistente IA)
+  const [busquedaInteligente, setBusquedaInteligente] = useState('');
 
   const valorBase = parseFloat(montoIngresado) || 0;
   const precioFinalCalculado = aplicarIgv ? (valorBase * 1.18).toFixed(2) : valorBase.toFixed(2);
@@ -125,7 +128,7 @@ function App() {
         proyecto: proyecto || 'General',
         nombre_archivo: nombreArchivoFinal,
         url_archivo: urlArchivoFinal,
-        estado: 'Pendiente',
+        estado: 'Por Pagar', // Se van directo a Por Pagar para simplificar el flujo
         fecha_creacion: fechaActualStr,
         fecha_legible: new Date().toLocaleDateString(),
         registrado_por: nombreUsuario
@@ -145,7 +148,7 @@ function App() {
       setArchivo(null);
       setCargando(false);
       obtenerPagos();
-      setVista('pendientes');
+      setVista('porPagar');
 
     } catch (error) {
       console.error(error);
@@ -182,7 +185,7 @@ function App() {
     }
   };
 
-  // Sincronizar eliminación con Google Sheets vía GET (Evita bloqueos y añade filas fantasma)
+  // Sincronizar eliminación con Google Sheets vía GET
   const eliminarDeGoogleSheets = async (codigoUnico) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
     const urlConParametros = `${WEB_APP_URL}?action=delete&codigo_unico=${encodeURIComponent(codigoUnico)}`;
@@ -228,7 +231,6 @@ function App() {
       console.error('Error al eliminar:', error);
       alert('Hubo un error al intentar eliminar el registro.');
     } else {
-      // Borrar también de Google Sheets en la nube
       eliminarDeGoogleSheets(codigoUnico);
       obtenerPagos();
     }
@@ -294,6 +296,43 @@ function App() {
     return true;
   });
 
+  // Motor de Búsqueda Inteligente (Asistente IA)
+  const pagosBusquedaInteligente = pagos.filter(p => {
+    if (!busquedaInteligente.trim()) return true;
+    
+    const terminos = busquedaInteligente.toLowerCase().trim().split(' ');
+    
+    const textoCompleto = `
+      ${p.codigo_unico || ''} 
+      ${p.producto || ''} 
+      ${p.proveedor || ''} 
+      ${p.proyecto || ''} 
+      ${p.descripcion || ''} 
+      ${p.registrado_por || ''} 
+      ${p.fecha_legible || ''}
+      ${p.precio_con_igv || ''}
+      ${p.estado || ''}
+    `.toLowerCase();
+
+    return terminos.every(termino => textoCompleto.includes(termino));
+  });
+
+  // --- CÁLCULOS PARA EL DASHBOARD EJECUTIVO ---
+  const pagosRealizados = pagos.filter(p => p.estado === 'Pagado');
+  const gastoTotalAcumulado = pagosRealizados.reduce((acc, p) => acc + (parseFloat(p.precio_con_igv) || 0), 0);
+  
+  const gastosPorProyecto = pagosRealizados.reduce((acc, p) => {
+    const proj = p.proyecto || 'General';
+    acc[proj] = (acc[proj] || 0) + (parseFloat(p.precio_con_igv) || 0);
+    return acc;
+  }, {});
+
+  const gastosPorProveedor = pagosRealizados.reduce((acc, p) => {
+    const prov = p.proveedor || 'Desconocido';
+    acc[prov] = (acc[prov] || 0) + (parseFloat(p.precio_con_igv) || 0);
+    return acc;
+  }, {});
+
   const tema = {
     bgApp: modoOscuro ? '#0f172a' : '#f8fafc',
     bgCard: modoOscuro ? '#1e293b' : '#ffffff',
@@ -350,16 +389,33 @@ function App() {
           <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: '8px', color: '#ffffff' }}>
             👤 {nombreUsuario} (<span style={{ cursor: 'pointer', color: '#d4e036', textDecoration: 'underline' }} onClick={() => { localStorage.removeItem('festos_usuario'); setNombreUsuario(''); }}>cambiar</span>)
           </span>
+
           <div style={{ backgroundColor: '#d4e036', color: '#1e293b', fontWeight: '700', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.8rem' }}>
             FESTOS
           </div>
         </div>
       </header>
 
-      <div style={{ maxWidth: '750px', margin: '30px auto', padding: '0 16px' }}>
+      <div style={{ maxWidth: '800px', margin: '30px auto', padding: '0 16px' }}>
         
-        {/* Menú de Navegación Estilizado */}
-        <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '24px', backgroundColor: tema.bgCard, padding: '8px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: `1px solid ${tema.border}`, flexWrap: 'wrap', gap: '8px' }}>
+        {/* Menú de Navegación Limpio (Sin Pendientes) */}
+        <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '24px', backgroundColor: tema.bgCard, padding: '8px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: `1px solid ${tema.border}`, flexWrap: 'wrap', gap: '6px' }}>
+          <button 
+            onClick={() => setVista('dashboard')} 
+            style={{ 
+              fontWeight: vista === 'dashboard' ? '600' : '400', 
+              padding: '8px 14px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              cursor: 'pointer',
+              backgroundColor: vista === 'dashboard' ? '#224248' : 'transparent',
+              color: vista === 'dashboard' ? '#ffffff' : tema.textMuted,
+              transition: 'all 0.2s'
+            }}
+          >
+            📊 Dashboard
+          </button>
+
           <button 
             onClick={() => setVista('subir')} 
             style={{ 
@@ -374,22 +430,6 @@ function App() {
             }}
           >
             Subir Pago
-          </button>
-          
-          <button 
-            onClick={() => setVista('pendientes')} 
-            style={{ 
-              fontWeight: vista === 'pendientes' ? '600' : '400', 
-              padding: '8px 14px', 
-              borderRadius: '8px', 
-              border: 'none', 
-              cursor: 'pointer',
-              backgroundColor: vista === 'pendientes' ? '#224248' : 'transparent',
-              color: vista === 'pendientes' ? '#ffffff' : tema.textMuted,
-              transition: 'all 0.2s'
-            }}
-          >
-            Pendientes ({pagos.filter(p => p.estado === 'Pendiente').length})
           </button>
 
           <button 
@@ -423,7 +463,104 @@ function App() {
           >
             Historial 📂
           </button>
+
+          <button 
+            onClick={() => setVista('asistente')} 
+            style={{ 
+              fontWeight: vista === 'asistente' ? '600' : '400', 
+              padding: '8px 14px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              cursor: 'pointer',
+              backgroundColor: vista === 'asistente' ? '#224248' : 'transparent',
+              color: vista === 'asistente' ? '#ffffff' : tema.textMuted,
+              transition: 'all 0.2s'
+            }}
+          >
+            🤖 IA
+          </button>
         </div>
+
+        {/* VISTA 0: DASHBOARD EJECUTIVO */}
+        {vista === 'dashboard' && (
+          <div>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', fontWeight: '700', marginBottom: '6px' }}>
+              📊 Panel de Métricas Ejecutivas
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: tema.textMuted, marginBottom: '20px' }}>
+              Resumen en tiempo real del estado financiero y control de gastos de la empresa.
+            </p>
+
+            {/* Tarjetas de Indicadores Principales (KPIs) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Gasto Total Pagado</span>
+                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: '#16a34a' }}>
+                  S/. {gastoTotalAcumulado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </h2>
+              </div>
+
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Facturas Procesadas</span>
+                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
+                  {pagosRealizados.length}
+                </h2>
+              </div>
+
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Por Pagar / Aprobados</span>
+                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: '#0369a1' }}>
+                  {pagos.filter(p => p.estado === 'Por Pagar').length}
+                </h2>
+              </div>
+
+            </div>
+
+            {/* Desglose por Proyectos */}
+            <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
+                📂 Gasto Acumulado por Proyecto
+              </h4>
+              {Object.keys(gastosPorProyecto).length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>No hay pagos registrados aún para graficar.</p>
+              ) : (
+                Object.entries(gastosPorProyecto).map(([proj, monto]) => {
+                  const porcentaje = gastoTotalAcumulado > 0 ? (monto / gastoTotalAcumulado) * 100 : 0;
+                  return (
+                    <div key={proj} style={{ marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
+                        <span><b>{proj}</b></span>
+                        <span style={{ fontWeight: '600' }}>S/. {monto.toFixed(2)} ({porcentaje.toFixed(1)}%)</span>
+                      </div>
+                      <div style={{ width: '100%', height: '8px', backgroundColor: tema.cardAlt, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${tema.border}` }}>
+                        <div style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: '#224248', borderRadius: '4px' }}></div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desglose por Proveedores */}
+            <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
+                🏢 Gasto por Proveedor Principal
+              </h4>
+              {Object.keys(gastosPorProveedor).length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>No hay pagos registrados aún.</p>
+              ) : (
+                Object.entries(gastosPorProveedor).map(([prov, monto]) => (
+                  <div key={prov} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${tema.border}`, fontSize: '0.9rem' }}>
+                    <span>📍 {prov}</span>
+                    <span style={{ fontWeight: 'bold', color: '#16a34a' }}>S/. {monto.toFixed(2)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        )}
 
         {/* VISTA 1: SUBIR PAGO */}
         {vista === 'subir' && (
@@ -477,52 +614,10 @@ function App() {
           </form>
         )}
 
-        {/* VISTA 2: PENDIENTES */}
-        {vista === 'pendientes' && (
-          <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Facturas Pendientes de Revisión</h3>
-            {pagos.filter(p => p.estado === 'Pendiente').length === 0 ? (
-              <p style={{ color: tema.textMuted, background: tema.bgCard, padding: '20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${tema.border}` }}>No hay facturas pendientes.</p>
-            ) : (
-              pagos.filter(p => p.estado === 'Pendiente').map(p => (
-                <div key={p.id} style={{ border: `1px solid ${tema.border}`, padding: '18px', borderRadius: '12px', marginBottom: '12px', background: tema.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <p style={{ margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ background: '#fef08a', color: '#854d0e', padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', display: 'inline-block' }}>
-                      ⏳ {p.codigo_unico} (Pendiente)
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                      <button 
-                        onClick={() => eliminarPago(p.id, p.codigo_unico)} 
-                        title="Eliminar registro"
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '2px' }}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </p>
-                  <p style={{ margin: '6px 0' }}><b>Producto:</b> {p.producto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Monto Total:</b> <span style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
-                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
-                  <p style={{ margin: '6px 0' }}>
-                    <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
-                  </p>
-                  <p style={{ margin: '6px 0 14px 0' }}><b>Descripción:</b> {p.descripcion || 'Sin descripción'}</p>
-                  <button onClick={() => cambiarEstado(p.id, 'Por Pagar')} style={{ backgroundColor: '#16a34a', color: 'white', padding: '8px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
-                    Aprobar (Mandar a Por Pagar)
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* VISTA 3: POR PAGAR */}
+        {/* VISTA 2: POR PAGAR */}
         {vista === 'porPagar' && (
           <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Facturas Por Pagar (Aprobadas)</h3>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Facturas Por Pagar</h3>
             {pagos.filter(p => p.estado === 'Por Pagar').length === 0 ? (
               <p style={{ color: tema.textMuted, background: tema.bgCard, padding: '20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${tema.border}` }}>No hay facturas listas para pagar.</p>
             ) : (
@@ -560,7 +655,7 @@ function App() {
           </div>
         )}
 
-        {/* VISTA 4: HISTORIAL */}
+        {/* VISTA 3: HISTORIAL */}
         {vista === 'historial' && (
           <div>
             <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Historial de Pagos Realizados</h3>
@@ -593,7 +688,6 @@ function App() {
                 </button>
               )}
 
-              {/* Botón de respaldo para Exportar a CSV */}
               <button 
                 onClick={exportarAExcel} 
                 style={{ 
@@ -643,12 +737,81 @@ function App() {
                   <p style={{ margin: '6px 0' }}>
                     <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
                   </p>
-                  {p.descripcion && <p style={{ margin: '6px 0' }}><b>Descripción:</b> {p.descripcion}</p>}
                 </div>
               ))
             )}
           </div>
         )}
+
+        {/* VISTA 4: ASISTENTE DE BÚSQUEDA INTELIGENTE (IA) */}
+        {vista === 'asistente' && (
+          <div>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '8px' }}>
+              🤖 Asistente de Búsqueda Inteligente
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: tema.textMuted, marginBottom: '16px' }}>
+              Escribe de forma natural cualquier término para consultar sobre la base de datos (Ej: <i>&quot;Tailoy proyecto&quot;</i> o <i>&quot;Rodrigo Por Pagar&quot;</i>):
+            </p>
+
+            <input 
+              type="text" 
+              placeholder="Pregúntale al sistema o busca por cualquier término..." 
+              value={busquedaInteligente} 
+              onChange={(e) => setBusquedaInteligente(e.target.value)} 
+              autoFocus
+              style={{ 
+                width: '100%', 
+                padding: '14px', 
+                borderRadius: '10px', 
+                border: `2px solid #224248`, 
+                backgroundColor: tema.inputBg, 
+                color: tema.inputColor, 
+                fontSize: '1rem', 
+                boxSizing: 'border-box',
+                marginBottom: '16px',
+                outline: 'none'
+              }} 
+            />
+
+            {busquedaInteligente && (
+              <div style={{ background: modoOscuro ? '#1e293b' : '#f0fdf4', border: `1px solid ${modoOscuro ? '#334155' : '#bbf7d0'}`, padding: '12px 16px', borderRadius: '8px', marginBottom: '16px' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: modoOscuro ? '#38bdf8' : '#166534', fontWeight: '600' }}>
+                  ✨ Resultados encontrados: {pagosBusquedaInteligente.length} coincidencia(s) para &quot;{busquedaInteligente}&quot;
+                </p>
+              </div>
+            )}
+
+            {pagosBusquedaInteligente.length === 0 ? (
+              <p style={{ color: tema.textMuted, background: tema.bgCard, padding: '20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${tema.border}` }}>
+                No se encontraron registros que coincidan con tu búsqueda.
+              </p>
+            ) : (
+              pagosBusquedaInteligente.map(p => (
+                <div key={p.id} style={{ border: `1px solid ${tema.border}`, padding: '18px', borderRadius: '12px', marginBottom: '12px', background: tema.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <p style={{ margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ 
+                      background: p.estado === 'Pagado' ? '#dcfce7' : '#bae6fd', 
+                      color: p.estado === 'Pagado' ? '#166534' : '#0369a1', 
+                      padding: '4px 10px', 
+                      borderRadius: '9999px', 
+                      fontSize: '11px', 
+                      fontWeight: '700' 
+                    }}>
+                      {p.estado === 'Pagado' ? '✅' : '📋'} {p.codigo_unico} ({p.estado})
+                    </span>
+                    <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
+                  </p>
+                  <p style={{ margin: '6px 0' }}><b>Producto:</b> {p.producto}</p>
+                  <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
+                  <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
+                  <p style={{ margin: '6px 0' }}><b>Total:</b> <span style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
+                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
