@@ -154,11 +154,12 @@ function App() {
     }
   };
 
-  // Función para enviar los datos automáticamente a Google Sheets cuando se marca como Pagado
+  // Sincronizar inserción con Google Sheets
   const sincronizarConGoogleSheets = async (pago) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
     
     const datosEnvio = {
+      action: 'insert',
       fecha: pago.fecha_legible || '',
       proveedor: pago.proveedor || '',
       proyecto: pago.proyecto || '',
@@ -173,20 +174,37 @@ function App() {
     try {
       await fetch(WEB_APP_URL, {
         method: 'POST',
-        mode: 'no-cors', // Necesario para evitar problemas de CORS con Google Apps Script
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(datosEnvio)
       });
-      console.log('Sincronizado con Google Sheets exitosamente');
     } catch (error) {
       console.error('Error al sincronizar con Google Sheets:', error);
     }
   };
 
+  // Sincronizar eliminación con Google Sheets
+  const eliminarDeGoogleSheets = async (codigoUnico) => {
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
+    
+    const datosEnvio = {
+      action: 'delete',
+      codigo_unico: codigoUnico
+    };
+
+    try {
+      await fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosEnvio)
+      });
+    } catch (error) {
+      console.error('Error al eliminar de Google Sheets:', error);
+    }
+  };
+
   const cambiarEstado = async (id, nuevoEstado) => {
-    // Buscar el pago antes de actualizarlo para tener sus datos si pasa a "Pagado"
     const pagoActual = pagos.find(p => p.id === id);
 
     const { error } = await supabase
@@ -197,7 +215,6 @@ function App() {
     if (error) {
       alert('Error al actualizar el estado');
     } else {
-      // Si el pago pasa a 'Pagado', se envía automáticamente a Google Sheets
       if (nuevoEstado === 'Pagado' && pagoActual) {
         sincronizarConGoogleSheets(pagoActual);
       }
@@ -218,11 +235,12 @@ function App() {
       console.error('Error al eliminar:', error);
       alert('Hubo un error al intentar eliminar el registro.');
     } else {
+      // Borrar también de Google Sheets en la nube
+      eliminarDeGoogleSheets(codigoUnico);
       obtenerPagos();
     }
   };
 
-  // Función de respaldo por si quieren exportar manualmente desde la app
   const exportarAExcel = () => {
     if (pagosFiltrados.length === 0) {
       alert('No hay datos en el historial para exportar con los filtros actuales.');
