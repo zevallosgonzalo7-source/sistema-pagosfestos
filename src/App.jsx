@@ -154,12 +154,11 @@ function App() {
     }
   };
 
-  // Sincronizar inserción con Google Sheets
+  // Sincronizar inserción con Google Sheets (POST)
   const sincronizarConGoogleSheets = async (pago) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
     
     const datosEnvio = {
-      action: 'insert',
       fecha: pago.fecha_legible || '',
       proveedor: pago.proveedor || '',
       proyecto: pago.proyecto || '',
@@ -183,21 +182,15 @@ function App() {
     }
   };
 
-  // Sincronizar eliminación con Google Sheets
+  // Sincronizar eliminación con Google Sheets vía GET (Evita bloqueos y añade filas fantasma)
   const eliminarDeGoogleSheets = async (codigoUnico) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
-    
-    const datosEnvio = {
-      action: 'delete',
-      codigo_unico: codigoUnico
-    };
+    const urlConParametros = `${WEB_APP_URL}?action=delete&codigo_unico=${encodeURIComponent(codigoUnico)}`;
 
     try {
-      await fetch(WEB_APP_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datosEnvio)
+      await fetch(urlConParametros, {
+        method: 'GET',
+        mode: 'no-cors'
       });
     } catch (error) {
       console.error('Error al eliminar de Google Sheets:', error);
