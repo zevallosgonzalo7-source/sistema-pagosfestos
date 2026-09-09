@@ -154,7 +154,41 @@ function App() {
     }
   };
 
+  // Función para enviar los datos automáticamente a Google Sheets cuando se marca como Pagado
+  const sincronizarConGoogleSheets = async (pago) => {
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
+    
+    const datosEnvio = {
+      fecha: pago.fecha_legible || '',
+      proveedor: pago.proveedor || '',
+      proyecto: pago.proyecto || '',
+      descripcion: pago.descripcion || '',
+      tipo_documento: 'Factura',
+      codigo_unico: pago.codigo_unico || '',
+      precio_sin_igv: pago.precio_sin_igv || '0.00',
+      precio_con_igv: pago.precio_con_igv || '0.00',
+      registrado_por: pago.registrado_por || 'Anónimo'
+    };
+
+    try {
+      await fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors', // Necesario para evitar problemas de CORS con Google Apps Script
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosEnvio)
+      });
+      console.log('Sincronizado con Google Sheets exitosamente');
+    } catch (error) {
+      console.error('Error al sincronizar con Google Sheets:', error);
+    }
+  };
+
   const cambiarEstado = async (id, nuevoEstado) => {
+    // Buscar el pago antes de actualizarlo para tener sus datos si pasa a "Pagado"
+    const pagoActual = pagos.find(p => p.id === id);
+
     const { error } = await supabase
       .from('pagos')
       .update({ estado: nuevoEstado })
@@ -163,11 +197,14 @@ function App() {
     if (error) {
       alert('Error al actualizar el estado');
     } else {
+      // Si el pago pasa a 'Pagado', se envía automáticamente a Google Sheets
+      if (nuevoEstado === 'Pagado' && pagoActual) {
+        sincronizarConGoogleSheets(pagoActual);
+      }
       obtenerPagos();
     }
   };
 
-  // Función para eliminar un pago de la base de datos
   const eliminarPago = async (id, codigoUnico) => {
     const confirmar = window.confirm(`¿Estás seguro de que deseas eliminar el registro ${codigoUnico}?`);
     if (!confirmar) return;
@@ -183,6 +220,46 @@ function App() {
     } else {
       obtenerPagos();
     }
+  };
+
+  // Función de respaldo por si quieren exportar manualmente desde la app
+  const exportarAExcel = () => {
+    if (pagosFiltrados.length === 0) {
+      alert('No hay datos en el historial para exportar con los filtros actuales.');
+      return;
+    }
+
+    const headers = [
+      'Fecha',
+      'Proveedor',
+      'Proyecto',
+      'Descripción',
+      'Tipo de Documento',
+      'Número de Factura / Código',
+      'Precio Sin IGV (S/.)',
+      'Precio Con IGV (S/.)'
+    ];
+
+    const rows = pagosFiltrados.map(p => [
+      `"${p.fecha_legible || ''}"`,
+      `"${p.proveedor || ''}"`,
+      `"${p.proyecto || ''}"`,
+      `"${p.descripcion || ''}"`,
+      `"Factura"`,
+      `"${p.codigo_unico || ''}"`,
+      p.precio_sin_igv || '0.00',
+      p.precio_con_igv || '0.00'
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Reporte_Pagos_Festos_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const pagosFiltrados = pagos.filter(p => {
@@ -404,7 +481,6 @@ function App() {
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                      {/* Botón Tacho de Basura */}
                       <button 
                         onClick={() => eliminarPago(p.id, p.codigo_unico)} 
                         title="Eliminar registro"
@@ -447,7 +523,6 @@ function App() {
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                      {/* Botón Tacho de Basura */}
                       <button 
                         onClick={() => eliminarPago(p.id, p.codigo_unico)} 
                         title="Eliminar registro"
@@ -506,6 +581,27 @@ function App() {
                   Limpiar Filtros
                 </button>
               )}
+
+              {/* Botón de respaldo para Exportar a CSV */}
+              <button 
+                onClick={exportarAExcel} 
+                style={{ 
+                  marginTop: '18px', 
+                  padding: '7px 14px', 
+                  cursor: 'pointer', 
+                  backgroundColor: '#16a34a', 
+                  color: '#ffffff', 
+                  border: 'none', 
+                  borderRadius: '6px', 
+                  fontWeight: '600', 
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                📥 Exportar a Excel (CSV)
+              </button>
             </div>
 
             {pagosFiltrados.length === 0 ? (
@@ -519,7 +615,6 @@ function App() {
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span style={{ color: '#16a34a', fontSize: '12px', fontWeight: 'bold' }}>Pagado el {p.fecha_legible}</span>
-                      {/* Botón Tacho de Basura en el Historial */}
                       <button 
                         onClick={() => eliminarPago(p.id, p.codigo_unico)} 
                         title="Eliminar registro"
