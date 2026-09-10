@@ -37,7 +37,7 @@ function App() {
 
     // Verificamos si el usuario existe y si la contraseña coincide exactamente
     if (usuariosValidos[userLower] && usuariosValidos[userLower] === inputPass) {
-      localStorage.setItem('festos_sesion_usuario', inputUser.trim());
+      localStorage.setItem('festos_sesion_usuario', inputUser.trim()); 
       setUsuarioLogueado(inputUser.trim());
       setInputUser('');
       setInputPass('');
@@ -414,7 +414,7 @@ function App() {
     inputColor: modoOscuro ? '#f8fafc' : '#1e293b',
   };
 
-  // --- PANTALLA DE LOGIN CON FONDO BLUR Y LOGO DE FESTOS ---
+  // --- PANTALLA DE LOGIN CON FONDO VERDE PETRÓLEO, BLUR Y LOGO GRANDE TRASERO ---
   if (!usuarioLogueado) {
     return (
       <div style={{ 
@@ -423,74 +423,92 @@ function App() {
         height: '100vh', 
         justifyContent: 'center', 
         alignItems: 'center', 
+        backgroundColor: '#224248', 
         fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', 
         padding: '20px',
-        overflow: 'hidden',
-        backgroundColor: '#1b3338'
+        overflow: 'hidden'
       }}>
-        {/* Círculos decorativos de fondo para potenciar el efecto Blur */}
-        <div style={{ position: 'absolute', width: '350px', height: '350px', background: '#325b63', borderRadius: '50%', top: '-80px', left: '-80px', filter: 'blur(70px)', opacity: '0.6' }}></div>
-        <div style={{ position: 'absolute', width: '400px', height: '400px', background: '#162b30', borderRadius: '50%', bottom: '-100px', right: '-100px', filter: 'blur(90px)', opacity: '0.8' }}></div>
+        
+        {/* LOGO GIGANTE DE FONDO CON BLUR Y OPACIDAD */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '600px',
+          height: '600px',
+          backgroundImage: 'url("/festoslogo.jpeg")',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          backgroundSize: 'contain',
+          filter: 'blur(10px)',
+          opacity: 0.10,
+          zIndex: 1,
+          pointerEvents: 'none'
+        }} />
 
-        {/* Tarjeta de Login con Efecto Glassmorphism / Blur */}
+        {/* EFECTO DE LUZ / BLUR ADICIONAL */}
+        <div style={{ position: 'absolute', width: '350px', height: '350px', background: '#325b63', borderRadius: '50%', top: '-80px', left: '-80px', filter: 'blur(70px)', opacity: '0.5', zIndex: 1 }}></div>
+
+        {/* FORMULARIO DE LOGIN (Z-index superior) */}
         <form onSubmit={manejarLogin} style={{ 
           position: 'relative',
           zIndex: 10,
-          background: 'rgba(255, 255, 255, 0.90)', 
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
+          background: 'rgba(255, 255, 255, 0.92)', 
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           color: '#1e293b', 
-          padding: '40px 30px', 
-          borderRadius: '20px', 
+          padding: '35px', 
+          borderRadius: '16px', 
           boxShadow: '0 20px 40px rgba(0,0,0,0.3)', 
           textAlign: 'center', 
           width: '100%', 
-          maxWidth: '400px',
-          border: '1px solid rgba(255, 255, 255, 0.4)'
+          maxWidth: '380px',
+          border: '1px solid rgba(255, 255, 255, 0.3)'
         }}>
-          {/* Logo Oficial Festos */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+          {/* Logo pequeño superior dentro de la tarjeta */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px' }}>
             <img 
               src="/festoslogo.jpeg" 
               alt="Festos Logo" 
-              style={{ height: '52px', objectFit: 'contain', borderRadius: '8px', padding: '4px', background: '#ffffff', boxShadow: '0 4px 10px rgba(0,0,0,0.08)' }} 
+              style={{ height: '42px', objectFit: 'contain', borderRadius: '6px', padding: '2px', background: '#ffffff' }} 
             />
           </div>
 
-          <h2 style={{ marginBottom: '6px', color: '#224248', fontSize: '1.4rem' }}>Control Festos</h2>
-          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px' }}>Acceso exclusivo para el equipo autorizado</p>
+          <h2 style={{ marginBottom: '6px', color: '#224248' }}>Control Festos</h2>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>Acceso exclusivo para el equipo autorizado</p>
           
           {errorLogin && (
-            <div style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '16px', fontWeight: 'bold' }}>
+            <div style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '16px', fontWeight: 'bold' }}>
               {errorLogin}
             </div>
           )}
 
-          <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>Usuario</label>
+          <div style={{ marginBottom: '14px', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Usuario</label>
             <input 
               type="text" 
               placeholder="Ej. Gonzalo, Rodrigo, Mar, Jesus" 
               value={inputUser} 
               onChange={(e) => setInputUser(e.target.value)} 
               required
-              style={{ width: '100%', padding: '12px 14px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }}
+              style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
             />
           </div>
 
-          <div style={{ marginBottom: '24px', textAlign: 'left' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>Contraseña</label>
+          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Contraseña</label>
             <input 
               type="password" 
               placeholder="••••••••" 
               value={inputPass} 
               onChange={(e) => setInputPass(e.target.value)} 
               required
-              style={{ width: '100%', padding: '12px 14px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '10px', fontSize: '0.95rem', outline: 'none' }}
+              style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
             />
           </div>
 
-          <button type="submit" style={{ width: '100%', padding: '14px', backgroundColor: '#224248', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(34, 66, 72, 0.4)', transition: 'background 0.2s' }}>Iniciar Sesión</button>
+          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#224248', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>Iniciar Sesión</button>
         </form>
       </div>
     );
