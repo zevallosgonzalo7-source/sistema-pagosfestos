@@ -26,11 +26,24 @@ function App() {
   const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
 
-  // Estados para la nueva vista de Caja Festos (220 registros históricos)
+  // Estados para la vista de Caja Festos (Movimientos del Excel)
   const [registrosCaja, setRegistrosCaja] = useState([]);
   const [busquedaCaja, setBusquedaCaja] = useState('');
+  const [filtroCeCoCaja, setFiltroCeCoCaja] = useState('');
 
-  // Campos del formulario
+  // Campos para nuevo registro en Caja (Formulario alineado al Excel)
+  const [tipoMovimientoCaja, setTipoMovimientoCaja] = useState('EGRESO'); // INGRESO o EGRESO
+  const [fechaCaja, setFechaCaja] = useState(new Date().toISOString().split('T')[0]);
+  const [proveedorCaja, setProveedorCaja] = useState('');
+  const [cecoCaja, setCecoCaja] = useState('OPERACIONES');
+  const [categoriaCaja, setCategoriaCaja] = useState('COSTOS DIRECTOS');
+  const [proyectoCaja, setProyectoCaja] = useState('');
+  const [descripcionCaja, setDescripcionCaja] = useState('');
+  const [documentoCaja, setDocumentoCaja] = useState('Factura');
+  const [numeroDocCaja, setNumeroDocCaja] = useState('');
+  const [montoCaja, setMontoCaja] = useState('');
+
+  // Campos del formulario de Facturas/Pagos
   const [producto, setProducto] = useState('');
   const [proveedor, setProveedor] = useState('');
   const [montoIngresado, setMontoIngresado] = useState('');
@@ -39,12 +52,12 @@ function App() {
   const [proyecto, setProyecto] = useState('');
   const [archivo, setArchivo] = useState(null);
 
-  // Filtros de fecha y texto para el Historial
+  // Filtros del Historial
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
-  // Estado para la Búsqueda Inteligente (Asistente IA)
+  // Asistente IA
   const [busquedaInteligente, setBusquedaInteligente] = useState('');
 
   const valorBase = parseFloat(montoIngresado) || 0;
@@ -88,14 +101,56 @@ function App() {
     }
   };
 
-  // Función para obtener los registros de festos_caja
   const obtenerCajaFestos = async () => {
-    const { data, error } = await supabase.from('festos_caja').select('*');
+    const { data, error } = await supabase.from('festos_caja').select('*').order('fecha', { ascending: false });
     if (error) {
       console.error('Error al cargar caja festos:', error);
     } else {
       setRegistrosCaja(data || []);
     }
+  };
+
+  // Registrar un movimiento directamente en la Caja (Flujo Caja)
+  const handleGuardarMovimientoCaja = async (e) => {
+    e.preventDefault();
+    if (!montoCaja || parseFloat(montoCaja) <= 0) {
+      alert('Por favor ingresa un monto válido.');
+      return;
+    }
+
+    setCargando(true);
+    const montoNum = parseFloat(montoCaja);
+    const ingresoVal = tipoMovimientoCaja === 'INGRESO' ? montoNum : 0;
+    const egresoVal = tipoMovimientoCaja === 'EGRESO' ? -Math.abs(montoNum) : 0;
+
+    const nuevoMovimiento = {
+      fecha: fechaCaja,
+      proveedor: proveedorCaja,
+      ceco: cecoCaja,
+      categoria: categoriaCaja,
+      proyecto: proyectoCaja || 'General',
+      descripcion: descripcionCaja,
+      documento: documentoCaja,
+      numero: numeroDocCaja || 'Pendiente',
+      ingreso: ingresoVal,
+      egreso: egresoVal,
+      registrado_por: nombreUsuario
+    };
+
+    const { error } = await supabase.from('festos_caja').insert([nuevoMovimiento]);
+
+    if (error) {
+      console.error('Error al guardar movimiento de caja:', error);
+      alert('Hubo un error al registrar en la caja.');
+    } else {
+      alert('¡Movimiento registrado con éxito en la Caja!');
+      setMontoCaja('');
+      setProveedorCaja('');
+      setDescripcionCaja('');
+      setNumeroDocCaja('');
+      obtenerCajaFestos();
+    }
+    setCargando(false);
   };
 
   const handleSubmit = async (e) => {
@@ -172,7 +227,6 @@ function App() {
     }
   };
 
-  // Sincronizar inserción con Google Sheets (POST)
   const sincronizarConGoogleSheets = async (pago) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
     
@@ -200,7 +254,6 @@ function App() {
     }
   };
 
-  // Sincronizar eliminación con Google Sheets vía GET
   const eliminarDeGoogleSheets = async (codigoUnico) => {
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-TY2sJmERrrIz9ktYYItTp6jQnoJIQMKBnZWPL7AjXqAGxOvwaQI90TfUx8dXDoKx/exec";
     const urlConParametros = `${WEB_APP_URL}?action=delete&codigo_unico=${encodeURIComponent(codigoUnico)}`;
@@ -228,6 +281,23 @@ function App() {
     } else {
       if (nuevoEstado === 'Pagado' && pagoActual) {
         sincronizarConGoogleSheets(pagoActual);
+
+        // Al pasar a Pagado, se impacta automáticamente en festos_caja
+        const egresoAutomatico = {
+          fecha: new Date().toISOString().split('T')[0],
+          proveedor: pagoActual.proveedor,
+          ceco: 'OPERACIONES',
+          categoria: 'COSTOS DIRECTOS',
+          proyecto: pagoActual.proyecto || 'General',
+          descripcion: pagoActual.descripcion || pagoActual.producto,
+          documento: 'Factura',
+          numero: pagoActual.codigo_unico,
+          ingreso: 0,
+          egreso: -Math.abs(parseFloat(pagoActual.precio_con_igv) || 0),
+          registrado_por: nombreUsuario
+        };
+        await supabase.from('festos_caja').insert([egresoAutomatico]);
+        obtenerCajaFestos();
       }
       obtenerPagos();
     }
@@ -313,12 +383,15 @@ function App() {
 
   // Filtro y cálculos para festos_caja
   const cajaFiltrada = registrosCaja.filter(r => {
+    if (filtroCeCoCaja && r.ceco !== filtroCeCoCaja) return false;
     if (!busquedaCaja.trim()) return true;
     const txt = busquedaCaja.toLowerCase();
     return (
       (r.proveedor && r.proveedor.toLowerCase().includes(txt)) ||
       (r.categoria && r.categoria.toLowerCase().includes(txt)) ||
+      (r.proyecto && r.proyecto.toLowerCase().includes(txt)) ||
       (r.descripcion && r.descripcion.toLowerCase().includes(txt)) ||
+      (r.numero && r.numero.toLowerCase().includes(txt)) ||
       (r.fecha && r.fecha.toLowerCase().includes(txt))
     );
   });
@@ -414,7 +487,7 @@ function App() {
             alt="Festos Logo" 
             style={{ height: '38px', objectFit: 'contain', backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px', borderRadius: '6px' }} 
           />
-          <h1 style={{ fontSize: '1.2rem', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Control de Pagos y Facturas</h1>
+          <h1 style={{ fontSize: '1.2rem', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Control de Pagos y Caja FESTOS</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button 
@@ -435,7 +508,7 @@ function App() {
         </div>
       </header>
 
-      <div style={{ maxWidth: '800px', margin: '30px auto', padding: '0 16px' }}>
+      <div style={{ maxWidth: '850px', margin: '30px auto', padding: '0 16px' }}>
         
         {/* Menú de Navegación completo */}
         <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '24px', backgroundColor: tema.bgCard, padding: '8px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: `1px solid ${tema.border}`, flexWrap: 'wrap', gap: '6px' }}>
@@ -450,7 +523,7 @@ function App() {
             onClick={() => setVista('cajaFestos')} 
             style={{ fontWeight: vista === 'cajaFestos' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'cajaFestos' ? '#224248' : 'transparent', color: vista === 'cajaFestos' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
           >
-            💳 Caja Histórica ({registrosCaja.length})
+            💳 Flujo de Caja ({registrosCaja.length})
           </button>
 
           <button 
@@ -482,19 +555,19 @@ function App() {
           </button>
         </div>
 
-        {/* VISTA: CAJA HISTÓRICA (CON SALDO ACTUAL Y TABLA COMPLETA) */}
+        {/* VISTA: FLUJO DE CAJA (MIGRACIÓN DEL EXCEL) */}
         {vista === 'cajaFestos' && (
           <div>
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', fontWeight: '700', margin: '0 0 4px 0' }}>
-                💳 Historial General de Caja - Festos
+                💳 Control de Caja General FESTOS
               </h3>
               <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>
-                Visualización de los movimientos importados desde tu base de datos.
+                Registro dinámico de ingresos y egresos. Reemplazo de la pestaña FLUJO CAJA.
               </p>
             </div>
 
-            {/* TARJETA DESTACADA: SALDO ACTUAL */}
+            {/* TARJETA DESTACADA: SALDO ACTUAL EN CAJA */}
             <div style={{ 
               background: modoOscuro ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : 'linear-gradient(135deg, #224248 0%, #152a2f 100%)', 
               color: '#ffffff', 
@@ -522,57 +595,131 @@ function App() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', border: `1px solid ${tema.border}` }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Ingresos Totales</span>
-                <h3 style={{ margin: '6px 0 0 0', fontSize: '1.3rem', color: '#16a34a' }}>S/. {totalIngresosCaja.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3>
+            {/* FORMULARIO RÁPIDO DE REGISTRO DE MOVIMIENTO */}
+            <form onSubmit={handleGuardarMovimientoCaja} style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
+                ➕ Registrar Nuevo Movimiento en Caja
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Tipo Movimiento</label>
+                  <select value={tipoMovimientoCaja} onChange={(e) => setTipoMovimientoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
+                    <option value="EGRESO">🔴 Egreso (Gasto/Pago)</option>
+                    <option value="INGRESO">🟢 Ingreso (Cobro/Venta)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Fecha</label>
+                  <input type="date" value={fechaCaja} onChange={(e) => setFechaCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Proveedor / Cliente</label>
+                  <input type="text" placeholder="Ej. CASTILLO RICCI CARLOS" value={proveedorCaja} onChange={(e) => setProveedorCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>CeCo (Centro de Costos)</label>
+                  <select value={cecoCaja} onChange={(e) => setCecoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
+                    <option value="OPERACIONES">OPERACIONES</option>
+                    <option value="COMERCIAL">COMERCIAL</option>
+                    <option value="ADMINISTRACIÓN">ADMINISTRACIÓN</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Categoría</label>
+                  <input type="text" placeholder="Ej. COSTOS DIRECTOS, PLANILLA" value={categoriaCaja} onChange={(e) => setCategoriaCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Proyecto</label>
+                  <input type="text" placeholder="Ej. XIAOMI - REBRANDING" value={proyectoCaja} onChange={(e) => setProyectoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Documento</label>
+                  <select value={documentoCaja} onChange={(e) => setDocumentoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
+                    <option value="Factura">Factura</option>
+                    <option value="RxH">RxH</option>
+                    <option value="Ninguno">Ninguno</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Número Doc.</label>
+                  <input type="text" placeholder="Ej. E001-655" value={numeroDocCaja} onChange={(e) => setNumeroDocCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Monto (S/.)</label>
+                  <input type="number" step="0.01" placeholder="0.00" value={montoCaja} onChange={(e) => setMontoCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+                </div>
               </div>
-              <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', border: `1px solid ${tema.border}` }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Egresos Totales</span>
-                <h3 style={{ margin: '6px 0 0 0', fontSize: '1.3rem', color: '#e11d48' }}>S/. {totalEgresosCaja.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h3>
-              </div>
-            </div>
 
-            <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', marginBottom: '16px', border: `1px solid ${tema.border}` }}>
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Descripción</label>
+                <input type="text" placeholder="Detalle adicional del gasto o cobro..." value={descripcionCaja} onChange={(e) => setDescripcionCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              </div>
+
+              <button type="submit" disabled={cargando} style={{ backgroundColor: '#224248', color: 'white', padding: '10px 18px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', marginTop: '14px' }}>
+                {cargando ? 'Guardando...' : 'Guardar en Flujo de Caja'}
+              </button>
+            </form>
+
+            {/* FILTROS Y BÚSQUEDA */}
+            <div style={{ background: tema.bgCard, padding: '14px', borderRadius: '12px', marginBottom: '16px', border: `1px solid ${tema.border}`, display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <input 
                 type="text" 
-                placeholder="🔍 Buscar por proveedor, categoría o descripción..." 
+                placeholder="🔍 Buscar proveedor, proyecto, categoría, número..." 
                 value={busquedaCaja}
                 onChange={(e) => setBusquedaCaja(e.target.value)}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                style={{ flex: 1, minWidth: '220px', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.85rem', outline: 'none' }}
               />
+              <select value={filtroCeCoCaja} onChange={(e) => setFiltroCeCoCaja(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.85rem' }}>
+                <option value="">Todos los CeCo</option>
+                <option value="OPERACIONES">OPERACIONES</option>
+                <option value="COMERCIAL">COMERCIAL</option>
+                <option value="ADMINISTRACIÓN">ADMINISTRACIÓN</option>
+              </select>
             </div>
 
+            {/* TABLA DE MOVIMIENTOS TIPO EXCEL */}
             <div style={{ background: tema.bgCard, borderRadius: '12px', border: `1px solid ${tema.border}`, overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                 <thead>
                   <tr style={{ background: modoOscuro ? '#131e32' : '#f1f5f9', color: tema.textMuted, borderBottom: `1px solid ${tema.border}` }}>
-                    <th style={{ padding: '12px' }}>Fecha</th>
-                    <th style={{ padding: '12px' }}>Proveedor</th>
-                    <th style={{ padding: '12px' }}>Categoría</th>
-                    <th style={{ padding: '12px' }}>Descripción</th>
-                    <th style={{ padding: '12px', textAlign: 'right' }}>Ingreso</th>
-                    <th style={{ padding: '12px', textAlign: 'right' }}>Egreso</th>
+                    <th style={{ padding: '10px' }}>Fecha</th>
+                    <th style={{ padding: '10px' }}>Proveedor/Cliente</th>
+                    <th style={{ padding: '10px' }}>CeCo</th>
+                    <th style={{ padding: '10px' }}>Categoría</th>
+                    <th style={{ padding: '10px' }}>Proyecto</th>
+                    <th style={{ padding: '10px' }}>Descripción</th>
+                    <th style={{ padding: '10px' }}>Doc.</th>
+                    <th style={{ padding: '10px' }}>Número</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>Ingreso</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>Egreso</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cajaFiltrada.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: tema.textMuted }}>No se encontraron registros coincidentes.</td>
+                      <td colSpan="10" style={{ padding: '24px', textAlign: 'center', color: tema.textMuted }}>No se encontraron registros de caja.</td>
                     </tr>
                   ) : (
                     cajaFiltrada.map((row, index) => (
                       <tr key={row.id || index} style={{ borderBottom: `1px solid ${tema.border}` }}>
-                        <td style={{ padding: '12px', whiteSpace: 'nowrap' }}>{row.fecha || '-'}</td>
-                        <td style={{ padding: '12px', fontWeight: '600' }}>{row.proveedor || '-'}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={{ background: modoOscuro ? '#334155' : '#e2e8f0', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem' }}>
-                            {row.categoria || 'General'}
+                        <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{row.fecha || '-'}</td>
+                        <td style={{ padding: '10px', fontWeight: '600' }}>{row.proveedor || '-'}</td>
+                        <td style={{ padding: '10px' }}>
+                          <span style={{ background: modoOscuro ? '#334155' : '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>
+                            {row.ceco || '-'}
                           </span>
                         </td>
-                        <td style={{ padding: '12px', color: tema.textMuted, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.descripcion || '-'}</td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#16a34a' }}>{row.ingreso || ''}</td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#e11d48' }}>{row.egreso || ''}</td>
+                        <td style={{ padding: '10px' }}>{row.categoria || '-'}</td>
+                        <td style={{ padding: '10px', fontWeight: '500' }}>{row.proyecto || '-'}</td>
+                        <td style={{ padding: '10px', color: tema.textMuted, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.descripcion || '-'}</td>
+                        <td style={{ padding: '10px' }}>{row.documento || '-'}</td>
+                        <td style={{ padding: '10px' }}>{row.numero || '-'}</td>
+                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: '#16a34a' }}>
+                          {parseFloat(row.ingreso) > 0 ? `S/. ${parseFloat(row.ingreso).toFixed(2)}` : ''}
+                        </td>
+                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: '#e11d48' }}>
+                          {parseFloat(row.egreso) < 0 ? `S/. ${Math.abs(parseFloat(row.egreso)).toFixed(2)}` : ''}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -755,12 +902,11 @@ function App() {
           </div>
         )}
 
-        {/* VISTA 3: HISTORIAL CON DISEÑO ESTÉTICO COMPLETO */}
+        {/* VISTA 3: HISTORIAL */}
         {vista === 'historial' && (
           <div>
             <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Historial de Pagos Realizados</h3>
             
-            {/* Contenedor de Filtros */}
             <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', display: 'block', fontWeight: '600', color: tema.textMuted, marginBottom: '4px' }}>Desde:</label>
