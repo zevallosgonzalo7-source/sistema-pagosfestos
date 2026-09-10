@@ -4,8 +4,13 @@ import OneSignal from 'react-onesignal';
 import './App.css';
 
 function App() {
-  const [nombreUsuario, setNombreUsuario] = useState(localStorage.getItem('festos_usuario') || '');
-  const [inputTemp, setInputTemp] = useState('');
+  // --- ESTADOS DE AUTENTICACIÓN ---
+  const [usuarioLogueado, setUsuarioLogueado] = useState(() => {
+    return localStorage.getItem('festos_sesion_usuario') || '';
+  });
+  const [inputUser, setInputUser] = useState('');
+  const [inputPass, setInputPass] = useState('');
+  const [errorLogin, setErrorLogin] = useState('');
 
   const [modoOscuro, setModoOscuro] = useState(() => {
     return localStorage.getItem('festos_modo_oscuro') === 'true';
@@ -15,33 +20,40 @@ function App() {
     localStorage.setItem('festos_modo_oscuro', modoOscuro);
   }, [modoOscuro]);
 
-  const guardarNombre = (e) => {
+  // Manejo de Inicio de Sesión (Credenciales estrictas para los 4 usuarios de la empresa)
+  const manejarLogin = (e) => {
     e.preventDefault();
-    if (!inputTemp.trim()) return;
-    localStorage.setItem('festos_usuario', inputTemp.trim());
-    setNombreUsuario(inputTemp.trim());
+    setErrorLogin('');
+
+    // Credenciales exactas autorizadas
+    const usuariosValidos = {
+      "gonzalo": "ADMIN9090",
+      "rodrigo": "ADMIN8080",
+      "mar": "ADMIN7070",
+      "jesus": "ADMIN6060"
+    };
+
+    const userLower = inputUser.trim().toLowerCase();
+
+    // Verificamos si el usuario existe y si la contraseña coincide exactamente
+    if (usuariosValidos[userLower] && usuariosValidos[userLower] === inputPass) {
+      localStorage.setItem('festos_sesion_usuario', inputUser.trim()); // Mantiene el nombre tal cual lo escribió o formateado
+      setUsuarioLogueado(inputUser.trim());
+      setInputUser('');
+      setInputPass('');
+    } else {
+      setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
+    }
+  };
+
+  const cerrarSesion = () => {
+    localStorage.removeItem('festos_sesion_usuario');
+    setUsuarioLogueado('');
   };
 
   const [vista, setVista] = useState('dashboard'); 
   const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
-
-  // Estados para la vista de Caja Festos (Movimientos del Excel)
-  const [registrosCaja, setRegistrosCaja] = useState([]);
-  const [busquedaCaja, setBusquedaCaja] = useState('');
-  const [filtroCeCoCaja, setFiltroCeCoCaja] = useState('');
-
-  // Campos para nuevo registro en Caja (Formulario alineado al Excel)
-  const [tipoMovimientoCaja, setTipoMovimientoCaja] = useState('EGRESO'); // INGRESO o EGRESO
-  const [fechaCaja, setFechaCaja] = useState(new Date().toISOString().split('T')[0]);
-  const [proveedorCaja, setProveedorCaja] = useState('');
-  const [cecoCaja, setCecoCaja] = useState('OPERACIONES');
-  const [categoriaCaja, setCategoriaCaja] = useState('COSTOS DIRECTOS');
-  const [proyectoCaja, setProyectoCaja] = useState('');
-  const [descripcionCaja, setDescripcionCaja] = useState('');
-  const [documentoCaja, setDocumentoCaja] = useState('Factura');
-  const [numeroDocCaja, setNumeroDocCaja] = useState('');
-  const [montoCaja, setMontoCaja] = useState('');
 
   // Campos del formulario de Facturas/Pagos
   const [producto, setProducto] = useState('');
@@ -52,10 +64,15 @@ function App() {
   const [proyecto, setProyecto] = useState('');
   const [archivo, setArchivo] = useState(null);
 
+  // Estado para edición en Por Pagar / Historial
+  const [pagoEditando, setPagoEditando] = useState(null);
+  const [archivoNuevo, setArchivoNuevo] = useState(null);
+
   // Filtros del Historial
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [filtroComprobante, setFiltroComprobante] = useState('todos'); // 'todos', 'conFactura', 'sinFactura'
 
   // Asistente IA
   const [busquedaInteligente, setBusquedaInteligente] = useState('');
@@ -86,11 +103,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (nombreUsuario) {
+    if (usuarioLogueado) {
       obtenerPagos();
-      obtenerCajaFestos();
     }
-  }, [nombreUsuario]);
+  }, [usuarioLogueado]);
 
   const obtenerPagos = async () => {
     const { data, error } = await supabase.from('pagos').select('*');
@@ -99,58 +115,6 @@ function App() {
     } else {
       setPagos(data || []);
     }
-  };
-
-  const obtenerCajaFestos = async () => {
-    const { data, error } = await supabase.from('festos_caja').select('*').order('fecha', { ascending: false });
-    if (error) {
-      console.error('Error al cargar caja festos:', error);
-    } else {
-      setRegistrosCaja(data || []);
-    }
-  };
-
-  // Registrar un movimiento directamente en la Caja (Flujo Caja)
-  const handleGuardarMovimientoCaja = async (e) => {
-    e.preventDefault();
-    if (!montoCaja || parseFloat(montoCaja) <= 0) {
-      alert('Por favor ingresa un monto válido.');
-      return;
-    }
-
-    setCargando(true);
-    const montoNum = parseFloat(montoCaja);
-    const ingresoVal = tipoMovimientoCaja === 'INGRESO' ? montoNum : 0;
-    const egresoVal = tipoMovimientoCaja === 'EGRESO' ? -Math.abs(montoNum) : 0;
-
-    const nuevoMovimiento = {
-      fecha: fechaCaja,
-      proveedor: proveedorCaja,
-      ceco: cecoCaja,
-      categoria: categoriaCaja,
-      proyecto: proyectoCaja || 'General',
-      descripcion: descripcionCaja,
-      documento: documentoCaja,
-      numero: numeroDocCaja || 'Pendiente',
-      ingreso: ingresoVal,
-      egreso: egresoVal,
-      registrado_por: nombreUsuario
-    };
-
-    const { error } = await supabase.from('festos_caja').insert([nuevoMovimiento]);
-
-    if (error) {
-      console.error('Error al guardar movimiento de caja:', error);
-      alert('Hubo un error al registrar en la caja.');
-    } else {
-      alert('¡Movimiento registrado con éxito en la Caja!');
-      setMontoCaja('');
-      setProveedorCaja('');
-      setDescripcionCaja('');
-      setNumeroDocCaja('');
-      obtenerCajaFestos();
-    }
-    setCargando(false);
   };
 
   const handleSubmit = async (e) => {
@@ -201,7 +165,7 @@ function App() {
         estado: 'Por Pagar', 
         fecha_creacion: fechaActualStr,
         fecha_legible: new Date().toLocaleDateString(),
-        registrado_por: nombreUsuario
+        registrado_por: usuarioLogueado
       };
 
       const { error: insertError } = await supabase.from('pagos').insert([nuevoPagoDB]);
@@ -223,6 +187,58 @@ function App() {
     } catch (error) {
       console.error(error);
       alert('Hubo un error al subir el pago o la factura.');
+      setCargando(false);
+    }
+  };
+
+  const guardarEdicionConArchivo = async (e) => {
+    e.preventDefault();
+    if (!pagoEditando) return;
+
+    setCargando(true);
+    try {
+      let urlArchivoFinal = pagoEditando.url_archivo;
+      let nombreArchivoFinal = pagoEditando.nombre_archivo;
+
+      if (archivoNuevo) {
+        const fileExt = archivoNuevo.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('facturas')
+          .upload(fileName, archivoNuevo);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicURLData } = supabase.storage
+          .from('facturas')
+          .getPublicUrl(fileName);
+
+        urlArchivoFinal = publicURLData.publicUrl;
+        nombreArchivoFinal = archivoNuevo.name;
+      }
+
+      const { error } = await supabase
+        .from('pagos')
+        .update({
+          proveedor: pagoEditando.proveedor,
+          producto: pagoEditando.producto,
+          proyecto: pagoEditando.proyecto,
+          precio_con_igv: parseFloat(pagoEditando.precio_con_igv),
+          url_archivo: urlArchivoFinal,
+          nombre_archivo: nombreArchivoFinal
+        })
+        .eq('id', pagoEditando.id);
+
+      if (error) throw error;
+
+      alert('¡Registro actualizado correctamente!');
+      setPagoEditando(null);
+      setArchivoNuevo(null);
+      obtenerPagos();
+    } catch (error) {
+      console.error(error);
+      alert('Error al actualizar el registro.');
+    } finally {
       setCargando(false);
     }
   };
@@ -281,23 +297,6 @@ function App() {
     } else {
       if (nuevoEstado === 'Pagado' && pagoActual) {
         sincronizarConGoogleSheets(pagoActual);
-
-        // Al pasar a Pagado, se impacta automáticamente en festos_caja
-        const egresoAutomatico = {
-          fecha: new Date().toISOString().split('T')[0],
-          proveedor: pagoActual.proveedor,
-          ceco: 'OPERACIONES',
-          categoria: 'COSTOS DIRECTOS',
-          proyecto: pagoActual.proyecto || 'General',
-          descripcion: pagoActual.descripcion || pagoActual.producto,
-          documento: 'Factura',
-          numero: pagoActual.codigo_unico,
-          ingreso: 0,
-          egreso: -Math.abs(parseFloat(pagoActual.precio_con_igv) || 0),
-          registrado_por: nombreUsuario
-        };
-        await supabase.from('festos_caja').insert([egresoAutomatico]);
-        obtenerCajaFestos();
       }
       obtenerPagos();
     }
@@ -335,7 +334,8 @@ function App() {
       'Tipo de Documento',
       'Número de Factura / Código',
       'Precio Sin IGV (S/.)',
-      'Precio Con IGV (S/.)'
+      'Precio Con IGV (S/.)',
+      'Tiene Comprobante'
     ];
 
     const rows = pagosFiltrados.map(p => [
@@ -346,7 +346,8 @@ function App() {
       `"Factura"`,
       `"${p.codigo_unico || ''}"`,
       p.precio_sin_igv || '0.00',
-      p.precio_con_igv || '0.00'
+      p.precio_con_igv || '0.00',
+      `"${p.url_archivo ? 'Sí' : 'No'}"`
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -365,6 +366,9 @@ function App() {
     if (filtroFechaInicio && p.fecha_creacion < filtroFechaInicio) return false;
     if (filtroFechaFin && p.fecha_creacion > filtroFechaFin) return false;
 
+    if (filtroComprobante === 'conFactura' && !p.url_archivo) return false;
+    if (filtroComprobante === 'sinFactura' && p.url_archivo) return false;
+
     if (filtroBusqueda.trim()) {
       const texto = filtroBusqueda.toLowerCase();
       const coincide = 
@@ -381,69 +385,24 @@ function App() {
     return true;
   });
 
-  // Filtro y cálculos para festos_caja
-  const cajaFiltrada = registrosCaja.filter(r => {
-    if (filtroCeCoCaja && r.ceco !== filtroCeCoCaja) return false;
-    if (!busquedaCaja.trim()) return true;
-    const txt = busquedaCaja.toLowerCase();
-    return (
-      (r.proveedor && r.proveedor.toLowerCase().includes(txt)) ||
-      (r.categoria && r.categoria.toLowerCase().includes(txt)) ||
-      (r.proyecto && r.proyecto.toLowerCase().includes(txt)) ||
-      (r.descripcion && r.descripcion.toLowerCase().includes(txt)) ||
-      (r.numero && r.numero.toLowerCase().includes(txt)) ||
-      (r.fecha && r.fecha.toLowerCase().includes(txt))
-    );
-  });
-
-  let totalIngresosCaja = 0;
-  let totalEgresosCaja = 0;
-
-  registrosCaja.forEach(r => {
-    const ing = parseFloat(String(r.ingreso || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    const egr = parseFloat(String(r.egreso || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    totalIngresosCaja += ing;
-    totalEgresosCaja += Math.abs(egr);
-  });
-
-  const saldoCaja = totalIngresosCaja - totalEgresosCaja;
-
-  // Motor de Búsqueda Inteligente (Asistente IA)
   const pagosBusquedaInteligente = pagos.filter(p => {
     if (!busquedaInteligente.trim()) return true;
-    
     const terminos = busquedaInteligente.toLowerCase().trim().split(' ');
-    
     const textoCompleto = `
-      ${p.codigo_unico || ''} 
-      ${p.producto || ''} 
-      ${p.proveedor || ''} 
-      ${p.proyecto || ''} 
-      ${p.descripcion || ''} 
-      ${p.registrado_por || ''} 
-      ${p.fecha_legible || ''}
-      ${p.precio_con_igv || ''}
-      ${p.estado || ''}
+      ${p.codigo_unico || ''} ${p.producto || ''} ${p.proveedor || ''} 
+      ${p.proyecto || ''} ${p.descripcion || ''} ${p.registrado_por || ''} 
+      ${p.fecha_legible || ''} ${p.precio_con_igv || ''} ${p.estado || ''}
     `.toLowerCase();
-
     return terminos.every(termino => textoCompleto.includes(termino));
   });
 
-  // --- CÁLCULOS PARA EL DASHBOARD EJECUTIVO ---
+  // Cálculos Dashboard
   const pagosRealizados = pagos.filter(p => p.estado === 'Pagado');
+  const pagosPendientesList = pagos.filter(p => p.estado === 'Por Pagar');
   const gastoTotalAcumulado = pagosRealizados.reduce((acc, p) => acc + (parseFloat(p.precio_con_igv) || 0), 0);
-  
-  const gastosPorProyecto = pagosRealizados.reduce((acc, p) => {
-    const proj = p.proyecto || 'General';
-    acc[proj] = (acc[proj] || 0) + (parseFloat(p.precio_con_igv) || 0);
-    return acc;
-  }, {});
-
-  const gastosPorProveedor = pagosRealizados.reduce((acc, p) => {
-    const prov = p.proveedor || 'Desconocido';
-    acc[prov] = (acc[prov] || 0) + (parseFloat(p.precio_con_igv) || 0);
-    return acc;
-  }, {});
+  const montoPendienteTotal = pagosPendientesList.reduce((acc, p) => acc + (parseFloat(p.precio_con_igv) || 0), 0);
+  const totalConFactura = pagos.filter(p => p.url_archivo).length;
+  const totalSinFactura = pagos.length - totalConFactura;
 
   const tema = {
     bgApp: modoOscuro ? '#0f172a' : '#f8fafc',
@@ -453,24 +412,47 @@ function App() {
     border: modoOscuro ? '#334155' : '#e2e8f0',
     inputBg: modoOscuro ? '#0f172a' : '#ffffff',
     inputColor: modoOscuro ? '#f8fafc' : '#1e293b',
-    cardAlt: modoOscuro ? '#131e32' : '#f8fafc'
   };
 
-  if (!nombreUsuario) {
+  // --- PANTALLA DE LOGIN RESTRINGIDO PARA LOS 4 USUARIOS ---
+  if (!usuarioLogueado) {
     return (
       <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: '#224248', fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', padding: '20px' }}>
-        <form onSubmit={guardarNombre} style={{ background: '#ffffff', color: '#1e293b', padding: '30px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', textAlign: 'center', width: '100%', maxWidth: '360px' }}>
-          <h2 style={{ marginBottom: '8px', color: '#224248' }}>Control Festos</h2>
-          <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '20px' }}>Ingresa tu nombre para continuar y registrar pagos</p>
-          <input 
-            type="text" 
-            placeholder="Tu nombre completo" 
-            value={inputTemp} 
-            onChange={(e) => setInputTemp(e.target.value)} 
-            required
-            style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '1rem', outline: 'none', marginBottom: '20px' }}
-          />
-          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#224248', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>Entrar</button>
+        <form onSubmit={manejarLogin} style={{ background: '#ffffff', color: '#1e293b', padding: '35px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', textAlign: 'center', width: '100%', maxWidth: '380px' }}>
+          <h2 style={{ marginBottom: '6px', color: '#224248' }}>Control Festos</h2>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px' }}>Acceso exclusivo para el equipo autorizado</p>
+          
+          {errorLogin && (
+            <div style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '16px', fontWeight: 'bold' }}>
+              {errorLogin}
+            </div>
+          )}
+
+          <div style={{ marginBottom: '14px', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Usuario</label>
+            <input 
+              type="text" 
+              placeholder="Ej. Gonzalo, Rodrigo, Mar, Jesus" 
+              value={inputUser} 
+              onChange={(e) => setInputUser(e.target.value)} 
+              required
+              style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Contraseña</label>
+            <input 
+              type="password" 
+              placeholder="••••••••" 
+              value={inputPass} 
+              onChange={(e) => setInputPass(e.target.value)} 
+              required
+              style={{ width: '100%', padding: '12px', boxSizing: 'border-box', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#1e293b', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
+            />
+          </div>
+
+          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#224248', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>Iniciar Sesión</button>
         </form>
       </div>
     );
@@ -480,14 +462,14 @@ function App() {
     <div style={{ fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif', minHeight: '100vh', backgroundColor: tema.bgApp, color: tema.textMain, paddingBottom: '40px', transition: 'background-color 0.3s, color 0.3s' }}>
       
       {/* Cabecera Oficial Festos */}
-      <header style={{ backgroundColor: '#224248', color: 'white', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+      <header style={{ backgroundColor: '#224248', color: 'white', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <img 
             src="/logo-festos.png" 
             alt="Festos Logo" 
             style={{ height: '38px', objectFit: 'contain', backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px', borderRadius: '6px' }} 
           />
-          <h1 style={{ fontSize: '1.2rem', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Control de Pagos y Caja FESTOS</h1>
+          <h1 style={{ fontSize: '1.2rem', fontWeight: '600', margin: 0, letterSpacing: '-0.02em' }}>Control de Pagos y Compras FESTOS</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button 
@@ -498,230 +480,276 @@ function App() {
             {modoOscuro ? '☀️' : '🌙'}
           </button>
 
-          <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: '8px', color: '#ffffff' }}>
-            👤 {nombreUsuario} (<span style={{ cursor: 'pointer', color: '#d4e036', textDecoration: 'underline' }} onClick={() => { localStorage.removeItem('festos_usuario'); setNombreUsuario(''); }}>cambiar</span>)
+          <span style={{ fontSize: '0.85rem', background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: '8px', color: '#ffffff', textTransform: 'capitalize' }}>
+            👤 {usuarioLogueado}
           </span>
 
-          <div style={{ backgroundColor: '#d4e036', color: '#1e293b', fontWeight: '700', padding: '4px 12px', borderRadius: '9999px', fontSize: '0.8rem' }}>
-            FESTOS
-          </div>
+          <button 
+            onClick={cerrarSesion}
+            style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+          >
+            Salir 🚪
+          </button>
         </div>
       </header>
 
-      <div style={{ maxWidth: '850px', margin: '30px auto', padding: '0 16px' }}>
+      <div style={{ maxWidth: '900px', margin: '30px auto', padding: '0 16px' }}>
         
-        {/* Menú de Navegación completo */}
+        {/* Menú de Navegación */}
         <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '24px', backgroundColor: tema.bgCard, padding: '8px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: `1px solid ${tema.border}`, flexWrap: 'wrap', gap: '6px' }}>
           <button 
             onClick={() => setVista('dashboard')} 
-            style={{ fontWeight: vista === 'dashboard' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'dashboard' ? '#224248' : 'transparent', color: vista === 'dashboard' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
+            style={{ fontWeight: vista === 'dashboard' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'dashboard' ? '#224248' : 'transparent', color: vista === 'dashboard' ? '#ffffff' : tema.textMuted }}
           >
             📊 Dashboard
           </button>
 
           <button 
-            onClick={() => setVista('cajaFestos')} 
-            style={{ fontWeight: vista === 'cajaFestos' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'cajaFestos' ? '#224248' : 'transparent', color: vista === 'cajaFestos' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
-          >
-            💳 Flujo de Caja ({registrosCaja.length})
-          </button>
-
-          <button 
             onClick={() => setVista('subir')} 
-            style={{ fontWeight: vista === 'subir' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'subir' ? '#224248' : 'transparent', color: vista === 'subir' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
+            style={{ fontWeight: vista === 'subir' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'subir' ? '#224248' : 'transparent', color: vista === 'subir' ? '#ffffff' : tema.textMuted }}
           >
             Subir Pago
           </button>
 
           <button 
             onClick={() => setVista('porPagar')} 
-            style={{ fontWeight: vista === 'porPagar' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'porPagar' ? '#224248' : 'transparent', color: vista === 'porPagar' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
+            style={{ fontWeight: vista === 'porPagar' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'porPagar' ? '#224248' : 'transparent', color: vista === 'porPagar' ? '#ffffff' : tema.textMuted }}
           >
-            Por Pagar ({pagos.filter(p => p.estado === 'Por Pagar').length})
+            Por Pagar ({pagosPendientesList.length})
           </button>
 
           <button 
             onClick={() => setVista('historial')} 
-            style={{ fontWeight: vista === 'historial' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'historial' ? '#224248' : 'transparent', color: vista === 'historial' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
+            style={{ fontWeight: vista === 'historial' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'historial' ? '#224248' : 'transparent', color: vista === 'historial' ? '#ffffff' : tema.textMuted }}
           >
             Historial 📂
           </button>
 
           <button 
             onClick={() => setVista('asistente')} 
-            style={{ fontWeight: vista === 'asistente' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'asistente' ? '#224248' : 'transparent', color: vista === 'asistente' ? '#ffffff' : tema.textMuted, transition: 'all 0.2s' }}
+            style={{ fontWeight: vista === 'asistente' ? '600' : '400', padding: '8px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: vista === 'asistente' ? '#224248' : 'transparent', color: vista === 'asistente' ? '#ffffff' : tema.textMuted }}
           >
             🤖 IA
           </button>
         </div>
 
-        {/* VISTA: FLUJO DE CAJA (MIGRACIÓN DEL EXCEL) */}
-        {vista === 'cajaFestos' && (
-          <div>
-            <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', fontWeight: '700', margin: '0 0 4px 0' }}>
-                💳 Control de Caja General FESTOS
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>
-                Registro dinámico de ingresos y egresos. Reemplazo de la pestaña FLUJO CAJA.
-              </p>
-            </div>
-
-            {/* TARJETA DESTACADA: SALDO ACTUAL EN CAJA */}
-            <div style={{ 
-              background: modoOscuro ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' : 'linear-gradient(135deg, #224248 0%, #152a2f 100%)', 
-              color: '#ffffff', 
-              padding: '24px', 
-              borderRadius: '16px', 
-              marginBottom: '20px', 
-              boxShadow: '0 10px 20px rgba(0,0,0,0.1)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '16px'
-            }}>
-              <div>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#d4e036' }}>
-                  💵 Saldo Actual en Caja
-                </span>
-                <h1 style={{ margin: '8px 0 0 0', fontSize: '2.4rem', fontWeight: '800' }}>
-                  S/. {saldoCaja.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </h1>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.1)', padding: '10px 16px', borderRadius: '12px', backdropFilter: 'blur(5px)' }}>
-                <span style={{ fontSize: '0.75rem', display: 'block', color: '#cbd5e1' }}>Total Registros</span>
-                <span style={{ fontSize: '1.2rem', fontWeight: '700' }}>{registrosCaja.length} movs</span>
-              </div>
-            </div>
-
-            {/* FORMULARIO RÁPIDO DE REGISTRO DE MOVIMIENTO */}
-            <form onSubmit={handleGuardarMovimientoCaja} style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
-                ➕ Registrar Nuevo Movimiento en Caja
-              </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Tipo Movimiento</label>
-                  <select value={tipoMovimientoCaja} onChange={(e) => setTipoMovimientoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
-                    <option value="EGRESO">🔴 Egreso (Gasto/Pago)</option>
-                    <option value="INGRESO">🟢 Ingreso (Cobro/Venta)</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Fecha</label>
-                  <input type="date" value={fechaCaja} onChange={(e) => setFechaCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Proveedor / Cliente</label>
-                  <input type="text" placeholder="Ej. CASTILLO RICCI CARLOS" value={proveedorCaja} onChange={(e) => setProveedorCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>CeCo (Centro de Costos)</label>
-                  <select value={cecoCaja} onChange={(e) => setCecoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
-                    <option value="OPERACIONES">OPERACIONES</option>
-                    <option value="COMERCIAL">COMERCIAL</option>
-                    <option value="ADMINISTRACIÓN">ADMINISTRACIÓN</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Categoría</label>
-                  <input type="text" placeholder="Ej. COSTOS DIRECTOS, PLANILLA" value={categoriaCaja} onChange={(e) => setCategoriaCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Proyecto</label>
-                  <input type="text" placeholder="Ej. XIAOMI - REBRANDING" value={proyectoCaja} onChange={(e) => setProyectoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Documento</label>
-                  <select value={documentoCaja} onChange={(e) => setDocumentoCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
-                    <option value="Factura">Factura</option>
-                    <option value="RxH">RxH</option>
-                    <option value="Ninguno">Ninguno</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Número Doc.</label>
-                  <input type="text" placeholder="Ej. E001-655" value={numeroDocCaja} onChange={(e) => setNumeroDocCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Monto (S/.)</label>
-                  <input type="number" step="0.01" placeholder="0.00" value={montoCaja} onChange={(e) => setMontoCaja(e.target.value)} required style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-                </div>
+        {/* MODAL / FORMULARIO FLOTANTE DE EDICIÓN Y SUBIDA DE COMPROBANTE */}
+        {pagoEditando && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '16px' }}>
+            <form onSubmit={guardarEdicionConArchivo} style={{ background: tema.bgCard, color: tema.textMain, padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '450px', border: `1px solid ${tema.border}`, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ margin: '0 0 16px 0', color: modoOscuro ? '#38bdf8' : '#224248' }}>✏️ Editar Registro y Comprobante</h3>
+              
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Proveedor</label>
+                <input type="text" value={pagoEditando.proveedor} onChange={(e) => setPagoEditando({...pagoEditando, proveedor: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} required />
               </div>
 
-              <div style={{ marginTop: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: '600', color: tema.textMuted }}>Descripción</label>
-                <input type="text" placeholder="Detalle adicional del gasto o cobro..." value={descripcionCaja} onChange={(e) => setDescripcionCaja(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Producto / Servicio</label>
+                <input type="text" value={pagoEditando.producto} onChange={(e) => setPagoEditando({...pagoEditando, producto: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} required />
               </div>
 
-              <button type="submit" disabled={cargando} style={{ backgroundColor: '#224248', color: 'white', padding: '10px 18px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', marginTop: '14px' }}>
-                {cargando ? 'Guardando...' : 'Guardar en Flujo de Caja'}
-              </button>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Monto (S/.)</label>
+                <input type="number" step="0.01" value={pagoEditando.precio_con_igv} onChange={(e) => setPagoEditando({...pagoEditando, precio_con_igv: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} required />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '4px' }}>Comprobante Actual: {pagoEditando.url_archivo ? '✅ Subido' : '❌ Sin comprobante'}</label>
+                <input type="file" onChange={(e) => setArchivoNuevo(e.target.files[0])} style={{ fontSize: '0.85rem' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setPagoEditando(null)} style={{ padding: '8px 14px', background: '#cbd5e1', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cancelar</button>
+                <button type="submit" disabled={cargando} style={{ padding: '8px 14px', background: '#224248', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>{cargando ? 'Guardando...' : 'Guardar Cambios'}</button>
+              </div>
             </form>
+          </div>
+        )}
 
-            {/* FILTROS Y BÚSQUEDA */}
-            <div style={{ background: tema.bgCard, padding: '14px', borderRadius: '12px', marginBottom: '16px', border: `1px solid ${tema.border}`, display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <input 
-                type="text" 
-                placeholder="🔍 Buscar proveedor, proyecto, categoría, número..." 
-                value={busquedaCaja}
-                onChange={(e) => setBusquedaCaja(e.target.value)}
-                style={{ flex: 1, minWidth: '220px', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.85rem', outline: 'none' }}
-              />
-              <select value={filtroCeCoCaja} onChange={(e) => setFiltroCeCoCaja(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.85rem' }}>
-                <option value="">Todos los CeCo</option>
-                <option value="OPERACIONES">OPERACIONES</option>
-                <option value="COMERCIAL">COMERCIAL</option>
-                <option value="ADMINISTRACIÓN">ADMINISTRACIÓN</option>
-              </select>
+        {/* VISTA: DASHBOARD EJECUTIVO */}
+        {vista === 'dashboard' && (
+          <div>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', marginBottom: '16px' }}>📊 Dashboard Ejecutivo General</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: tema.textMuted }}>Gasto Total Pagado</p>
+                <h2 style={{ margin: '8px 0 0 0', color: '#22c55e' }}>S/. {gastoTotalAcumulado.toFixed(2)}</h2>
+              </div>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: tema.textMuted }}>Total Por Pagar</p>
+                <h2 style={{ margin: '8px 0 0 0', color: '#f59e0b' }}>S/. {montoPendienteTotal.toFixed(2)}</h2>
+              </div>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: tema.textMuted }}>Registros con Factura</p>
+                <h2 style={{ margin: '8px 0 0 0', color: '#38bdf8' }}>{totalConFactura} / {pagos.length}</h2>
+              </div>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: tema.textMuted }}>Sin Comprobante</p>
+                <h2 style={{ margin: '8px 0 0 0', color: '#ef4444' }}>{totalSinFactura}</h2>
+              </div>
             </div>
 
-            {/* TABLA DE MOVIMIENTOS TIPO EXCEL */}
-            <div style={{ background: tema.bgCard, borderRadius: '12px', border: `1px solid ${tema.border}`, overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}` }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>📌 Estado General de Facturación</h4>
+                <p style={{ fontSize: '0.9rem', color: tema.textMuted, margin: '6px 0' }}>• Facturas adjuntas: <strong>{((totalConFactura / (pagos.length || 1)) * 100).toFixed(1)}%</strong></p>
+                <p style={{ fontSize: '0.9rem', color: tema.textMuted, margin: '6px 0' }}>• Facturas pendientes: <strong>{pagosPendientesList.length} docs</strong></p>
+              </div>
+              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}` }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>💡 Consejos Financieros Festos</h4>
+                <p style={{ fontSize: '0.9rem', color: tema.textMuted, margin: '6px 0' }}>• Recuerda subir los comprobantes faltantes desde la pestaña de Historial.</p>
+                <p style={{ fontSize: '0.9rem', color: tema.textMuted, margin: '6px 0' }}>• Utiliza el asistente IA para consultas rápidas por proveedor o proyecto.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* VISTA: SUBIR PAGO */}
+        {vista === 'subir' && (
+          <form onSubmit={handleSubmit} style={{ background: tema.bgCard, padding: '24px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ margin: '0 0 16px 0', color: modoOscuro ? '#38bdf8' : '#224248' }}>📤 Subir Nueva Factura / Pago</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Producto / Servicio *</label>
+                <input type="text" value={producto} onChange={(e) => setProducto(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Proveedor *</label>
+                <input type="text" value={proveedor} onChange={(e) => setProveedor(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Monto (S/.) *</label>
+                <input type="number" step="0.01" value={montoIngresado} onChange={(e) => setMontoIngresado(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Proyecto</label>
+                <input type="text" value={proyecto} onChange={(e) => setProyecto(e.target.value)} placeholder="Ej. General, Xiaomi..." style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                <input type="checkbox" checked={aplicarIgv} onChange={(e) => setAplicarIgv(e.target.checked)} />
+                Agregar 18% IGV al monto ingresado
+              </label>
+              <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: tema.textMuted }}>Total calculado: <strong>S/. {precioFinalCalculado}</strong></p>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Descripción / Notas</label>
+              <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows="3" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }}></textarea>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem' }}>Adjuntar Factura (Opcional)</label>
+              <input type="file" onChange={(e) => setArchivo(e.target.files[0])} style={{ color: tema.textMuted }} />
+            </div>
+
+            <button type="submit" disabled={cargando} style={{ width: '100%', backgroundColor: '#224248', color: 'white', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+              {cargando ? 'Subiendo...' : 'Registrar Pago'}
+            </button>
+          </form>
+        )}
+
+        {/* VISTA: POR PAGAR */}
+        {vista === 'porPagar' && (
+          <div>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', marginBottom: '16px' }}>⏳ Facturas Pendientes</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {pagosPendientesList.map(pago => (
+                <div key={pago.id} style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', border: `1px solid ${tema.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 4px 0' }}>{pago.proveedor} - {pago.producto}</h4>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: tema.textMuted }}>ID: {pago.codigo_unico} | Proyecto: {pago.proyecto}</p>
+                    <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', color: '#ef4444' }}>S/. {pago.precio_con_igv}</p>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: pago.url_archivo ? '#22c55e' : '#f59e0b' }}>
+                      {pago.url_archivo ? '📄 Con Comprobante' : '⚠️ Sin Comprobante'}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {pago.url_archivo && (
+                      <a href={pago.url_archivo} target="_blank" rel="noreferrer" style={{ padding: '8px 12px', backgroundColor: '#e2e8f0', color: '#1e293b', textDecoration: 'none', borderRadius: '6px', fontSize: '0.85rem' }}>Ver</a>
+                    )}
+                    <button onClick={() => setPagoEditando(pago)} style={{ padding: '8px 12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>✏️ Editar / Subir Factura</button>
+                    <button onClick={() => cambiarEstado(pago.id, 'Pagado')} style={{ padding: '8px 12px', backgroundColor: '#22c55e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Marcar Pagado</button>
+                    <button onClick={() => eliminarPago(pago.id, pago.codigo_unico)} style={{ padding: '8px 12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🗑️</button>
+                  </div>
+                </div>
+              ))}
+              {pagosPendientesList.length === 0 && (
+                <p style={{ color: tema.textMuted }}>No hay pagos pendientes en este momento.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* VISTA: HISTORIAL */}
+        {vista === 'historial' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', margin: 0 }}>📂 Historial de Pagos</h3>
+              <button onClick={exportarAExcel} style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Exportar a Excel</button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="Buscar por proveedor, ID..." value={filtroBusqueda} onChange={(e) => setFiltroBusqueda(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} />
+              
+              <select value={filtroComprobante} onChange={(e) => setFiltroComprobante(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }}>
+                <option value="todos">Todos los comprobantes</option>
+                <option value="conFactura">Con factura adjunta</option>
+                <option value="sinFactura">Sin factura adjunta</option>
+              </select>
+
+              <input type="date" value={filtroFechaInicio} onChange={(e) => setFiltroFechaInicio(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} />
+              <input type="date" value={filtroFechaFin} onChange={(e) => setFiltroFechaFin(e.target.value)} style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} />
+            </div>
+
+            <div style={{ background: tema.bgCard, borderRadius: '12px', border: `1px solid ${tema.border}`, overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                 <thead>
-                  <tr style={{ background: modoOscuro ? '#131e32' : '#f1f5f9', color: tema.textMuted, borderBottom: `1px solid ${tema.border}` }}>
-                    <th style={{ padding: '10px' }}>Fecha</th>
-                    <th style={{ padding: '10px' }}>Proveedor/Cliente</th>
-                    <th style={{ padding: '10px' }}>CeCo</th>
-                    <th style={{ padding: '10px' }}>Categoría</th>
-                    <th style={{ padding: '10px' }}>Proyecto</th>
-                    <th style={{ padding: '10px' }}>Descripción</th>
-                    <th style={{ padding: '10px' }}>Doc.</th>
-                    <th style={{ padding: '10px' }}>Número</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Ingreso</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Egreso</th>
+                  <tr style={{ backgroundColor: modoOscuro ? '#0f172a' : '#f1f5f9', borderBottom: `2px solid ${tema.border}` }}>
+                    <th style={{ padding: '12px' }}>Fecha</th>
+                    <th style={{ padding: '12px' }}>ID</th>
+                    <th style={{ padding: '12px' }}>Proveedor</th>
+                    <th style={{ padding: '12px' }}>Proyecto</th>
+                    <th style={{ padding: '12px' }}>Monto (S/.)</th>
+                    <th style={{ padding: '12px' }}>Comprobante</th>
+                    <th style={{ padding: '12px', textAlign: 'center' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {cajaFiltrada.length === 0 ? (
-                    <tr>
-                      <td colSpan="10" style={{ padding: '24px', textAlign: 'center', color: tema.textMuted }}>No se encontraron registros de caja.</td>
+                  {pagosFiltrados.map((pago, index) => (
+                    <tr key={pago.id} style={{ borderBottom: `1px solid ${tema.border}`, backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+                      <td style={{ padding: '12px' }}>{pago.fecha_legible}</td>
+                      <td style={{ padding: '12px' }}>{pago.codigo_unico}</td>
+                      <td style={{ padding: '12px', fontWeight: '600' }}>{pago.proveedor}</td>
+                      <td style={{ padding: '12px' }}>{pago.proyecto}</td>
+                      <td style={{ padding: '12px', fontWeight: 'bold' }}>{pago.precio_con_igv}</td>
+                      <td style={{ padding: '12px' }}>
+                        {pago.url_archivo ? (
+                          <a href={pago.url_archivo} target="_blank" rel="noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>Ver Factura</a>
+                        ) : (
+                          <span style={{ color: '#ef4444' }}>Sin adjunto</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button onClick={() => setPagoEditando(pago)} title="Editar o subir factura" style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>✏️</button>
+                        <button onClick={() => eliminarPago(pago.id, pago.codigo_unico)} title="Eliminar registro" style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
+                      </td>
                     </tr>
-                  ) : (
-                    cajaFiltrada.map((row, index) => (
-                      <tr key={row.id || index} style={{ borderBottom: `1px solid ${tema.border}` }}>
-                        <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{row.fecha || '-'}</td>
-                        <td style={{ padding: '10px', fontWeight: '600' }}>{row.proveedor || '-'}</td>
-                        <td style={{ padding: '10px' }}>
-                          <span style={{ background: modoOscuro ? '#334155' : '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>
-                            {row.ceco || '-'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px' }}>{row.categoria || '-'}</td>
-                        <td style={{ padding: '10px', fontWeight: '500' }}>{row.proyecto || '-'}</td>
-                        <td style={{ padding: '10px', color: tema.textMuted, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.descripcion || '-'}</td>
-                        <td style={{ padding: '10px' }}>{row.documento || '-'}</td>
-                        <td style={{ padding: '10px' }}>{row.numero || '-'}</td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: '#16a34a' }}>
-                          {parseFloat(row.ingreso) > 0 ? `S/. ${parseFloat(row.ingreso).toFixed(2)}` : ''}
-                        </td>
-                        <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: '#e11d48' }}>
-                          {parseFloat(row.egreso) < 0 ? `S/. ${Math.abs(parseFloat(row.egreso)).toFixed(2)}` : ''}
-                        </td>
-                      </tr>
-                    ))
+                  ))}
+                  {pagosFiltrados.length === 0 && (
+                    <tr>
+                      <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: tema.textMuted }}>
+                        No se encontraron registros en el historial con los filtros aplicados.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -729,287 +757,32 @@ function App() {
           </div>
         )}
 
-        {/* VISTA 0: DASHBOARD EJECUTIVO */}
-        {vista === 'dashboard' && (
-          <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', fontWeight: '700', marginBottom: '6px' }}>
-              📊 Panel de Métricas Ejecutivas
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: tema.textMuted, marginBottom: '20px' }}>
-              Resumen en tiempo real del estado financiero y control de gastos de la empresa.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              
-              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Gasto Total Pagado</span>
-                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: '#16a34a' }}>
-                  S/. {gastoTotalAcumulado.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </h2>
-              </div>
-
-              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Facturas Procesadas</span>
-                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
-                  {pagosRealizados.length}
-                </h2>
-              </div>
-
-              <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: tema.textMuted, textTransform: 'uppercase' }}>Por Pagar / Aprobados</span>
-                <h2 style={{ margin: '8px 0 0 0', fontSize: '1.8rem', color: '#0369a1' }}>
-                  {pagos.filter(p => p.estado === 'Por Pagar').length}
-                </h2>
-              </div>
-
-            </div>
-
-            {/* Desglose por Proyectos */}
-            <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
-                📂 Gasto Acumulado por Proyecto
-              </h4>
-              {Object.keys(gastosPorProyecto).length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>No hay pagos registrados aún para graficar.</p>
-              ) : (
-                Object.entries(gastosPorProyecto).map(([proj, monto]) => {
-                  const porcentaje = gastoTotalAcumulado > 0 ? (monto / gastoTotalAcumulado) * 100 : 0;
-                  return (
-                    <div key={proj} style={{ marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '4px' }}>
-                        <span><b>{proj}</b></span>
-                        <span style={{ fontWeight: '600' }}>S/. {monto.toFixed(2)} ({porcentaje.toFixed(1)}%)</span>
-                      </div>
-                      <div style={{ width: '100%', height: '8px', backgroundColor: tema.cardAlt, borderRadius: '4px', overflow: 'hidden', border: `1px solid ${tema.border}` }}>
-                        <div style={{ width: `${porcentaje}%`, height: '100%', backgroundColor: '#224248', borderRadius: '4px' }}></div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Desglose por Proveedores */}
-            <div style={{ background: tema.bgCard, padding: '20px', borderRadius: '12px', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <h4 style={{ margin: '0 0 14px 0', fontSize: '1rem', color: modoOscuro ? '#38bdf8' : '#224248' }}>
-                🏢 Gasto por Proveedor Principal
-              </h4>
-              {Object.keys(gastosPorProveedor).length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: tema.textMuted, margin: 0 }}>No hay pagos registrados aún.</p>
-              ) : (
-                Object.entries(gastosPorProveedor).map(([prov, monto]) => (
-                  <div key={prov} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${tema.border}`, fontSize: '0.9rem' }}>
-                    <span>📍 {prov}</span>
-                    <span style={{ fontWeight: 'bold', color: '#16a34a' }}>S/. {monto.toFixed(2)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-          </div>
-        )}
-
-        {/* VISTA 1: SUBIR PAGO */}
-        {vista === 'subir' && (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: tema.bgCard, color: tema.textMain, padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: `1px solid ${tema.border}` }}>
-            <h3 style={{ margin: '0 0 10px 0', color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600' }}>Registrar Nuevo Gasto y Factura</h3>
-            
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>Producto o Servicio *</label>
-            <input type="text" value={producto} onChange={(e) => setProducto(e.target.value)} placeholder="Ej. Resmas de papel" required style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem' }} />
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>Proveedor *</label>
-            <input type="text" value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Ej. Tai Loy" required style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem' }} />
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>Proyecto Destinado</label>
-            <input type="text" value={proyecto} onChange={(e) => setProyecto(e.target.value)} placeholder="Nombre del proyecto" style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem' }} />
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: tema.cardAlt, padding: '10px 14px', borderRadius: '8px', border: `1px solid ${tema.border}` }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>¿Incluye / Calcular IGV (18%)?</span>
-              <input 
-                type="checkbox" 
-                checked={aplicarIgv} 
-                onChange={(e) => setAplicarIgv(e.target.checked)} 
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#224248' }} 
-              />
-            </div>
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>
-              {aplicarIgv ? 'Monto Base (Sin IGV) *' : 'Monto Total del Gasto *'}
-            </label>
-            <input type="number" step="0.01" value={montoIngresado} onChange={(e) => setMontoIngresado(e.target.value)} placeholder="0.00" required style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem' }} />
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>
-              {aplicarIgv ? 'Precio Total con IGV (Cálculo Automático 18%):' : 'Precio Final a Pagar (Sin IGV):'}
-            </label>
-            <input type="text" value={`S/. ${precioFinalCalculado}`} disabled style={{ backgroundColor: modoOscuro ? '#0b1329' : '#f1f5f9', fontWeight: 'bold', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, color: modoOscuro ? '#38bdf8' : '#224248' }} />
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>Adjuntar Factura o Recibo (PDF o Foto) *</label>
-            <input 
-              type="file" 
-              accept="image/*,.pdf" 
-              onChange={(e) => setArchivo(e.target.files[0])} 
-              style={{ padding: '8px', border: `1px dashed ${tema.border}`, borderRadius: '8px', fontSize: '0.85rem', backgroundColor: tema.cardAlt }} 
-            />
-            {archivo && <small style={{ color: '#16a34a', fontWeight: '500' }}>Archivo seleccionado: {archivo.name}</small>}
-
-            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: tema.textMuted }}>Descripción</label>
-            <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Detalles adicionales..." rows="3" style={{ padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, fontSize: '0.9rem', fontFamily: 'inherit' }} />
-
-            <button type="submit" disabled={cargando} style={{ backgroundColor: '#224248', color: 'white', padding: '12px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', marginTop: '8px', transition: 'opacity 0.2s' }}>
-              {cargando ? 'Subiendo a la nube...' : 'Enviar Pago y Factura'}
-            </button>
-          </form>
-        )}
-
-        {/* VISTA 2: POR PAGAR */}
-        {vista === 'porPagar' && (
-          <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Facturas Por Pagar</h3>
-            {pagos.filter(p => p.estado === 'Por Pagar').length === 0 ? (
-              <p style={{ color: tema.textMuted, background: tema.bgCard, padding: '20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${tema.border}` }}>No hay facturas listas para pagar.</p>
-            ) : (
-              pagos.filter(p => p.estado === 'Por Pagar').map(p => (
-                <div key={p.id} style={{ border: `1px solid ${tema.border}`, padding: '18px', borderRadius: '12px', marginBottom: '12px', background: tema.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <p style={{ margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ background: '#bae6fd', color: '#0369a1', padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', display: 'inline-block' }}>
-                      📋 {p.codigo_unico} (Por Pagar)
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                      <button 
-                        onClick={() => eliminarPago(p.id, p.codigo_unico)} 
-                        title="Eliminar registro"
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '2px' }}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </p>
-                  <p style={{ margin: '6px 0' }}><b>Producto:</b> {p.producto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Total a Pagar:</b> <span style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
-                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
-                  <p style={{ margin: '6px 0' }}>
-                    <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
-                  </p>
-                  <button onClick={() => cambiarEstado(p.id, 'Pagado')} style={{ backgroundColor: '#d4e036', color: '#1e293b', padding: '8px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem', marginTop: '10px' }}>
-                    Marcar como Pagado
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* VISTA 3: HISTORIAL */}
-        {vista === 'historial' && (
-          <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>Historial de Pagos Realizados</h3>
-            
-            <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', border: `1px solid ${tema.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', display: 'block', fontWeight: '600', color: tema.textMuted, marginBottom: '4px' }}>Desde:</label>
-                <input type="date" value={filtroFechaInicio} onChange={(e) => setFiltroFechaInicio(e.target.value)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', display: 'block', fontWeight: '600', color: tema.textMuted, marginBottom: '4px' }}>Hasta:</label>
-                <input type="date" value={filtroFechaFin} onChange={(e) => setFiltroFechaFin(e.target.value)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor }} />
-              </div>
-              <div style={{ flex: 1, minWidth: '200px' }}>
-                <label style={{ fontSize: '0.8rem', display: 'block', fontWeight: '600', color: tema.textMuted, marginBottom: '4px' }}>Buscar:</label>
-                <input type="text" placeholder="Buscar por código, proveedor, proyecto..." value={filtroBusqueda} onChange={(e) => setFiltroBusqueda(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                <button onClick={exportarAExcel} style={{ backgroundColor: '#16a34a', color: 'white', border: 'none', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem' }}>
-                  📥 Exportar Excel
-                </button>
-              </div>
-            </div>
-
-            {pagosFiltrados.length === 0 ? (
-              <p style={{ color: tema.textMuted, background: tema.bgCard, padding: '20px', borderRadius: '12px', textAlign: 'center', border: `1px solid ${tema.border}` }}>No hay pagos registrados con los filtros seleccionados.</p>
-            ) : (
-              pagosFiltrados.map(p => (
-                <div key={p.id} style={{ border: `1px solid ${tema.border}`, padding: '18px', borderRadius: '12px', marginBottom: '12px', background: tema.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <p style={{ margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ background: '#dcfce7', color: '#16a34a', padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', display: 'inline-block' }}>
-                      ✅ {p.codigo_unico} (Pagado)
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                      <button 
-                        onClick={() => eliminarPago(p.id, p.codigo_unico)} 
-                        title="Eliminar registro"
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '2px' }}
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </p>
-                  <p style={{ margin: '6px 0' }}><b>Producto:</b> {p.producto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
-                  <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
-                  <p style={{ margin: '6px 0' }}><b>Total Pagado:</b> <span style={{ color: '#16a34a', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
-                  <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
-                  <p style={{ margin: '6px 0' }}>
-                    <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* VISTA 4: ASISTENTE IA */}
+        {/* VISTA: ASISTENTE IA */}
         {vista === 'asistente' && (
           <div>
-            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.1rem', fontWeight: '600', marginBottom: '16px' }}>🤖 Asistente Inteligente</h3>
-            <div style={{ background: tema.bgCard, padding: '16px', borderRadius: '12px', marginBottom: '16px', border: `1px solid ${tema.border}` }}>
-              <input 
-                type="text" 
-                placeholder="Pregúntale al asistente (ej. Tai Loy, proyecto X, etc.)..." 
-                value={busquedaInteligente}
-                onChange={(e) => setBusquedaInteligente(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, boxSizing: 'border-box' }}
-              />
-            </div>
-            {pagosBusquedaInteligente.map(p => (
-              <div key={p.id} style={{ border: `1px solid ${tema.border}`, padding: '18px', borderRadius: '12px', marginBottom: '12px', background: tema.bgCard, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <p style={{ margin: '0 0 10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ 
-                    background: p.estado === 'Pagado' ? '#dcfce7' : '#bae6fd', 
-                    color: p.estado === 'Pagado' ? '#16a34a' : '#0369a1', 
-                    padding: '4px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', display: 'inline-block' 
-                  }}>
-                    {p.estado === 'Pagado' ? '✅' : '📋'} {p.codigo_unico} ({p.estado})
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ color: tema.textMuted, fontSize: '12px' }}>{p.fecha_legible}</span>
-                    <button 
-                      onClick={() => eliminarPago(p.id, p.codigo_unico)} 
-                      title="Eliminar registro"
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', padding: '2px' }}
-                    >
-                      🗑️
-                    </button>
+            <h3 style={{ color: modoOscuro ? '#38bdf8' : '#224248', fontSize: '1.2rem', marginBottom: '16px' }}>🤖 Búsqueda Inteligente</h3>
+            <input 
+              type="text" 
+              placeholder="Ej. 'facturas de xiaomi pagadas' o 'compras a castillo'" 
+              value={busquedaInteligente} 
+              onChange={(e) => setBusquedaInteligente(e.target.value)} 
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: `1px solid ${tema.border}`, backgroundColor: tema.inputBg, color: tema.inputColor, marginBottom: '20px', boxSizing: 'border-box' }} 
+            />
+            
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {pagosBusquedaInteligente.map(p => (
+                <div key={p.id} style={{ background: tema.bgCard, padding: '12px', borderRadius: '8px', border: `1px solid ${tema.border}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <strong>{p.proveedor} - {p.producto}</strong>
+                    <span style={{ color: p.estado === 'Pagado' ? '#10b981' : '#f59e0b', fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span>
                   </div>
-                </p>
-                <p style={{ margin: '6px 0' }}><b>Producto:</b> {p.producto}</p>
-                <p style={{ margin: '6px 0' }}><b>Proveedor:</b> {p.proveedor}</p>
-                <p style={{ margin: '6px 0' }}><b>Proyecto:</b> {p.proyecto}</p>
-                <p style={{ margin: '6px 0' }}><b>Total:</b> <span style={{ color: p.estado === 'Pagado' ? '#16a34a' : (modoOscuro ? '#38bdf8' : '#224248'), fontWeight: 'bold' }}>S/. {p.precio_con_igv}</span></p>
-                <p style={{ margin: '6px 0' }}><b>Registrado por:</b> <span style={{ color: '#0284c7', fontWeight: '600' }}>{p.registrado_por || 'Anónimo'}</span></p>
-                <p style={{ margin: '6px 0' }}>
-                  <b>Factura:</b> {p.url_archivo ? <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'none' }}>📄 Ver / Descargar ({p.nombre_archivo})</a> : p.nombre_archivo}
-                </p>
-                {p.estado === 'Por Pagar' && (
-                  <button onClick={() => cambiarEstado(p.id, 'Pagado')} style={{ backgroundColor: '#d4e036', color: '#1e293b', padding: '8px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.85rem', marginTop: '10px' }}>
-                    Marcar como Pagado
-                  </button>
-                )}
-              </div>
-            ))}
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: tema.textMuted }}>Estado: {p.estado} | Registrado por: {p.registrado_por}</p>
+                </div>
+              ))}
+              {pagosBusquedaInteligente.length === 0 && busquedaInteligente && (
+                <p style={{ color: tema.textMuted }}>No se encontraron coincidencias para tu búsqueda.</p>
+              )}
+            </div>
           </div>
         )}
 
