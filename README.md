@@ -1,16 +1,23 @@
-# React + Vite
+# Control Festos V13 — PDF comercial profesional
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+V13 mantiene el flujo de Cotizaciones de V12 y mejora únicamente la salida PDF para cliente.
 
-Currently, two official plugins are available:
+## Cambios del PDF
+- Se elimina del documento enviado al cliente: Costo total, Utilidad y Margen global.
+- Se muestra claramente el RUC del cliente.
+- Logo FESTOS más grande y mejor integrado en el encabezado.
+- Tabla de ítems rediseñada con columnas alineadas: Descripción, Cantidad, Valor unitario y Total.
+- Resumen comercial limpio: Valor de venta, IGV 18% y Precio total.
+- Condición de pago y plazo, cuando están disponibles.
+- Encabezado/pie de página y numeración para un acabado más profesional.
+- Diseño moderno en formato A4 y compatible con varias páginas.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Instalación
+Si ya tienes V12 funcionando, solo reemplaza el proyecto por esta versión y ejecuta:
 
-## React Compiler
+```bash
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+La dependencia `jspdf` ya está incluida en `package.json`.

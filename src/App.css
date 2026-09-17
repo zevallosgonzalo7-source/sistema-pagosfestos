@@ -7,16 +7,21 @@
   --festo-green: #224248;
   --festo-green-light: #2d565e;
   --festo-green-deep: #0e2023;
-  --accent-cyan: #38bdf8;
+  --festo-green-soft: rgba(34, 66, 72, 0.07);
+  --accent-cyan: #0d9488;
   --accent-green: #22c55e;
   --accent-amber: #f59e0b;
   --accent-red: #ef4444;
-  --carbon-950: #070c0d;
-  --carbon-900: #0c1618;
-  --carbon-800: #122023;
+  --carbon-950: #ffffff;
+  --carbon-900: #f5f9f9;
+  --carbon-800: #eef4f4;
+  --ink: #132024;
+  --ink-muted: #5a6b6e;
+  --line: #dde8e9;
   --radius-md: 14px;
   --radius-lg: 20px;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk', var(--font-sans);
 }
 
 /* ---------- RESET ESTRICTO (elimina líneas blancas / overflow) ---------- */
@@ -49,7 +54,7 @@ button, input, select, textarea {
 }
 
 ::selection {
-  background: rgba(56, 189, 248, 0.35);
+  background: rgba(13, 148, 136, 0.35);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -69,9 +74,9 @@ button, input, select, textarea {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 120% 80% at 15% 0%, rgba(45, 86, 94, 0.35), transparent 60%),
-    radial-gradient(ellipse 100% 70% at 100% 100%, rgba(56, 189, 248, 0.10), transparent 55%),
-    linear-gradient(160deg, var(--carbon-950) 0%, var(--festo-green-deep) 55%, var(--carbon-900) 100%);
+    radial-gradient(ellipse 120% 80% at 12% 0%, rgba(34, 66, 72, 0.07), transparent 60%),
+    radial-gradient(ellipse 100% 70% at 100% 100%, rgba(13, 148, 136, 0.06), transparent 55%),
+    linear-gradient(160deg, #ffffff 0%, var(--carbon-900) 55%, #ffffff 100%);
 }
 
 .ambient-logo {
@@ -85,15 +90,14 @@ button, input, select, textarea {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  filter: blur(40px);
-  opacity: 0.1;
+  filter: blur(46px);
+  opacity: 0.05;
 }
 
 .ambient-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 30%, rgba(56, 189, 248, 0.08), transparent 45%);
-  mix-blend-mode: screen;
+  background: radial-gradient(circle at 50% 30%, rgba(13, 148, 136, 0.05), transparent 45%);
 }
 
 /* ============================================================
@@ -126,13 +130,13 @@ button, input, select, textarea {
   position: relative;
   width: 100%;
   max-width: 380px;
-  background: rgba(18, 32, 35, 0.55);
-  border: 1px solid rgba(148, 197, 197, 0.16);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(20, 44, 48, 0.16);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   border-radius: var(--radius-lg);
   padding: 36px 32px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.144);
   display: flex;
   flex-direction: column;
 }
@@ -150,33 +154,37 @@ button, input, select, textarea {
   border-radius: 8px;
   padding: 4px;
   background: #ffffff;
+  border: 1px solid rgba(20, 44, 48, 0.1);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
 }
 
 .login-title {
   margin: 0 0 6px 0;
   text-align: center;
-  color: #f2f7f7;
-  font-size: 1.35rem;
+  color: #132024;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  font-family: var(--font-display);
 }
 
 .login-subtitle {
   margin: 0 0 22px 0;
   text-align: center;
-  color: #9db3b6;
+  color: #5a6b6e;
   font-size: 0.85rem;
 }
 
 .login-error {
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  color: #b91c1c;
   font-size: 0.82rem;
   padding: 10px 12px;
   border-radius: 10px;
   margin-bottom: 16px;
   text-align: center;
+  font-weight: 600;
 }
 
 .login-field {
@@ -192,16 +200,16 @@ button, input, select, textarea {
 
 .login-field label {
   font-size: 0.78rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .login-field input {
   width: 100%;
   padding: 11px 13px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 197, 197, 0.25);
-  background: rgba(9, 18, 20, 0.6);
-  color: #f2f7f7;
+  border: 1px solid rgba(20, 44, 48, 0.25);
+  background: rgba(244, 248, 248, 0.6);
+  color: #132024;
   font-size: 0.92rem;
   outline: none;
   transition: border-color 0.15s ease;
@@ -226,13 +234,14 @@ button, input, select, textarea {
 
 .login-submit:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 10px 28px rgba(14, 32, 35, 0.35);
+  filter: brightness(0.94);
 }
 
 .login-footnote {
   position: relative;
   z-index: 1;
-  color: rgba(157, 179, 182, 0.6);
+  color: rgba(90, 107, 110, 0.6);
   font-size: 0.72rem;
   text-align: center;
   margin: 0;
@@ -246,7 +255,7 @@ button, input, select, textarea {
   min-height: 100vh;
   width: 100%;
   display: flex;
-  color: #f2f7f7;
+  color: #132024;
   overflow-x: hidden;
 }
 
@@ -258,7 +267,7 @@ button, input, select, textarea {
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(3, 8, 9, 0.55);
+  background: rgba(15, 23, 42, 0.35);
   z-index: 40;
 }
 
@@ -270,10 +279,10 @@ button, input, select, textarea {
   width: 272px;
   transform: translateX(-100%);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  background: rgba(12, 22, 24, 0.72);
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(26px);
   -webkit-backdrop-filter: blur(26px);
-  border-right: 1px solid rgba(148, 197, 197, 0.12);
+  border-right: 1px solid rgba(20, 44, 48, 0.12);
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -289,7 +298,7 @@ button, input, select, textarea {
   align-items: center;
   gap: 12px;
   padding: 4px 8px 20px 8px;
-  border-bottom: 1px solid rgba(148, 197, 197, 0.12);
+  border-bottom: 1px solid rgba(20, 44, 48, 0.12);
   margin-bottom: 16px;
 }
 
@@ -300,12 +309,13 @@ button, input, select, textarea {
   border-radius: 8px;
   background: #ffffff;
   padding: 3px;
+  border: 1px solid rgba(20, 44, 48, 0.1);
 }
 
 .sidebar-brand-text {
   font-weight: 700;
   font-size: 0.95rem;
-  color: #f2f7f7;
+  color: #132024;
   display: flex;
   flex-direction: column;
   line-height: 1.3;
@@ -314,7 +324,7 @@ button, input, select, textarea {
 .sidebar-brand-text span {
   font-weight: 400;
   font-size: 0.72rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .sidebar-nav {
@@ -331,7 +341,7 @@ button, input, select, textarea {
   width: 100%;
   border: none;
   background: transparent;
-  color: #9db3b6;
+  color: #5a6b6e;
   padding: 11px 12px;
   border-radius: 10px;
   font-size: 0.88rem;
@@ -342,13 +352,14 @@ button, input, select, textarea {
 }
 
 .sidebar-item:hover {
-  background: rgba(148, 197, 197, 0.08);
-  color: #f2f7f7;
+  background: rgba(20, 44, 48, 0.08);
+  color: #132024;
 }
 
 .sidebar-item.active {
-  background: linear-gradient(120deg, rgba(56, 189, 248, 0.18), rgba(34, 66, 72, 0.5));
+  background: linear-gradient(120deg, var(--festo-green-light), var(--festo-green-deep));
   color: #ffffff;
+  box-shadow: 0 6px 16px rgba(14, 32, 35, 0.28);
 }
 
 .sidebar-item-icon {
@@ -367,9 +378,9 @@ button, input, select, textarea {
 
 .sidebar-footer {
   font-size: 0.72rem;
-  color: #9db3b6;
+  color: #5a6b6e;
   padding: 10px 8px 2px 8px;
-  border-top: 1px solid rgba(148, 197, 197, 0.12);
+  border-top: 1px solid rgba(20, 44, 48, 0.12);
   text-transform: capitalize;
 }
 
@@ -389,8 +400,8 @@ button, input, select, textarea {
   justify-content: space-between;
   gap: 14px;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(148, 197, 197, 0.12);
-  background: rgba(9, 18, 20, 0.35);
+  border-bottom: 1px solid rgba(20, 44, 48, 0.12);
+  background: rgba(244, 248, 248, 0.35);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   flex-wrap: wrap;
@@ -404,8 +415,10 @@ button, input, select, textarea {
 }
 
 .topbar-title {
-  font-weight: 700;
-  font-size: 0.98rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -419,8 +432,8 @@ button, input, select, textarea {
 }
 
 .icon-btn {
-  background: rgba(148, 197, 197, 0.1);
-  border: 1px solid rgba(148, 197, 197, 0.16);
+  background: rgba(20, 44, 48, 0.1);
+  border: 1px solid rgba(20, 44, 48, 0.16);
   border-radius: 10px;
   width: 38px;
   height: 38px;
@@ -434,7 +447,9 @@ button, input, select, textarea {
 }
 
 .icon-btn:hover {
-  background: rgba(148, 197, 197, 0.2);
+  background: var(--festo-green-deep);
+  border-color: var(--festo-green-deep);
+  color: #ffffff;
 }
 
 .hamburger-lines {
@@ -464,10 +479,12 @@ button, input, select, textarea {
 
 .user-pill {
   font-size: 0.8rem;
-  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  background: rgba(20, 44, 48, 0.06);
+  border: 1px solid rgba(20, 44, 48, 0.12);
   padding: 8px 13px;
   border-radius: 10px;
-  color: #f2f7f7;
+  color: #132024;
   text-transform: capitalize;
 }
 
@@ -499,8 +516,8 @@ button, input, select, textarea {
    ============================================================ */
 .glass-card {
   position: relative;
-  background: var(--card-bg, rgba(19, 32, 36, 0.5));
-  border: 1px solid var(--card-border, rgba(148, 197, 197, 0.14));
+  background: var(--card-bg, rgba(255, 255, 255, 0.5));
+  border: 1px solid var(--card-border, rgba(20, 44, 48, 0.14));
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-radius: var(--radius-md);
@@ -516,9 +533,12 @@ button, input, select, textarea {
 }
 
 .section-title {
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   margin: 0 0 16px 0;
-  color: var(--accent-cyan);
+  color: var(--festo-green);
 }
 
 .section-header {
@@ -543,7 +563,7 @@ button, input, select, textarea {
 .stat-label {
   margin: 0;
   font-size: 0.83rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .stat-value {
@@ -570,20 +590,21 @@ button, input, select, textarea {
 .panel-title {
   margin: 0 0 14px 0;
   font-size: 0.95rem;
-  color: var(--accent-cyan);
+  font-weight: 700;
+  color: var(--festo-green);
   align-self: flex-start;
 }
 
 .panel-note {
   font-size: 0.78rem;
-  color: #9db3b6;
+  color: #5a6b6e;
   margin-top: 10px;
   text-align: center;
 }
 
 .tip-line {
   font-size: 0.88rem;
-  color: #9db3b6;
+  color: #5a6b6e;
   margin: 6px 0;
 }
 
@@ -603,7 +624,7 @@ button, input, select, textarea {
 .compare-track {
   height: 9px;
   border-radius: 999px;
-  background: rgba(148, 197, 197, 0.14);
+  background: rgba(20, 44, 48, 0.14);
   overflow: hidden;
 }
 
@@ -645,7 +666,7 @@ button, input, select, textarea {
 
 .form-row label {
   font-size: 0.8rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .form-row input,
@@ -654,8 +675,8 @@ button, input, select, textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 197, 197, 0.22);
-  background: rgba(9, 18, 20, 0.4);
+  border: 1px solid rgba(20, 44, 48, 0.22);
+  background: rgba(244, 248, 248, 0.4);
   color: inherit;
   font-size: 0.88rem;
   outline: none;
@@ -688,7 +709,7 @@ button, input, select, textarea {
 .calc-total {
   margin: 8px 0 0 0;
   font-size: 0.85rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .dual-control-hint {
@@ -714,7 +735,7 @@ button, input, select, textarea {
 
 .btn-secondary {
   padding: 9px 14px;
-  background: rgba(148, 197, 197, 0.16);
+  background: rgba(20, 44, 48, 0.16);
   color: inherit;
   border: none;
   border-radius: 8px;
@@ -730,9 +751,9 @@ button, input, select, textarea {
 }
 
 .tag-chip {
-  border: 1px solid rgba(148, 197, 197, 0.25);
-  background: rgba(148, 197, 197, 0.06);
-  color: #9db3b6;
+  border: 1px solid rgba(20, 44, 48, 0.25);
+  background: rgba(20, 44, 48, 0.06);
+  color: #5a6b6e;
   padding: 7px 12px;
   border-radius: 999px;
   font-size: 0.78rem;
@@ -742,7 +763,7 @@ button, input, select, textarea {
 }
 
 .tag-chip.active {
-  background: rgba(56, 189, 248, 0.18);
+  background: rgba(13, 148, 136, 0.18);
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
 }
@@ -759,7 +780,7 @@ button, input, select, textarea {
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.14);
+  background: rgba(13, 148, 136, 0.14);
   color: var(--accent-cyan);
 }
 
@@ -780,16 +801,16 @@ button, input, select, textarea {
 }
 
 .record-title { margin: 6px 0 2px 0; font-size: 1rem; }
-.record-meta { margin: 0; font-size: 0.85rem; color: #9db3b6; }
-.record-note { margin: 4px 0 0 0; font-size: 0.8rem; color: #9db3b6; }
-.record-date { font-size: 0.75rem; color: #9db3b6; }
+.record-meta { margin: 0; font-size: 0.85rem; color: #5a6b6e; }
+.record-note { margin: 4px 0 0 0; font-size: 0.8rem; color: #5a6b6e; }
+.record-date { font-size: 0.75rem; color: #5a6b6e; }
 .record-tags-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
 .record-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 .empty-card {
   padding: 20px;
   text-align: center;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .code-tag {
@@ -801,14 +822,14 @@ button, input, select, textarea {
   letter-spacing: 0.02em;
 }
 
-.tag-pending { background: #3a2c0d; color: #fbbf24; }
-.tag-paid { background: #0d3320; color: #4ade80; }
-.tag-approval { background: #3a1414; color: #f87171; }
+.tag-pending { background: #fef3c7; color: #92400e; }
+.tag-paid { background: #dcfce7; color: #15803d; }
+.tag-approval { background: #fee2e2; color: #b91c1c; }
 
 .link-pill {
   font-size: 0.78rem;
-  background: rgba(56, 189, 248, 0.15);
-  color: #7dd3fc;
+  background: rgba(13, 148, 136, 0.15);
+  color: #0f766e;
   padding: 7px 11px;
   border-radius: 8px;
   text-decoration: none;
@@ -842,7 +863,7 @@ button, input, select, textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 10, 11, 0.65);
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -855,7 +876,7 @@ button, input, select, textarea {
   width: 100%;
   max-width: 450px;
   padding: 26px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
 }
 
 .modal-actions {
@@ -869,8 +890,8 @@ button, input, select, textarea {
   width: 100%;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 197, 197, 0.22);
-  background: rgba(9, 18, 20, 0.4);
+  border: 1px solid rgba(20, 44, 48, 0.22);
+  background: rgba(244, 248, 248, 0.4);
   color: inherit;
   font-size: 0.95rem;
   outline: none;
@@ -878,10 +899,10 @@ button, input, select, textarea {
 }
 
 .mini-record {
-  background: rgba(148, 197, 197, 0.05);
+  background: rgba(20, 44, 48, 0.05);
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 197, 197, 0.12);
+  border: 1px solid rgba(20, 44, 48, 0.12);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -890,7 +911,7 @@ button, input, select, textarea {
 }
 
 .mini-record-title { margin: 6px 0 2px 0; font-size: 0.9rem; font-weight: 700; }
-.mini-record-meta { margin: 0; font-size: 0.8rem; color: #9db3b6; }
+.mini-record-meta { margin: 0; font-size: 0.8rem; color: #5a6b6e; }
 
 /* ---------- Centro de auditoría (timeline) ---------- */
 .audit-timeline {
@@ -912,7 +933,7 @@ button, input, select, textarea {
   top: 34px;
   bottom: 0;
   width: 1px;
-  background: rgba(148, 197, 197, 0.18);
+  background: rgba(20, 44, 48, 0.18);
 }
 
 .audit-item:last-child::before { display: none; }
@@ -922,7 +943,7 @@ button, input, select, textarea {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(56, 189, 248, 0.14);
+  background: rgba(13, 148, 136, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -940,19 +961,20 @@ button, input, select, textarea {
 
 .audit-user {
   font-size: 0.72rem;
-  color: var(--accent-cyan);
+  font-weight: 700;
+  color: var(--festo-green);
   text-transform: capitalize;
 }
 
 .audit-detail {
   margin: 4px 0;
   font-size: 0.82rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .audit-time {
   font-size: 0.7rem;
-  color: rgba(157, 179, 182, 0.7);
+  color: rgba(90, 107, 110, 0.7);
 }
 
 /* ---------- Notificaciones ---------- */
@@ -984,12 +1006,12 @@ button, input, select, textarea {
   right: 0;
   width: 320px;
   max-width: 88vw;
-  background: rgba(12, 22, 24, 0.85);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(148, 197, 197, 0.16);
+  border: 1px solid rgba(20, 44, 48, 0.16);
   border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.144);
   z-index: 70;
   overflow: hidden;
 }
@@ -999,7 +1021,7 @@ button, input, select, textarea {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(148, 197, 197, 0.12);
+  border-bottom: 1px solid rgba(20, 44, 48, 0.12);
   font-size: 0.9rem;
 }
 
@@ -1021,23 +1043,23 @@ button, input, select, textarea {
   padding: 20px;
   text-align: center;
   font-size: 0.82rem;
-  color: #9db3b6;
+  color: #5a6b6e;
 }
 
 .notif-item {
   display: flex;
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(148, 197, 197, 0.08);
+  border-bottom: 1px solid rgba(20, 44, 48, 0.08);
 }
 
 .notif-item.unread {
-  background: rgba(56, 189, 248, 0.06);
+  background: rgba(13, 148, 136, 0.06);
 }
 
 .notif-item-icon { font-size: 1rem; }
 .notif-item-msg { margin: 0; font-size: 0.82rem; }
-.notif-item-time { font-size: 0.68rem; color: #9db3b6; }
+.notif-item-time { font-size: 0.68rem; color: #5a6b6e; }
 
 /* ---------- Toasts ---------- */
 .toast-container {
@@ -1055,14 +1077,14 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(12, 22, 24, 0.9);
-  border: 1px solid rgba(148, 197, 197, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(20, 44, 48, 0.2);
   backdrop-filter: blur(14px);
-  color: #f2f7f7;
+  color: #132024;
   padding: 12px 16px;
   border-radius: 10px;
   font-size: 0.85rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.112);
   animation: toast-in 0.25s ease;
 }
 
@@ -1089,3 +1111,191 @@ button, input, select, textarea {
   .topbar-title { font-size: 0.85rem; }
   .user-pill { display: none; }
 }
+/* ============================================================
+   CLIENTES / PROYECTOS / COTIZACIONES
+   Responsive-first: desktop -> tablet -> mobile
+   ============================================================ */
+.business-grid{display:grid;grid-template-columns:minmax(320px,.82fr) minmax(0,1.35fr);gap:18px;align-items:start}.business-search{max-width:300px}.business-record{gap:18px}.record-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.record-tags-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.quote-items-head,.quote-item-top,.quick-client-head,.quote-mode-global,.quote-project-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px}.quote-items-list{display:flex;flex-direction:column;gap:14px;margin-top:14px}.quote-item{border:1px solid rgba(13, 148, 136, .12);border-radius:16px;padding:16px;background:rgba(244, 248, 248, .28)}.quote-item-grid{display:grid;grid-template-columns:minmax(220px,2fr) minmax(110px,.8fr) minmax(150px,1fr) minmax(150px,1fr) minmax(130px,.8fr);gap:12px;align-items:end;margin-top:12px}.quote-item-description{min-width:0}.quote-item-total{height:42px;border-radius:10px;border:1px solid rgba(13, 148, 136, .12);padding:8px 12px;display:flex;flex-direction:column;justify-content:center;background:rgba(34,66,72,.18)}.quote-item-total span,.margin-live-card span,.quote-summary span{font-size:11px;color:#5a6b6e}.quote-item-total strong{font-size:15px}.quote-item-tools{margin-top:12px}.quote-item-tools>.btn-muted{min-width:150px}.active-tool{border-color:#0d9488!important}.inline-margin-simulator{margin-top:12px;padding:14px;border-radius:14px;border:1px solid rgba(13, 148, 136, .18);background:rgba(34,66,72,.15)}.inline-margin-head{margin-bottom:12px}.inline-margin-head div{display:flex;flex-direction:column;gap:3px}.inline-margin-head span{font-size:12px;color:#5a6b6e}.inline-margin-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end}.margin-live-card{min-height:42px;padding:8px 10px;border-radius:10px;border:1px solid rgba(13, 148, 136, .12);display:flex;flex-direction:column;justify-content:center}.margin-live-card strong{font-size:14px}.btn-small{padding:9px 12px;font-size:12px;margin-top:10px}.quote-mode-global{margin-top:18px;padding:14px;border-radius:14px;border:1px solid rgba(13, 148, 136, .18);background:rgba(34,66,72,.13)}.quote-mode-global>div:first-child,.quote-project-toggle>div:first-child{display:flex;flex-direction:column;gap:3px}.quote-mode-global span,.quote-project-toggle span{font-size:12px;color:#5a6b6e}.quote-mode-switch{display:flex;border:1px solid rgba(13, 148, 136, .18);border-radius:10px;padding:3px;gap:3px}.quote-mode-switch button{border:0;background:transparent;color:inherit;padding:8px 14px;border-radius:8px;cursor:pointer}.quote-mode-switch button.active{background:#224248;color:#fff}.quote-project-toggle{margin:16px 0;padding:14px 16px;border-radius:14px;border:1px solid rgba(13, 148, 136, .15);background:rgba(34,66,72,.12)}.switch-control{position:relative;display:inline-flex;align-items:center;width:48px;height:26px;flex:0 0 auto}.switch-control input{position:absolute;opacity:0;width:0;height:0}.switch-track{width:48px;height:26px;border-radius:20px;background:#c7d3d4;position:relative;transition:.2s;cursor:pointer}.switch-track:after{content:'';position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#ffffff;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:.2s}.switch-control input:checked+.switch-track{background:#224248;box-shadow:0 0 0 1px rgba(13, 148, 136, .3)}.switch-control input:checked+.switch-track:after{transform:translateX(22px)}.quick-client-card{margin:12px 0 16px;padding:14px;border-radius:14px;border:1px solid rgba(13, 148, 136, .18);background:rgba(34,66,72,.12)}.quick-client-plazo{max-width:220px}.quote-finance-grid{display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:16px;align-items:end;margin-top:18px}.igv-switch-row{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:9px 12px;border-radius:10px;border:1px solid rgba(13, 148, 136, .12)}.igv-switch-row span:first-child{display:flex;flex-direction:column;gap:2px}.igv-switch-row small{font-size:11px;color:#5a6b6e}.quote-summary{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;margin-top:16px}.quote-summary>div{padding:12px;border-radius:11px;border:1px solid rgba(13, 148, 136, .11);background:rgba(244, 248, 248, .24);display:flex;flex-direction:column;gap:4px}.quote-summary>div:nth-child(4),.quote-summary>div:nth-child(6),.quote-summary>div:nth-child(7){border-color:rgba(13, 148, 136, .25)}.quote-summary strong{font-size:15px}.quote-actions{margin-top:18px}.quote-filter-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}.quote-filter-bar>.search-input{flex:1;min-width:220px}.quote-filters{display:flex;gap:5px;flex-wrap:wrap}.quote-filters button{border:1px solid rgba(13, 148, 136, .14);background:transparent;color:inherit;border-radius:9px;padding:8px 11px;cursor:pointer}.quote-filters button.active{background:#224248;color:#fff;border-color:#224248}.quote-record .record-actions{max-width:280px}
+@media (max-width:1100px){.business-grid{grid-template-columns:1fr}.quote-item-grid{grid-template-columns:2fr 1fr 1fr}.quote-item-description{grid-column:1/-1}.quote-summary{grid-template-columns:repeat(4,1fr)}.inline-margin-grid{grid-template-columns:1fr 1fr}.quote-finance-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:700px){.business-grid{gap:12px}.section-header,.quote-items-head,.quote-item-top,.quick-client-head,.quote-mode-global,.quote-project-toggle{align-items:flex-start;flex-direction:column}.business-search{max-width:none;width:100%}.quote-items-head .btn-primary{width:100%}.quote-item{padding:12px}.quote-item-grid{grid-template-columns:1fr}.quote-item-description{grid-column:auto}.quote-item-total{height:auto;min-height:42px}.inline-margin-grid{grid-template-columns:1fr}.quote-mode-global .quote-mode-switch{width:100%}.quote-mode-switch button{flex:1}.quote-finance-grid{grid-template-columns:1fr}.quote-summary{grid-template-columns:1fr 1fr}.quote-actions{align-items:stretch;flex-direction:column}.quote-actions button{width:100%}.quote-filter-bar{align-items:stretch;flex-direction:column}.quote-filters{width:100%}.quote-filters button{flex:1;min-width:calc(50% - 4px)}.record-actions{justify-content:flex-start;width:100%}.quote-record .record-actions{max-width:none}.select-with-action{display:flex;flex-direction:column;gap:8px}.select-with-action select{width:100%}.select-with-action .btn-muted{width:100%}.quick-client-plazo{max-width:none}.quote-project-toggle{gap:12px}.quote-project-toggle .switch-control{align-self:flex-end}.igv-switch-row{padding:10px}.record-card{padding:13px}}
+@media (max-width:430px){.quote-summary{grid-template-columns:1fr}.quote-filters button{min-width:100%}.quote-item-tools>.btn-muted{width:100%}}
+
+/* Cotizaciones: datos de margen integrados dentro del ítem */
+.inline-margin-data{margin-top:10px;padding:10px 0 0;border-top:1px solid rgba(13, 148, 136, .12)}
+.inline-margin-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.inline-margin-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+.inline-margin-values>div{min-height:52px;padding:8px 10px;border-radius:9px;border:1px solid rgba(13, 148, 136, .10);background:rgba(244, 248, 248, .20);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.inline-margin-values span{font-size:10px;color:#5a6b6e;text-transform:uppercase;letter-spacing:.04em}
+.inline-margin-values strong{font-size:14px}
+.inline-margin-values small{font-size:9px;color:#5a6b6e}
+.quote-item-total{height:auto;min-height:42px}
+.quote-item-total small{font-size:9px;color:#5a6b6e}
+@media (max-width:1100px){.inline-margin-values{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:700px){.inline-margin-fields{grid-template-columns:1fr}.inline-margin-values{grid-template-columns:1fr 1fr}}
+
+/* Cotización profesional — valorización y margen siempre visibles */
+.quote-item-pro{border:1px solid rgba(13, 148, 136, .16);background:linear-gradient(145deg,rgba(255, 255, 255, .82),rgba(240, 246, 246, .58));box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 28px rgba(15, 23, 42, 0.038);padding:18px}.quote-item-pro-head{margin-bottom:2px}.quote-item-number{display:flex;align-items:center;gap:10px}.quote-item-number>span{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#224248;color:#ffffff;border:1px solid rgba(13, 148, 136, .22);font-size:12px;font-weight:800;letter-spacing:.08em}.quote-item-number>div{display:flex;flex-direction:column;gap:2px}.quote-item-number strong{font-size:14px}.quote-item-number small{font-size:10px;color:#5a6b6e}.quote-item-pro-grid{grid-template-columns:minmax(260px,2.25fr) minmax(90px,.65fr) minmax(170px,1.05fr) minmax(170px,1.05fr);gap:14px;margin-top:14px}.quote-item-pro-grid .form-row label{font-size:10px;text-transform:uppercase;letter-spacing:.06em}.quote-item-pro-grid input{background:rgba(240, 246, 246, .52)}.quote-cost-field{order:3}.quote-value-field{order:4}.quote-qty-field{order:2}.quote-item-metrics-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;padding-top:13px;border-top:1px solid rgba(13, 148, 136, .09)}.quote-item-metrics-head strong{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#20383c}.quote-item-metrics-head span{font-size:10px;color:#5a6b6e}.quote-item-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.quote-metric{min-height:66px;padding:10px 11px;border-radius:11px;border:1px solid rgba(13, 148, 136, .1);background:rgba(240, 246, 246, .4);display:flex;flex-direction:column;justify-content:center;gap:3px}.quote-metric span{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#5a6b6e}.quote-metric strong{font-size:14px;line-height:1.1}.quote-metric small{font-size:9px;color:#5a6b6e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.quote-metric-profit{border-color:rgba(13, 148, 136, .2);background:rgba(34,66,72,.18)}.quote-metric-margin{border-color:rgba(13, 148, 136, .24);background:rgba(34,66,72,.24)}.quote-metric-margin strong{font-size:16px}.quote-margin-strip{display:none}.quote-item-pro .btn-delete{font-size:10px;padding:6px 9px}.quote-item-pro .btn-delete:disabled{opacity:.45}
+@media (max-width:1100px){.quote-item-pro-grid{grid-template-columns:2fr 1fr 1fr}.quote-item-description{grid-column:1/-1}.quote-item-metrics{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:700px){.quote-item-pro{padding:13px}.quote-item-pro-grid{grid-template-columns:1fr}.quote-item-description{grid-column:auto}.quote-item-metrics{grid-template-columns:1fr 1fr}.quote-item-metrics-head{align-items:flex-start;flex-direction:column;gap:3px}.quote-metric small{white-space:normal}.quote-item-number>span{width:30px;height:30px}}
+@media (max-width:430px){.quote-item-metrics{grid-template-columns:1fr}}
+
+/* ============================================================
+   Cotizaciones — simulador inspirado en el Excel anterior
+   ============================================================ */
+.quote-item-pro-grid{grid-template-columns:minmax(260px,2.25fr) minmax(90px,.65fr) minmax(170px,1fr) minmax(170px,1fr);gap:14px}
+.quote-item-totals-pro{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+.quote-item-totals-pro>div{padding:10px 12px;border-top:1px solid rgba(13, 148, 136, .11);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;background:rgba(244, 248, 248, .22)}
+.quote-item-totals-pro span{font-size:10px;color:#5a6b6e;text-transform:uppercase;letter-spacing:.06em}
+.quote-item-totals-pro strong{font-size:15px;text-align:right}
+.quote-item-totals-pro small{font-size:9px;color:#5a6b6e}
+.quote-item-sim-action{display:flex;justify-content:flex-end;margin-top:10px}
+.quote-item-sim-action .btn-muted{min-width:160px}
+.quote-margin-simulator{margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(13, 148, 136, .16);background:rgba(34,66,72,.12)}
+.quote-margin-simulator-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.quote-margin-simulator-title strong{font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.quote-margin-simulator-title span{font-size:10px;color:#5a6b6e}
+.quote-margin-simulator-grid{display:grid;grid-template-columns:minmax(190px,1.4fr) 1fr 1fr;gap:10px;align-items:end}
+.quote-margin-result{min-height:42px;padding:8px 11px;border-radius:9px;border:1px solid rgba(13, 148, 136, .1);background:rgba(240, 246, 246, .42);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.quote-margin-result span{font-size:9px;color:#5a6b6e;text-transform:uppercase;letter-spacing:.06em}
+.quote-margin-result strong{font-size:15px}
+.quote-margin-percent{background:rgba(255,235,0,.09);border-color:rgba(255,235,0,.2)}
+.quote-margin-percent strong{font-size:17px}
+.quote-margin-percent.negative{background:rgba(239, 68, 68, .12);border-color:rgba(239, 68, 68, .22)}
+@media (max-width:1100px){.quote-margin-simulator-grid{grid-template-columns:1.4fr 1fr 1fr}.quote-item-totals-pro{grid-template-columns:1fr 1fr}}
+@media (max-width:700px){.quote-item-totals-pro{grid-template-columns:1fr}.quote-item-totals-pro>div{grid-template-columns:auto 1fr auto}.quote-item-sim-action{justify-content:stretch}.quote-item-sim-action .btn-muted{width:100%}.quote-margin-simulator-title{align-items:flex-start;flex-direction:column;gap:3px}.quote-margin-simulator-grid{grid-template-columns:1fr}}
+
+/* Cotizaciones: IGV fijo y resumen financiero */
+.quote-fixed-igv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 14px 0 18px;
+  border: 1px solid rgba(13, 148, 136, .24);
+  border-radius: 12px;
+  background: rgba(34, 66, 72, .28);
+}
+.quote-fixed-igv span { font-weight: 700; }
+.quote-fixed-igv strong { font-size: 13px; opacity: .9; }
+@media (max-width: 700px) {
+  .quote-fixed-igv { align-items: flex-start; flex-direction: column; }
+}
+
+/* V7: tres métricas del ítem en una sola fila y Directo sin alterar los campos superiores */
+.quote-item-totals-pro{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.quote-direct-value{width:100%;box-sizing:border-box;background:rgba(240, 246, 246, .52);border:1px solid rgba(13, 148, 136, .14);border-radius:9px;color:inherit;padding:8px 10px;font-size:15px;font-weight:700;outline:none}
+.quote-direct-value:focus{border-color:rgba(13, 148, 136, .4);box-shadow:0 0 0 2px rgba(13, 148, 136, .08)}
+@media (max-width:700px){.quote-item-totals-pro{grid-template-columns:1fr 1fr}}
+@media (max-width:430px){.quote-item-totals-pro{grid-template-columns:1fr}}
+
+.quote-item-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.quote-item-actions .btn-small{min-height:34px;padding:7px 12px;font-size:.82rem}.quote-item-actions .btn-delete{border:1px solid rgba(239, 68, 68, .28)}
+@media(max-width:700px){.quote-item-actions{width:100%;justify-content:stretch}.quote-item-actions .btn-small{flex:1}}
+
+/* Cotizaciones: ítems sellados/minimizados */
+.quote-item-pro-head{align-items:center}
+.quote-item-pro-head .quote-item-number small{max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quote-item-pro.is-sealed .quote-item-pro-head{padding-bottom:0}
+@media(max-width:700px){.quote-item-pro-head .quote-item-number{min-width:0;flex:1}.quote-item-pro-head .quote-item-number small{max-width:260px}.quote-item-actions{width:auto;justify-content:flex-end}.quote-item-actions .btn-small{flex:initial}}
+
+/* Margen destacado en amarillo */
+.quote-item-margin-result,
+.quote-item-margin-percent,
+.quote-metric-margin{
+  border-color: rgba(255, 193, 7, .42) !important;
+  background: rgba(255, 193, 7, .10) !important;
+}
+.quote-item-margin-result strong,
+.quote-item-margin-percent strong,
+.quote-metric-margin strong{
+  color: #a16207 !important;
+}
+.quote-item-margin-result span,
+.quote-item-margin-percent span,
+.quote-metric-margin span{
+  color: #92720c !important;
+}
+
+/* ============================================================
+   Cotizaciones — listado profesional / detalle desplegable
+   ============================================================ */
+.quote-list-shell{padding:18px 20px 22px}
+.quote-record-list{display:flex;flex-direction:column;gap:10px}
+.quote-record-pro{position:relative;overflow:visible;border:1px solid rgba(13, 148, 136, .12);border-radius:16px;background:linear-gradient(145deg,rgba(255, 255, 255, .88),rgba(255, 255, 255, .72));box-shadow:0 10px 28px rgba(15, 23, 42, 0.045);transition:border-color .2s,box-shadow .2s,transform .2s}
+.quote-record-pro:hover{border-color:rgba(13, 148, 136, .24);box-shadow:0 14px 34px rgba(15, 23, 42, 0.064);transform:translateY(-1px)}
+.quote-record-pro.is-open{border-color:rgba(13, 148, 136, .28);box-shadow:0 16px 38px rgba(15, 23, 42, 0.07)}
+.quote-record-main{min-height:82px;display:grid;grid-template-columns:minmax(280px,1fr) minmax(150px,190px) auto 42px;gap:18px;align-items:center;padding:16px 16px 12px 18px}
+.quote-record-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.quote-status-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 4px rgba(255,255,255,.035)}
+.quote-status-dot.tag-paid{background:#62d8a6;box-shadow:0 0 0 4px rgba(98,216,166,.09),0 0 14px rgba(98,216,166,.28)}
+.quote-status-dot.tag-approval{background:#e9c45c;box-shadow:0 0 0 4px rgba(233,196,92,.08),0 0 14px rgba(233,196,92,.2)}
+.quote-status-dot.tag-pending{background:#8fa5aa;box-shadow:0 0 0 4px rgba(143,165,170,.07)}
+.quote-record-code{font-size:10px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#5a6b6e;margin-bottom:3px}
+.quote-record-identity h4{margin:0;font-size:15px;line-height:1.3;color:#132024;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quote-record-subline{display:flex;gap:7px;align-items:center;margin-top:5px;color:#5a6b6e;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quote-record-finance{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+.quote-record-finance span{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:#5a6b6e}
+.quote-record-finance strong{font-size:17px;line-height:1.15;color:#132024}
+.quote-record-finance small{font-size:10px;color:#92720c}
+.quote-record-status{display:flex;justify-content:flex-end}
+.quote-record-status .code-tag{white-space:nowrap}
+.quote-record-menu-wrap{position:relative;display:flex;justify-content:flex-end;align-self:stretch;align-items:center}
+.quote-more-btn{width:34px;height:34px;border-radius:10px;border:1px solid rgba(13, 148, 136, .12);background:rgba(240, 246, 246, .35);color:#5a6b6e;font-size:21px;line-height:1;cursor:pointer;transition:.18s}
+.quote-more-btn:hover{background:var(--festo-green-deep);color:#fff;border-color:var(--festo-green-deep)}
+.quote-action-menu{position:absolute;z-index:40;top:43px;right:0;width:205px;padding:6px;border:1px solid rgba(13, 148, 136, .18);border-radius:12px;background:rgba(255, 255, 255, .98);box-shadow:0 18px 42px rgba(15, 23, 42, 0.144);backdrop-filter:blur(18px)}
+.quote-action-menu button{width:100%;display:flex;align-items:center;gap:9px;border:0;background:transparent;color:#20383c;text-align:left;padding:10px 11px;border-radius:8px;font-size:11px;cursor:pointer}
+.quote-action-menu button:hover{background:var(--festo-green-deep);color:#fff}
+.quote-action-menu button.danger{color:#dc2626}
+.quote-action-menu button.danger:hover{background:#ef4444;color:#fff}
+.quote-action-menu button span{flex:1}
+.quote-menu-separator{height:1px;background:rgba(13, 148, 136, .09);margin:5px 3px}
+.quote-expand-bar{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 18px 10px;border:0;border-top:1px solid rgba(13, 148, 136, .07);background:transparent;color:#5a6b6e;font-size:10px;text-align:left;cursor:pointer}
+.quote-expand-bar:hover{color:#20383c;background:rgba(34,66,72,.08)}
+.quote-expand-chevron{font-size:16px;line-height:10px;transition:transform .2s}
+.quote-expand-chevron.open{transform:rotate(180deg)}
+.quote-record-detail{padding:0 18px 17px;border-top:1px solid rgba(13, 148, 136, .06);animation:quoteDetailIn .18s ease-out}
+@keyframes quoteDetailIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.quote-detail-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding-top:14px}
+.quote-detail-grid>div{min-height:56px;padding:9px 11px;border:1px solid rgba(13, 148, 136, .09);border-radius:10px;background:rgba(240, 246, 246, .3);display:flex;flex-direction:column;justify-content:center;gap:4px}
+.quote-detail-grid span,.quote-detail-description>span,.quote-detail-item>div>span{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#5a6b6e}
+.quote-detail-grid strong{font-size:12px;color:#132024}
+.quote-detail-margin{border-color:rgba(255,193,7,.3)!important;background:rgba(255,193,7,.08)!important}
+.quote-detail-margin strong{color:#a16207!important}
+.quote-detail-description{margin-top:10px;padding:11px 13px;border:1px solid rgba(13, 148, 136, .08);border-radius:10px;background:rgba(240, 246, 246, .22)}
+.quote-detail-description p{margin:5px 0 0;color:#5a6b6e;font-size:11px;line-height:1.5}
+.quote-detail-items-head{display:flex;justify-content:space-between;align-items:center;margin:15px 0 7px;color:#20383c}
+.quote-detail-items-head strong{font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+.quote-detail-items-head span{font-size:10px;color:#5a6b6e}
+.quote-detail-items{display:flex;flex-direction:column;gap:5px}
+.quote-detail-item{display:grid;grid-template-columns:34px minmax(180px,1fr) 125px 95px;gap:12px;align-items:center;padding:9px 10px;border:1px solid rgba(13, 148, 136, .07);border-radius:9px;background:rgba(240, 246, 246, .35)}
+.quote-detail-item-num{width:27px;height:27px;display:grid;place-items:center;border-radius:7px;background:#224248;color:#ffffff;font-size:9px;font-weight:800}
+.quote-detail-item-name{display:flex;flex-direction:column;min-width:0;gap:3px}
+.quote-detail-item-name strong{font-size:11px;color:#132024;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quote-detail-item-name small{font-size:9px;color:#5a6b6e}
+.quote-detail-item>div:not(.quote-detail-item-num):not(.quote-detail-item-name){display:flex;flex-direction:column;gap:2px;text-align:right}
+.quote-detail-item>div:not(.quote-detail-item-num):not(.quote-detail-item-name) strong{font-size:11px;color:#132024}
+.quote-detail-item-margin strong{color:#a16207!important}
+@media(max-width:900px){.quote-record-main{grid-template-columns:minmax(220px,1fr) auto 42px}.quote-record-status{display:none}.quote-detail-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.quote-detail-item{grid-template-columns:32px minmax(150px,1fr) 110px 80px}}
+@media(max-width:700px){.quote-list-shell{padding:14px}.quote-record-main{grid-template-columns:minmax(0,1fr) 42px;gap:10px;padding:14px 13px 10px}.quote-record-finance{display:none}.quote-record-identity h4{font-size:14px}.quote-record-subline{white-space:normal;flex-wrap:wrap}.quote-record-menu-wrap{grid-column:2;grid-row:1}.quote-expand-bar{padding:8px 13px 10px}.quote-record-detail{padding:0 13px 14px}.quote-detail-grid{grid-template-columns:1fr 1fr}.quote-detail-item{grid-template-columns:30px minmax(0,1fr);gap:9px}.quote-detail-item>div:not(.quote-detail-item-num):not(.quote-detail-item-name){text-align:left}.quote-detail-item>div:nth-child(3),.quote-detail-item>div:nth-child(4){grid-column:2;display:inline-flex;flex-direction:row;justify-content:space-between;align-items:center;border-top:1px solid rgba(13, 148, 136, .06);padding-top:6px}.quote-action-menu{right:0;width:200px}}
+@media(max-width:430px){.quote-detail-grid{grid-template-columns:1fr}.quote-record-main{min-height:74px}.quote-record-subline span:nth-child(2){display:none}}
+
+/* V11 - Proyecto obligatorio en cotizaciones */
+.quote-project-required { position: relative; }
+.quote-project-required input { border-color: rgba(34, 66, 72, .45); }
+.quote-project-required small { display:block; margin-top:6px; color:rgba(90, 107, 110, .68); font-size:11px; }
+
+/* V14 - Roles y Permisos */
+.roles-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.role-card-head { margin-bottom: 6px; }
+.role-permisos-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.role-permisos-group { border: 1px solid rgba(13, 148, 136, .14); border-radius: 12px; padding: 12px 14px; background: rgba(244, 248, 248, .3); }
+.role-group-title { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #5a6b6e; margin-bottom: 8px; }
+.role-permisos-grid { display: flex; flex-direction: column; gap: 8px; }
+.role-permiso-item { font-size: 13.5px; }
+.role-permiso-item.disabled { opacity: .65; }
+@media (max-width: 1100px) { .roles-grid { grid-template-columns: 1fr; } }
+
+/* V15 - Gestión de usuarios (contraseñas) dentro de Roles y Permisos */
+.role-password-row { margin: 10px 0 16px; }
+.role-password-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.role-password-form input { flex: 1; min-width: 200px; }

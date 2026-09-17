@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import OneSignal from 'react-onesignal';
 import './App.css';
+import { Clientes, Proyectos, Cotizaciones } from './modules/BusinessModules';
+import { GestionRoles } from './modules/RolesModule';
+import { PERMISOS_DEFECTO, obtenerPermisos } from './permissions';
 
 /* ============================================================
    CONFIGURACIÓN GLOBAL
    ============================================================ */
 
-const USUARIOS_VALIDOS = {
+// Respaldo temporal: si en Supabase todavía no se ejecutó
+// supabase_usuarios_v15.sql, el login sigue funcionando con estas
+// credenciales fijas para no dejar a nadie fuera del sistema.
+const USUARIOS_VALIDOS_RESPALDO = {
   gonzalo: 'ADMIN9090',
   rodrigo: 'ADMIN8080',
   mar: 'ADMIN7070',
@@ -91,7 +97,7 @@ function TendenciaGastos({ datos, tema }) {
       <defs>
         <linearGradient id="gradTendencia" x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor="#224248" />
-          <stop offset="100%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#0d9488" />
         </linearGradient>
       </defs>
       {datos.map((d, i) => {
@@ -232,13 +238,9 @@ function App() {
   const [inputPass, setInputPass] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
 
-  const [modoOscuro, setModoOscuro] = useState(() => {
-    return localStorage.getItem('festos_modo_oscuro') !== 'false';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('festos_modo_oscuro', modoOscuro);
-  }, [modoOscuro]);
+  // Tema fijo: interfaz profesional en blanco + verde petróleo Festos.
+  // (Se eliminó el selector de modo oscuro/claro a pedido del cliente.)
+  const modoOscuro = false;
 
   // --- SIDEBAR (única navegación de la app) ---
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -318,20 +320,49 @@ function App() {
     });
   };
 
-  // Manejo de Inicio de Sesión (Credenciales estrictas para los 4 usuarios de la empresa)
-  const manejarLogin = (e) => {
+  // Manejo de Inicio de Sesión: valida contra la tabla real de usuarios en
+  // Supabase (creada por supabase_usuarios_v15.sql). Si esa función aún no
+  // existe (script no ejecutado todavía), cae de respaldo a las 4
+  // credenciales fijas originales para no dejar a nadie sin acceso.
+  const [verificandoLogin, setVerificandoLogin] = useState(false);
+
+  const manejarLogin = async (e) => {
     e.preventDefault();
     setErrorLogin('');
+    const userInput = inputUser.trim();
+    const passInput = inputPass;
+    if (!userInput || !passInput) return;
 
-    const userLower = inputUser.trim().toLowerCase();
+    setVerificandoLogin(true);
+    try {
+      const { data, error } = await supabase.rpc('verificar_login', {
+        p_usuario: userInput,
+        p_password: passInput,
+      });
+      if (error) throw error;
 
-    if (USUARIOS_VALIDOS[userLower] && USUARIOS_VALIDOS[userLower] === inputPass) {
-      localStorage.setItem('festos_sesion_usuario', inputUser.trim());
-      setUsuarioLogueado(inputUser.trim());
-      setInputUser('');
-      setInputPass('');
-    } else {
-      setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
+      if (data && data.length > 0) {
+        const usuarioValido = data[0].usuario;
+        localStorage.setItem('festos_sesion_usuario', usuarioValido);
+        setUsuarioLogueado(usuarioValido);
+        setInputUser('');
+        setInputPass('');
+      } else {
+        setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
+      }
+    } catch (err) {
+      console.warn('No se pudo validar el login contra Supabase, usando respaldo local.', err);
+      const userLower = userInput.toLowerCase();
+      if (USUARIOS_VALIDOS_RESPALDO[userLower] && USUARIOS_VALIDOS_RESPALDO[userLower] === passInput) {
+        localStorage.setItem('festos_sesion_usuario', userLower);
+        setUsuarioLogueado(userLower);
+        setInputUser('');
+        setInputPass('');
+      } else {
+        setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
+      }
+    } finally {
+      setVerificandoLogin(false);
     }
   };
 
@@ -339,6 +370,37 @@ function App() {
     localStorage.removeItem('festos_sesion_usuario');
     setUsuarioLogueado('');
   };
+
+  // --- ROLES Y PERMISOS ---
+  const [permisosPorUsuario, setPermisosPorUsuario] = useState(() => {
+    try {
+      const guardado = localStorage.getItem('festos_roles_permisos');
+      return guardado ? { ...PERMISOS_DEFECTO, ...JSON.parse(guardado) } : PERMISOS_DEFECTO;
+    } catch (e) {
+      return PERMISOS_DEFECTO;
+    }
+  });
+
+  const cargarPermisos = async () => {
+    try {
+      const { data, error } = await supabase.from('roles_permisos').select('*');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        const mapa = { ...PERMISOS_DEFECTO };
+        data.forEach(fila => {
+          mapa[fila.usuario] = { rol_label: fila.rol_label, ...fila.permisos };
+        });
+        setPermisosPorUsuario(mapa);
+        try { localStorage.setItem('festos_roles_permisos', JSON.stringify(mapa)); } catch (e) { /* no-op */ }
+      }
+    } catch (err) {
+      // Si la tabla aún no existe en Supabase (no se corrió supabase_roles_v14.sql),
+      // la app sigue funcionando con los permisos por defecto / guardados localmente.
+      console.warn('No se pudo cargar roles_permisos desde Supabase, usando valores locales.', err);
+    }
+  };
+
+  const misPermisos = obtenerPermisos(permisosPorUsuario, usuarioLogueado);
 
   const [vista, setVista] = useState('dashboard');
   const [pagos, setPagos] = useState([]);
@@ -402,8 +464,24 @@ function App() {
   useEffect(() => {
     if (usuarioLogueado) {
       obtenerPagos();
+      cargarPermisos();
     }
   }, [usuarioLogueado]);
+
+  // Si el usuario pierde acceso a la vista en la que está (por un cambio de
+  // permisos), lo regresamos al Dashboard para evitar pantallas huérfanas.
+  useEffect(() => {
+    const requiereVer = {
+      clientes: misPermisos.ver_clientes,
+      proyectos: misPermisos.ver_proyectos,
+      cotizaciones: misPermisos.ver_cotizaciones,
+      roles: misPermisos.gestionar_roles,
+    };
+    if (vista in requiereVer && !requiereVer[vista]) {
+      setVista('dashboard');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista, usuarioLogueado, permisosPorUsuario]);
 
   const obtenerPagos = async () => {
     const { data, error } = await supabase.from('pagos').select('*');
@@ -791,6 +869,10 @@ function App() {
     { id: 'historial', icono: '📂', label: 'Historial' },
     { id: 'auditoria', icono: '🕵️', label: 'Auditoría' },
     { id: 'asistente', icono: '🤖', label: 'Asistente IA' },
+    ...(misPermisos.ver_clientes ? [{ id: 'clientes', icono: '👥', label: 'Clientes' }] : []),
+    ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: '📁', label: 'Proyectos' }] : []),
+    ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: '📑', label: 'Cotizaciones' }] : []),
+    ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: '🔐', label: 'Roles y Permisos' }] : []),
   ];
 
   const irAVista = (id) => {
@@ -842,7 +924,9 @@ function App() {
               />
             </div>
 
-            <button type="submit" className="login-submit">Iniciar Sesión</button>
+            <button type="submit" className="login-submit" disabled={verificandoLogin}>
+              {verificandoLogin ? 'Verificando...' : 'Iniciar Sesión'}
+            </button>
           </form>
 
           <p className="login-footnote">FESTOS · Sistema interno de control de pagos y compras</p>
@@ -904,14 +988,6 @@ function App() {
           </div>
 
           <div className="topbar-right">
-            <button
-              className="icon-btn"
-              onClick={() => setModoOscuro(!modoOscuro)}
-              title="Cambiar Modo Oscuro/Claro"
-            >
-              {modoOscuro ? '☀️' : '🌙'}
-            </button>
-
             <CentroNotificaciones
               notificaciones={notificaciones}
               panelAbierto={panelNotifAbierto}
@@ -975,9 +1051,9 @@ function App() {
                   <p className="stat-label">Total Por Pagar</p>
                   <h2 className="stat-value" style={{ color: '#f59e0b' }}>S/. {montoPendienteTotal.toFixed(2)}</h2>
                 </div>
-                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(56,189,248,0.6)' }}>
+                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(13,148,136,0.6)' }}>
                   <p className="stat-label">Registros con Factura</p>
-                  <h2 className="stat-value" style={{ color: '#38bdf8' }}>{totalConFactura} / {pagos.length}</h2>
+                  <h2 className="stat-value" style={{ color: '#0d9488' }}>{totalConFactura} / {pagos.length}</h2>
                 </div>
                 <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(239,68,68,0.6)' }}>
                   <p className="stat-label">En Aprobación (Control Dual)</p>
@@ -990,7 +1066,7 @@ function App() {
                   <h4 className="panel-title">📌 Cobertura de Facturación</h4>
                   <AnilloProgreso
                     porcentaje={porcentajeConFactura}
-                    color="#38bdf8"
+                    color="#0d9488"
                     pistaColor={tema.border}
                     texto={`${porcentajeConFactura.toFixed(0)}%`}
                     subtexto="con factura"
@@ -1249,6 +1325,44 @@ function App() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* VISTA: CLIENTES */}
+          {vista === 'clientes' && misPermisos.ver_clientes && (
+            <Clientes
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+              puedeGestionar={!!misPermisos.gestionar_clientes}
+            />
+          )}
+
+          {/* VISTA: PROYECTOS */}
+          {vista === 'proyectos' && misPermisos.ver_proyectos && (
+            <Proyectos
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+              puedeGestionar={!!misPermisos.gestionar_proyectos}
+            />
+          )}
+
+          {/* VISTA: COTIZACIONES */}
+          {vista === 'cotizaciones' && misPermisos.ver_cotizaciones && (
+            <Cotizaciones
+              usuario={usuarioLogueado}
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+              puedeAprobar={!!misPermisos.aprobar_cotizaciones}
+            />
+          )}
+
+          {/* VISTA: ROLES Y PERMISOS (solo HEAD ADMIN) */}
+          {vista === 'roles' && misPermisos.gestionar_roles && (
+            <GestionRoles
+              usuarioActual={usuarioLogueado}
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+              onCambio={cargarPermisos}
+            />
           )}
 
           {/* VISTA: ASISTENTE IA */}
