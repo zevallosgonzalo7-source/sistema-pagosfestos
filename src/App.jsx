@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import OneSignal from 'react-onesignal';
 import './App.css';
-import { Clientes, Proyectos, Cotizaciones } from './modules/BusinessModules';
+import { Clientes, Proveedores, Proyectos, Cotizaciones } from './modules/BusinessModules';
 import { GestionRoles } from './modules/RolesModule';
 import { PERMISOS_DEFECTO, obtenerPermisos } from './permissions';
 
@@ -473,6 +473,7 @@ function App() {
   useEffect(() => {
     const requiereVer = {
       clientes: misPermisos.ver_clientes,
+      proveedores: misPermisos.ver_proveedores,
       proyectos: misPermisos.ver_proyectos,
       cotizaciones: misPermisos.ver_cotizaciones,
       roles: misPermisos.gestionar_roles,
@@ -870,6 +871,7 @@ function App() {
     { id: 'auditoria', icono: '🕵️', label: 'Auditoría' },
     { id: 'asistente', icono: '🤖', label: 'Asistente IA' },
     ...(misPermisos.ver_clientes ? [{ id: 'clientes', icono: '👥', label: 'Clientes' }] : []),
+    ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: '🚚', label: 'Proveedores' }] : []),
     ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: '📁', label: 'Proyectos' }] : []),
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: '📑', label: 'Cotizaciones' }] : []),
     ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: '🔐', label: 'Roles y Permisos' }] : []),
@@ -1333,6 +1335,15 @@ function App() {
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
               puedeGestionar={!!misPermisos.gestionar_clientes}
+            />
+          )}
+
+          {/* VISTA: PROVEEDORES */}
+          {vista === 'proveedores' && misPermisos.ver_proveedores && (
+            <Proveedores
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+              puedeGestionar={!!misPermisos.gestionar_proveedores}
             />
           )}
 

@@ -15,6 +15,8 @@
 export const CAMPOS_PERMISOS = [
   { key: 'ver_clientes', label: 'Ver el apartado de Clientes', grupo: 'Clientes' },
   { key: 'gestionar_clientes', label: 'Crear, editar y activar/desactivar clientes', grupo: 'Clientes' },
+  { key: 'ver_proveedores', label: 'Ver el apartado de Proveedores', grupo: 'Proveedores' },
+  { key: 'gestionar_proveedores', label: 'Crear, editar y activar/desactivar proveedores', grupo: 'Proveedores' },
   { key: 'ver_proyectos', label: 'Ver el apartado de Proyectos', grupo: 'Proyectos' },
   { key: 'gestionar_proyectos', label: 'Crear y editar proyectos', grupo: 'Proyectos' },
   { key: 'ver_cotizaciones', label: 'Ver el apartado de Cotizaciones', grupo: 'Cotizaciones' },
@@ -39,6 +41,8 @@ export const PERMISOS_DEFECTO = {
     rol_label: 'HEAD ADMIN',
     ver_clientes: true,
     gestionar_clientes: true,
+    ver_proveedores: true,
+    gestionar_proveedores: true,
     ver_proyectos: true,
     gestionar_proyectos: true,
     ver_cotizaciones: true,
@@ -50,6 +54,8 @@ export const PERMISOS_DEFECTO = {
     rol_label: 'ADMIN',
     ver_clientes: true,
     gestionar_clientes: true,
+    ver_proveedores: true,
+    gestionar_proveedores: true,
     ver_proyectos: true,
     gestionar_proyectos: true,
     ver_cotizaciones: true,
@@ -65,6 +71,8 @@ export const PERMISOS_DEFECTO = {
     rol_label: 'Desarrollador Software',
     ver_clientes: true,
     gestionar_clientes: true,
+    ver_proveedores: true,
+    gestionar_proveedores: true,
     ver_proyectos: true,
     gestionar_proyectos: true,
     ver_cotizaciones: true,
@@ -76,6 +84,8 @@ export const PERMISOS_DEFECTO = {
     rol_label: 'COMERCIAL',
     ver_clientes: true,
     gestionar_clientes: false,
+    ver_proveedores: true,
+    gestionar_proveedores: false,
     ver_proyectos: true,
     gestionar_proyectos: false,
     ver_cotizaciones: true,
@@ -90,6 +100,8 @@ export const PERMISOS_VACIOS = {
   rol_label: 'Sin rol asignado',
   ver_clientes: false,
   gestionar_clientes: false,
+  ver_proveedores: false,
+  gestionar_proveedores: false,
   ver_proyectos: false,
   gestionar_proyectos: false,
   ver_cotizaciones: false,
@@ -100,5 +112,10 @@ export const PERMISOS_VACIOS = {
 
 export function obtenerPermisos(mapaPermisos, usuario) {
   const clave = (usuario || '').trim().toLowerCase();
-  return (mapaPermisos && mapaPermisos[clave]) || PERMISOS_DEFECTO[clave] || PERMISOS_VACIOS;
+  const base = PERMISOS_DEFECTO[clave] || PERMISOS_VACIOS;
+  const guardado = mapaPermisos && mapaPermisos[clave];
+  // Se combinan: lo guardado en Supabase manda, pero cualquier permiso
+  // nuevo que no exista todavía en filas antiguas cae al valor por defecto
+  // en vez de desaparecer silenciosamente.
+  return guardado ? { ...base, ...guardado } : base;
 }

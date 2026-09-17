@@ -395,6 +395,8 @@ button, input, select, textarea {
 }
 
 .topbar {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1111,6 +1113,66 @@ button, input, select, textarea {
   .topbar-title { font-size: 0.85rem; }
   .user-pill { display: none; }
 }
+
+/* ============================================================
+   ENDURECIMIENTO MÓVIL GENERAL
+   - Evita el auto-zoom de iOS en inputs/selects (letra < 16px)
+   - Asegura tamaños de toque mínimos y que nada se corte lateralmente
+   ============================================================ */
+@media (max-width: 768px) {
+  .form-row input,
+  .form-row select,
+  .form-row textarea,
+  .search-input,
+  .business-search,
+  input[type='text'],
+  input[type='number'],
+  input[type='email'],
+  input[type='password'],
+  input[type='tel'],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-muted,
+  .btn-delete,
+  .btn-approve,
+  .btn-upload,
+  .btn-export {
+    min-height: 42px;
+  }
+
+  .modal-card {
+    max-width: 100%;
+    padding: 20px;
+  }
+
+  .quote-item-pro-grid,
+  .quote-item-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .select-with-action {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .select-with-action select,
+  .select-with-action .btn-muted {
+    width: 100%;
+  }
+
+  table { display: block; overflow-x: auto; }
+}
+
 /* ============================================================
    CLIENTES / PROYECTOS / COTIZACIONES
    Responsive-first: desktop -> tablet -> mobile
