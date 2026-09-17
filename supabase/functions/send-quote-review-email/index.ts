@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ from: fromEmail, to: recipients, subject, html }),
     })
 
-    const resendBody = await resendResponse.json().catch(() => ({}))
+    const resendBody: { id?: string; message?: string } = await resendResponse.json().catch(() => ({}))
     if (!resendResponse.ok) {
       const message = resendBody?.message || 'Resend rechazó el envío.'
       await admin.from('cotizacion_notificaciones').update({ estado: 'error', error_mensaje: message }).eq('id', notification.id)

@@ -6,7 +6,7 @@ const IGV_RATE = 0.18;
 const money = (v) => `S/. ${(Number(v) || 0).toFixed(2)}`;
 const num = (v) => { const n = Number.parseFloat(v); return Number.isFinite(n) ? n : 0; };
 const id = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-const REVISION_RECIPIENTS = ['administracion@festosmkt.com', 'gonzalo@festosmkt.com'];
+const REVISION_RECIPIENTS = ['zevallosgonzalo7@gmail.com'];
 const registrarAvisoEmail = async (quoteId, codigo, tipo) => {
   const { error } = await supabase.from('cotizacion_notificaciones').upsert([{
     cotizacion_id: quoteId,
