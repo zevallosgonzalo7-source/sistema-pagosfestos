@@ -485,8 +485,8 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
         <select className="business-payment-filter" value={filtroCargador} onChange={e => setFiltroCargador(e.target.value)}><option value="TODOS">Ejecutivo: Todos</option>{cargadores.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select>
         <select className="business-payment-filter" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">LOB: Todos</option>{lobsProyecto.map(lob => <option key={lob} value={lob}>{lob}</option>)}</select>
         <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEstado('TODOS'); setFiltroCargador('TODOS'); setFiltroLob('TODOS'); }}>Limpiar filtros</button>
-        <div className="project-filter-total"><span>Subtotal filtrado</span><strong>{money(subtotalFiltrado)}</strong></div>
       </div>
+      <div className="project-filter-subtotal-row"><div className="project-filter-total"><span>Subtotal filtrado</span><strong>{money(subtotalFiltrado)}</strong></div></div>
     </div>
     <div className="business-record-list">
       {filtrados.length === 0 ? <p className="empty-hint">No hay proyectos con los filtros actuales.</p> : filtrados.map(p => {

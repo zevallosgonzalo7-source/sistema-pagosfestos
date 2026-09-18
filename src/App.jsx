@@ -249,6 +249,18 @@ function App() {
   const [inputPass, setInputPass] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
 
+  // Perfil del usuario: nombre visible y foto se guardan localmente para no alterar
+  // la estructura actual de usuarios. La contraseña sí se actualiza mediante el RPC existente.
+  const [perfilNombre, setPerfilNombre] = useState(() => localStorage.getItem('festos_perfil_nombre') || '');
+  const [perfilFoto, setPerfilFoto] = useState(() => localStorage.getItem('festos_perfil_foto') || '');
+  const [perfilMenuAbierto, setPerfilMenuAbierto] = useState(false);
+  const [perfilModalAbierto, setPerfilModalAbierto] = useState(false);
+  const [perfilNombreEdit, setPerfilNombreEdit] = useState('');
+  const [perfilFotoEdit, setPerfilFotoEdit] = useState('');
+  const [perfilPassword, setPerfilPassword] = useState('');
+  const [perfilPasswordConfirm, setPerfilPasswordConfirm] = useState('');
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+
   // Tema fijo: interfaz profesional en blanco + verde petróleo Festos.
   // (Se eliminó el selector de modo oscuro/claro a pedido del cliente.)
   const modoOscuro = false;
@@ -377,7 +389,69 @@ function App() {
     }
   };
 
+  const abrirPerfil = () => {
+    setPerfilNombreEdit(perfilNombre || usuarioLogueado);
+    setPerfilFotoEdit(perfilFoto || '');
+    setPerfilPassword('');
+    setPerfilPasswordConfirm('');
+    setPerfilMenuAbierto(false);
+    setPerfilModalAbierto(true);
+  };
+
+  const seleccionarFotoPerfil = (e) => {
+    const archivoFoto = e.target.files?.[0];
+    if (!archivoFoto) return;
+    if (!archivoFoto.type.startsWith('image/')) return alert('Selecciona una imagen válida.');
+    const lector = new FileReader();
+    lector.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 420;
+        const escala = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * escala));
+        canvas.height = Math.max(1, Math.round(img.height * escala));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setPerfilFotoEdit(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = lector.result;
+    };
+    lector.readAsDataURL(archivoFoto);
+  };
+
+  const guardarPerfil = async (e) => {
+    e.preventDefault();
+    const nombre = perfilNombreEdit.trim();
+    if (!nombre) return alert('El nombre es obligatorio.');
+    if (perfilPassword && perfilPassword.length < 4) return alert('La nueva contraseña debe tener al menos 4 caracteres.');
+    if (perfilPassword !== perfilPasswordConfirm) return alert('Las contraseñas no coinciden.');
+    setGuardandoPerfil(true);
+    try {
+      localStorage.setItem('festos_perfil_nombre', nombre);
+      localStorage.setItem('festos_perfil_foto', perfilFotoEdit || '');
+      setPerfilNombre(nombre);
+      setPerfilFoto(perfilFotoEdit || '');
+      if (perfilPassword) {
+        const { error } = await supabase.rpc('cambiar_password', {
+          p_usuario: usuarioLogueado,
+          p_password_nueva: perfilPassword,
+          p_actor: usuarioLogueado,
+        });
+        if (error) throw error;
+      }
+      setPerfilModalAbierto(false);
+      agregarNotificacion('Perfil actualizado correctamente.', 'edicion');
+    } catch (err) {
+      console.error(err);
+      alert(`No se pudo actualizar el perfil. ${err?.message || ''}`);
+    } finally {
+      setGuardandoPerfil(false);
+    }
+  };
+
   const cerrarSesion = () => {
+    setPerfilMenuAbierto(false);
     localStorage.removeItem('festos_sesion_usuario');
     setUsuarioLogueado('');
   };
@@ -907,11 +981,14 @@ function App() {
         <div className="login-center">
           <form onSubmit={manejarLogin} className="login-card">
             <div className="login-brand">
-              <img src="/festoslogo.jpeg" alt="Festos" className="login-brand-img" />
+              <div className="login-brand-logo">
+                <img src="/festoslogo-header.png" alt="Festos" className="login-brand-img" />
+              </div>
+              <div className="login-brand-copy">
+                <strong>FESTOS GESTIÓN EMPRESARIAL</strong>
+                <span>OPERACIONES Y ADMINISTRACIÓN</span>
+              </div>
             </div>
-
-            <h2 className="login-title">Control Festos</h2>
-            <p className="login-subtitle">Acceso exclusivo para el equipo autorizado</p>
 
             {errorLogin && <div className="login-error">{errorLogin}</div>}
 
@@ -942,7 +1019,7 @@ function App() {
             </button>
           </form>
 
-          <p className="login-footnote">FESTOS · Sistema interno de control de pagos y compras</p>
+          <p className="login-footnote">FESTOS · Gestión operativa, comercial y administrativa</p>
         </div>
       </div>
     );
@@ -960,11 +1037,7 @@ function App() {
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <img src="/festoslogo.jpeg" alt="Festos" />
-          <div className="sidebar-brand-text">
-            Control Festos
-            <span>Pagos y compras</span>
-          </div>
+          <img src="/festoslogo-Photoroom.png" alt="Festos" />
         </div>
 
         <nav className="sidebar-nav">
@@ -997,7 +1070,12 @@ function App() {
                 <span></span><span></span><span></span>
               </span>
             </button>
-            <span className="topbar-title">Control de Pagos y Compras FESTOS</span>
+            <div className="topbar-brand">
+              <div className="topbar-brand-copy">
+                <strong>FESTOS GESTIÓN EMPRESARIAL</strong>
+                <span>OPERACIONES Y ADMINISTRACIÓN</span>
+              </div>
+            </div>
           </div>
 
           <div className="topbar-right">
@@ -1008,13 +1086,53 @@ function App() {
               marcarTodasLeidas={marcarTodasLeidas}
             />
 
-            <div className="user-profile-pill"><span className="user-avatar">👤</span><div className="user-profile-text"><strong>{usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span></div></div>
+            <div className="profile-menu-wrap">
+              <button type="button" className="user-profile-pill" onClick={() => setPerfilMenuAbierto(v => !v)} aria-label="Abrir menú de perfil">
+                <span className="user-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : '👤'}</span>
+                <div className="user-profile-text"><strong>{perfilNombre || usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span></div>
+                <span className="profile-more-dots">⋮</span>
+              </button>
+              {perfilMenuAbierto && (
+                <>
+                  <div className="profile-menu-backdrop" onClick={() => setPerfilMenuAbierto(false)} />
+                  <div className="profile-menu">
+                    <div className="profile-menu-user"><span className="profile-menu-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : '👤'}</span><div><strong>{perfilNombre || usuarioLogueado}</strong><small>{cargoUsuario(usuarioLogueado)}</small></div></div>
+                    <button type="button" onClick={abrirPerfil}>👤 <span>Ver perfil</span></button>
+                    <button type="button" onClick={abrirPerfil}>⚙️ <span>Preferencias de cuenta</span></button>
+                    <div className="profile-menu-separator" />
+                    <button type="button" className="danger" onClick={cerrarSesion}>↪ <span>Cerrar sesión</span></button>
+                  </div>
+                </>
+              )}
+            </div>
 
             <button onClick={cerrarSesion} className="logout-btn">Salir 🚪</button>
           </div>
         </header>
 
         <div className="content-container">
+
+          {perfilModalAbierto && (
+            <div className="modal-overlay" onClick={() => !guardandoPerfil && setPerfilModalAbierto(false)}>
+              <form className="glass-card modal-card profile-modal" onSubmit={guardarPerfil} onClick={e => e.stopPropagation()}>
+                <div className="modal-head">
+                  <div><h4 className="panel-title">👤 Mi perfil</h4><p className="panel-note">Personaliza cómo apareces dentro de FESTOS.</p></div>
+                  <button type="button" className="modal-close-btn" onClick={() => setPerfilModalAbierto(false)}>×</button>
+                </div>
+                <div className="profile-hero">
+                  <div className="profile-avatar-large">{perfilFotoEdit ? <img src={perfilFotoEdit} alt="Foto de perfil" /> : '👤'}</div>
+                  <div><strong>{perfilNombre || usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span><label className="profile-upload-btn">📷 Cambiar foto<input type="file" accept="image/*" onChange={seleccionarFotoPerfil} /></label></div>
+                </div>
+                <div className="profile-section-title">Información personal</div>
+                <div className="form-row"><label>Nombre visible</label><input value={perfilNombreEdit} onChange={e => setPerfilNombreEdit(e.target.value)} placeholder="Tu nombre" /></div>
+                <div className="profile-info-grid"><div><span>Usuario de acceso</span><strong>{usuarioLogueado}</strong></div><div><span>Cargo</span><strong>{cargoUsuario(usuarioLogueado)}</strong></div></div>
+                <div className="profile-section-title">Seguridad</div>
+                <div className="form-grid-2"><div className="form-row"><label>Nueva contraseña</label><input type="password" value={perfilPassword} onChange={e => setPerfilPassword(e.target.value)} placeholder="Mínimo 4 caracteres" /></div><div className="form-row"><label>Confirmar contraseña</label><input type="password" value={perfilPasswordConfirm} onChange={e => setPerfilPasswordConfirm(e.target.value)} placeholder="Repite la contraseña" /></div></div>
+                <div className="profile-tip">🔐 Puedes cambiar tu contraseña cuando quieras. Tu sesión actual se mantiene activa.</div>
+                <div className="modal-actions"><button className="btn-primary" disabled={guardandoPerfil}>{guardandoPerfil ? 'Guardando...' : 'Guardar perfil'}</button><button type="button" className="btn-secondary" onClick={() => setPerfilModalAbierto(false)}>Cancelar</button></div>
+              </form>
+            </div>
+          )}
 
           {/* MODAL / FORMULARIO FLOTANTE DE EDICIÓN Y SUBIDA DE COMPROBANTE */}
           {pagoEditando && (

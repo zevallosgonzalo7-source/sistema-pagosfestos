@@ -1915,3 +1915,404 @@ button, input, select, textarea {
     margin: 0;
   }
 }
+
+/* ============================================================
+   V12 · DIRECCIÓN DE DISEÑO — FESTOS GESTIÓN EMPRESARIAL
+   Microinteracciones, jerarquía visual y perfil moderno.
+   ============================================================ */
+:root {
+  --festo-petrol: #224248;
+  --festo-teal: #0d9488;
+  --festo-mint: #9bd6aa;
+  --festo-ink: #173237;
+  --festo-line: rgba(34,66,72,.12);
+}
+
+.topbar-brand-title{display:flex;align-items:center;gap:10px;min-width:0}
+.topbar-brand-title img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.14))}
+.topbar-brand-title span{font-weight:800;letter-spacing:.15px;color:#e9f2f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-brand img{object-fit:contain;padding:2px;filter:drop-shadow(0 8px 18px rgba(0,0,0,.18))}
+.sidebar-brand-text{letter-spacing:-.15px}
+
+/* Controles más refinados */
+.search-input,.business-payment-filter,.date-filter-group input,.form-row input,.form-row select,.form-row textarea{
+  transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
+}
+.search-input:hover,.business-payment-filter:hover,.date-filter-group input:hover,.form-row input:hover,.form-row select:hover,.form-row textarea:hover{
+  border-color:rgba(13,148,136,.28);
+}
+.search-input:focus,.business-payment-filter:focus,.date-filter-group input:focus,.form-row input:focus,.form-row select:focus,.form-row textarea:focus{
+  border-color:rgba(13,148,136,.52)!important;
+  box-shadow:0 0 0 4px rgba(13,148,136,.08),0 7px 18px rgba(34,66,72,.05);
+  outline:none;
+}
+
+.business-pro-card,.quote-record-pro,.stat-card,.panel-card,.glass-card{
+  transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+}
+.business-pro-card:hover,.quote-record-pro:hover,.stat-card:hover,.panel-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 18px 42px rgba(34,66,72,.09);
+  border-color:rgba(13,148,136,.25);
+}
+.business-pro-card:hover .quote-more-btn,.quote-record-pro:hover .quote-more-btn{background:rgba(13,148,136,.09);border-color:rgba(13,148,136,.28)}
+
+.btn-primary,.btn-secondary,.btn-muted,.logout-btn,.icon-btn{transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+.btn-primary:hover,.btn-secondary:hover,.btn-muted:hover,.logout-btn:hover{transform:translateY(-1px)}
+.btn-primary:active,.btn-secondary:active,.btn-muted:active,.logout-btn:active,.icon-btn:active{transform:translateY(0) scale(.98)}
+
+/* Subtotal de proyectos en una tercera fila, separado y subrayado */
+.project-filter-subtotal-row{
+  display:flex;
+  justify-content:flex-end;
+  width:100%;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(34,66,72,.08);
+}
+.project-filter-subtotal-row .project-filter-total{
+  min-width:230px;
+  padding:8px 2px 5px;
+  border:0;
+  border-bottom:3px solid var(--festo-teal);
+  border-radius:0;
+  background:transparent;
+  box-shadow:0 5px 0 -3px rgba(155,214,170,.55);
+}
+.project-filter-subtotal-row .project-filter-total span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#617477;font-weight:800}
+.project-filter-subtotal-row .project-filter-total strong{font-size:18px;color:var(--festo-petrol);letter-spacing:.2px}
+
+/* Perfil superior */
+.profile-menu-wrap{position:relative;z-index:70}
+.user-profile-pill{cursor:pointer;position:relative;padding-right:9px}
+.user-profile-pill:hover{border-color:rgba(155,214,170,.35);box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.user-avatar{overflow:hidden;flex:0 0 auto}
+.user-avatar img,.profile-menu-avatar img,.profile-avatar-large img{width:100%;height:100%;object-fit:cover;display:block}
+.profile-more-dots{font-size:19px;line-height:1;color:#d5e5df;margin-left:2px}
+.profile-menu-backdrop{position:fixed;inset:0;z-index:0;background:transparent}
+.profile-menu{position:absolute;z-index:2;right:0;top:calc(100% + 10px);width:245px;padding:8px;border:1px solid rgba(13,148,136,.18);border-radius:17px;background:rgba(249,252,251,.98);box-shadow:0 24px 55px rgba(15,23,42,.18);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);animation:profileDrop .16s ease-out}
+.profile-menu-user{display:flex;align-items:center;gap:10px;padding:11px;border-radius:13px;background:linear-gradient(135deg,rgba(34,66,72,.08),rgba(155,214,170,.12));margin-bottom:5px}
+.profile-menu-avatar{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;overflow:hidden;background:rgba(34,66,72,.1);font-size:18px;flex:0 0 auto}
+.profile-menu-user div{display:flex;flex-direction:column;min-width:0}.profile-menu-user strong{font-size:13px;color:#1e3438}.profile-menu-user small{font-size:10px;color:#6b7b7e;margin-top:3px}
+.profile-menu button{width:100%;display:flex;align-items:center;gap:9px;border:0;background:transparent;color:#294247;padding:10px 11px;border-radius:10px;cursor:pointer;text-align:left;font-size:12px}
+.profile-menu button:hover{background:rgba(13,148,136,.08)}
+.profile-menu button.danger:hover{background:rgba(220,38,38,.07)}
+.profile-menu-separator{height:1px;background:rgba(34,66,72,.09);margin:5px 4px}
+@keyframes profileDrop{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Perfil modal */
+.profile-modal{max-width:650px}
+.profile-hero{display:flex;align-items:center;gap:16px;padding:15px;border:1px solid rgba(13,148,136,.13);border-radius:17px;background:linear-gradient(135deg,rgba(34,66,72,.07),rgba(155,214,170,.10));margin-bottom:18px}
+.profile-avatar-large{width:78px;height:78px;border-radius:22px;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#224248,#315a60);color:#e8f3f0;font-size:30px;box-shadow:0 10px 26px rgba(34,66,72,.18);flex:0 0 auto}
+.profile-hero>div:nth-child(2){display:flex;flex-direction:column;gap:4px}.profile-hero>div:nth-child(2)>strong{font-size:18px;color:#19363a}.profile-hero>div:nth-child(2)>span{font-size:11px;color:#6a7a7d}
+.profile-upload-btn{display:inline-flex!important;align-items:center;gap:6px;margin-top:8px;width:max-content;padding:7px 10px;border:1px solid rgba(13,148,136,.2);border-radius:9px;background:#fff;color:#224248;font-size:11px;font-weight:700;cursor:pointer}.profile-upload-btn:hover{border-color:rgba(13,148,136,.4);background:rgba(13,148,136,.05)}.profile-upload-btn input{display:none}
+.profile-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#547075;font-weight:900;margin:16px 0 9px;padding-left:2px}
+.profile-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.profile-info-grid>div{padding:11px 12px;border:1px solid rgba(34,66,72,.09);border-radius:12px;background:rgba(255,255,255,.58);display:flex;flex-direction:column;gap:4px}.profile-info-grid span{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#7a898c;font-weight:800}.profile-info-grid strong{font-size:12px;color:#294247}
+.profile-tip{margin-top:10px;padding:10px 12px;border-radius:11px;background:rgba(155,214,170,.12);border:1px solid rgba(155,214,170,.22);color:#48625f;font-size:10px}
+
+@media(max-width:700px){
+  .topbar-brand-title span{max-width:145px}.profile-menu{right:-8px;width:min(245px,calc(100vw - 24px))}
+  .project-filter-subtotal-row{justify-content:stretch}.project-filter-subtotal-row .project-filter-total{width:100%;min-width:0}
+  .profile-info-grid{grid-template-columns:1fr}.profile-hero{align-items:flex-start}
+}
+
+/* ---------- V13: BRAND HEADER - LOGO FESTOS DESTACADO ---------- */
+.topbar-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.topbar-brand-title img {
+  width: 112px;
+  height: 58px;
+  object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 5px 12px rgba(34, 66, 72, 0.14));
+}
+
+.topbar-brand-title span {
+  font-weight: 850;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+  color: #224248;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar {
+  min-height: 78px;
+}
+
+@media (max-width: 700px) {
+  .topbar-brand-title {
+    gap: 9px;
+  }
+
+  .topbar-brand-title img {
+    width: 82px;
+    height: 46px;
+  }
+
+  .topbar-brand-title span {
+    font-size: 0.9rem;
+    max-width: 150px;
+  }
+}
+
+
+/* ---------- V14: MARCA EN DOS BLOQUES ---------- */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.topbar-brand-logo {
+  width: 132px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 132px;
+  overflow: hidden;
+}
+
+.topbar-brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 5px 12px rgba(34, 66, 72, 0.14));
+}
+
+.topbar-brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.topbar-brand-copy strong {
+  color: var(--festo-green);
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+
+.topbar-brand-copy span {
+  color: var(--festo-green);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.78;
+}
+
+@media (max-width: 700px) {
+  .topbar-brand {
+    gap: 10px;
+  }
+
+  .topbar-brand-logo {
+    width: 96px;
+    height: 58px;
+    flex-basis: 96px;
+  }
+
+  .topbar-brand-copy strong {
+    font-size: 0.94rem;
+  }
+
+  .topbar-brand-copy span {
+    font-size: 0.58rem;
+    letter-spacing: 0.025em;
+  }
+}
+
+/* ---------- V15: LOGIN — LOGO GRANDE + MARCA A LA DERECHA ---------- */
+.login-brand {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.login-brand-logo {
+  width: 150px;
+  height: 82px;
+  flex: 0 0 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-brand-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.login-brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.login-brand-copy strong {
+  color: #224248;
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+
+.login-brand-copy span {
+  color: #224248;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+@media (max-width: 520px) {
+  .login-brand {
+    gap: 12px;
+  }
+
+  .login-brand-logo {
+    width: 118px;
+    height: 68px;
+    flex-basis: 118px;
+  }
+
+  .login-brand-copy strong {
+    font-size: 0.9rem;
+  }
+
+  .login-brand-copy span {
+    font-size: 0.55rem;
+  }
+}
+
+/* ---------- V17: SIDEBAR — SOLO LOGO FESTOS ---------- */
+/* El encabezado lateral NO lleva nombre ni subtítulo: únicamente el archivo de logo. */
+.sidebar-brand {
+  width: 100%;
+  min-height: 108px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 16px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid rgba(20, 44, 48, 0.12);
+  box-sizing: border-box;
+}
+
+.sidebar-brand img {
+  display: block;
+  width: 100%;
+  height: 92px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 7px 14px rgba(20, 44, 48, 0.10));
+}
+
+.sidebar-brand-text {
+  display: none !important;
+}
+
+/* La cabecera principal mantiene únicamente el nombre, sin repetir el logo. */
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.topbar-brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.topbar-brand-copy strong {
+  color: #224248;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  line-height: 1.02;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.topbar-brand-copy span {
+  color: #224248;
+  font-family: var(--font-sans);
+  font-size: clamp(0.76rem, 1vw, 0.95rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.82;
+}
+
+@media (max-width: 700px) {
+  .sidebar-brand {
+    min-height: 92px;
+    padding-bottom: 12px;
+  }
+
+  .sidebar-brand img {
+    width: 100%;
+    height: 76px;
+  }
+
+  .topbar-brand-copy strong {
+    font-size: 1.08rem;
+    white-space: normal;
+  }
+
+  .topbar-brand-copy span {
+    font-size: 0.64rem;
+    white-space: normal;
+  }
+}
