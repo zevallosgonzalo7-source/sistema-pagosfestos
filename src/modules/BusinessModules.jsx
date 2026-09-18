@@ -34,44 +34,348 @@ const registrarAvisoEmail = async (quoteId, codigo, tipo) => {
 
 const emptyClient = { nombre: '', ruc: '', tipo_documento: 'RUC', tipo_pago: 'Contado', plazo_dias: 0, estado: true };
 const emptyProject = { nombre: '', descripcion: '', estado: 'Activo', client_id: '' };
+const emptyProveedor = { categoria: '', nombre: '', productos: '', telefono: '', observaciones: '', estado: true };
+const CATEGORIAS_PROVEEDOR = ['Imprenta', 'Publicidad', 'Materiales', 'Transporte', 'Servicios', 'Equipamiento', 'Tecnología', 'Otros'];
 const newItem = () => ({ id: id(), descripcion: '', cantidad: 1, valor_unitario: '', valor_total: '', costo: '' });
 
 export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
-  const [clientes, setClientes] = useState([]); const [busqueda, setBusqueda] = useState(''); const [form, setForm] = useState(emptyClient); const [editando, setEditando] = useState(null); const [cargando, setCargando] = useState(false);
-  const cargar = async () => { const { data, error } = await supabase.from('clientes').select('*').order('nombre'); if (error) { console.error(error); return; } setClientes(data || []); };
+  const [clientes, setClientes] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [form, setForm] = useState(emptyClient);
+  const [editando, setEditando] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [menuAbierto, setMenuAbierto] = useState(null);
+  const [detalleAbierto, setDetalleAbierto] = useState(null);
+
+  const cargar = async () => {
+    const { data, error } = await supabase.from('clientes').select('*').order('nombre');
+    if (error) { console.error(error); return; }
+    setClientes(data || []);
+  };
   useEffect(() => { cargar(); }, []);
-  const filtrados = useMemo(() => { const q = busqueda.trim().toLowerCase(); return !q ? clientes : clientes.filter(c => `${c.nombre} ${c.ruc} ${c.tipo_documento} ${c.tipo_pago} ${c.plazo_dias}`.toLowerCase().includes(q)); }, [clientes, busqueda]);
-  const guardar = async e => { e.preventDefault(); if (!puedeGestionar) return; if (!form.nombre.trim() || !form.ruc.trim()) return alert('Completa el nombre y N° de documento.'); if (form.tipo_pago === 'Crédito' && num(form.plazo_dias) <= 0) return alert('Indica un plazo mayor a 0 días para crédito.'); setCargando(true); try { const payload = { nombre: form.nombre.trim(), ruc: form.ruc.trim(), tipo_documento: form.tipo_documento, tipo_pago: form.tipo_pago, plazo_dias: form.tipo_pago === 'Contado' ? 0 : Math.trunc(num(form.plazo_dias)), estado: !!form.estado }; const result = editando ? await supabase.from('clientes').update(payload).eq('id', editando.id) : await supabase.from('clientes').insert([{ ...payload, id: id() }]); if (result.error) throw result.error; onNotify(editando ? `Cliente actualizado: ${payload.nombre}` : `Nuevo cliente registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo'); onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Cliente actualizado' : 'Cliente creado'} · ${payload.nombre}`); setForm(emptyClient); setEditando(null); await cargar(); } catch (err) { console.error(err); alert(`No se pudo guardar el cliente. ${err?.message || ''}`); } finally { setCargando(false); } };
-  const editar = c => { if (!puedeGestionar) return; setEditando(c); setForm({ ...emptyClient, ...c }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const toggle = async c => { if (!puedeGestionar) return; const { error } = await supabase.from('clientes').update({ estado: !c.estado }).eq('id', c.id); if (error) return alert('No se pudo cambiar el estado.'); onAudit('Edición', `${c.nombre} · ${c.estado ? 'Desactivado' : 'Activado'}`); await cargar(); };
-  return <div><div className="section-header"><div><h3 className="section-title">👥 Clientes</h3><p className="panel-note">{puedeGestionar ? 'Directorio de clientes reutilizable en proyectos y cotizaciones.' : 'Directorio de clientes en modo solo lectura — no tienes permiso para gestionar clientes.'}</p></div></div><div className="business-grid">{puedeGestionar && <form onSubmit={guardar} className="glass-card form-card"><h4 className="panel-title">{editando ? '✏️ Editar cliente' : '➕ Registrar cliente'}</h4><div className="form-row"><label>Cliente / Razón Social *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento *</label><select value={form.tipo_documento} onChange={e => setForm({ ...form, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>N° DOC *</label><input value={form.ruc} onChange={e => setForm({ ...form, ruc: e.target.value })} inputMode="numeric" required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo de pago *</label><select value={form.tipo_pago} onChange={e => setForm({ ...form, tipo_pago: e.target.value, plazo_dias: e.target.value === 'Contado' ? 0 : form.plazo_dias })}><option>Contado</option><option>Crédito</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.tipo_pago === 'Contado'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Cliente activo</label><div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar cliente'}</button>{editando && <button type="button" className="btn-secondary" onClick={() => { setEditando(null); setForm(emptyClient); }}>Cancelar</button>}</div></form>}<div className="glass-card form-card"><div className="section-header"><h4 className="panel-title">📋 Clientes ({filtrados.length})</h4><input className="search-input business-search" placeholder="Buscar cliente o documento..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div>{filtrados.length === 0 ? <p className="empty-hint">No hay clientes registrados.</p> : <div className="record-list">{filtrados.map(c => <div className="glass-card record-card business-record" key={c.id}><div><div className="record-tags-row"><span className={`code-tag ${c.estado ? 'tag-paid' : 'tag-pending'}`}>{c.estado ? 'Activo' : 'Inactivo'}</span><span className="record-date">{c.codigo}</span><span className="record-date">{c.tipo_documento} {c.ruc}</span></div><h4 className="record-title">{c.nombre}</h4><p className="record-meta">{c.tipo_pago}{c.tipo_pago === 'Crédito' ? ` · ${c.plazo_dias} días` : ''}</p></div>{puedeGestionar && <div className="record-actions"><button className="btn-muted" onClick={() => editar(c)}>Editar</button><button className={c.estado ? 'btn-delete' : 'btn-approve'} onClick={() => toggle(c)}>{c.estado ? 'Desactivar' : 'Activar'}</button></div>}</div>)}</div>}</div></div></div>;
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return clientes.filter(c => {
+      const texto = `${c.nombre} ${c.ruc} ${c.tipo_documento} ${c.tipo_pago} ${c.plazo_dias}`.toLowerCase();
+      const fecha = c.created_at ? c.created_at.slice(0, 10) : '';
+      return (!q || texto.includes(q)) &&
+        (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
+        (!fechaHasta || (fecha && fecha <= fechaHasta));
+    });
+  }, [clientes, busqueda, fechaDesde, fechaHasta]);
+
+  const abrirNuevo = () => {
+    setEditando(null); setForm(emptyClient); setModalAbierto(true);
+  };
+  const editar = c => {
+    if (!puedeGestionar) return;
+    setMenuAbierto(null); setEditando(c); setForm({ ...emptyClient, ...c }); setModalAbierto(true);
+  };
+  const guardar = async e => {
+    e.preventDefault();
+    if (!puedeGestionar) return;
+    if (!form.nombre.trim() || !form.ruc.trim()) return alert('Completa el nombre y N° de documento.');
+    if (form.tipo_pago === 'Crédito' && num(form.plazo_dias) <= 0) return alert('Indica un plazo mayor a 0 días para crédito.');
+    setCargando(true);
+    try {
+      const payload = { nombre: form.nombre.trim(), ruc: form.ruc.trim(), tipo_documento: form.tipo_documento, tipo_pago: form.tipo_pago, plazo_dias: form.tipo_pago === 'Contado' ? 0 : Math.trunc(num(form.plazo_dias)), estado: !!form.estado };
+      const result = editando
+        ? await supabase.from('clientes').update(payload).eq('id', editando.id)
+        : await supabase.from('clientes').insert([{ ...payload, id: id() }]);
+      if (result.error) throw result.error;
+      onNotify(editando ? `Cliente actualizado: ${payload.nombre}` : `Nuevo cliente registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo');
+      onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Cliente actualizado' : 'Cliente creado'} · ${payload.nombre}`);
+      setForm(emptyClient); setEditando(null); setModalAbierto(false); await cargar();
+    } catch (err) {
+      console.error(err); alert(`No se pudo guardar el cliente. ${err?.message || ''}`);
+    } finally { setCargando(false); }
+  };
+  const toggle = async c => {
+    if (!puedeGestionar) return;
+    const { error } = await supabase.from('clientes').update({ estado: !c.estado }).eq('id', c.id);
+    if (error) return alert('No se pudo cambiar el estado.');
+    setMenuAbierto(null);
+    onAudit('Edición', `${c.nombre} · ${c.estado ? 'Desactivado' : 'Activado'}`);
+    await cargar();
+  };
+
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
+    <div className="section-header">
+      <div><h3 className="section-title">👥 Clientes</h3><p className="panel-note">Directorio de clientes reutilizable en proyectos y cotizaciones.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo cliente</button>}
+    </div>
+    <div className="glass-card form-card business-toolbar">
+      <div className="quote-filter-bar">
+        <input className="search-input" placeholder="Buscar cliente o documento..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+        <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); }}>Limpiar filtros</button>
+      </div>
+      <div className="business-result-count">Mostrando <strong>{filtrados.length}</strong> de {clientes.length} clientes</div>
+    </div>
+    <div className="business-record-list">
+      {filtrados.length === 0 ? <p className="empty-hint">No hay clientes con los filtros actuales.</p> : filtrados.map(c => {
+        const abierto = detalleAbierto === c.id;
+        return <article className={`business-pro-card ${abierto ? 'is-open' : ''}`} key={c.id}>
+          <div className="business-pro-main">
+            <div className="business-identity">
+              <span className={`business-status-dot ${c.estado ? 'status-active' : 'status-inactive'}`} />
+              <div><div className="business-code">{c.codigo || 'CLIENTE'}</div><h4>{c.nombre}</h4><div className="business-subline"><span>{c.tipo_documento} {c.ruc}</span><span>•</span><span>{c.tipo_pago}{c.tipo_pago === 'Crédito' ? ` · ${c.plazo_dias} días` : ''}</span></div></div>
+            </div>
+            <div className="business-date-value"><span>Registro</span><strong>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-PE') : '—'}</strong></div>
+            <div className="business-menu-wrap">
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === c.id ? null : c.id); }}>⋮</button>
+              {menuAbierto === c.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : c.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(c)}>✏️ <span>Editar cliente</span></button>}
+                {puedeGestionar && <button className={c.estado ? 'danger' : ''} onClick={() => toggle(c)}>{c.estado ? '⏸' : '✓'} <span>{c.estado ? 'Desactivar cliente' : 'Activar cliente'}</span></button>}
+              </div>}
+            </div>
+          </div>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          {abierto && <div className="business-detail-grid">
+            <div><span>Documento</span><strong>{c.tipo_documento} {c.ruc}</strong></div><div><span>Forma de pago</span><strong>{c.tipo_pago}</strong></div><div><span>Plazo</span><strong>{c.tipo_pago === 'Crédito' ? `${c.plazo_dias} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{c.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{c.created_at ? new Date(c.created_at).toLocaleString('es-PE') : '—'}</strong></div>
+          </div>}
+        </article>;
+      })}
+    </div>
+    {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
+      <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar cliente' : '➕ Registrar cliente'}</h4><p className="panel-note">Completa la información del cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="form-row"><label>Cliente / Razón Social *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div>
+        <div className="form-grid-2"><div className="form-row"><label>Tipo documento *</label><select value={form.tipo_documento} onChange={e => setForm({ ...form, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>N° DOC *</label><input value={form.ruc} onChange={e => setForm({ ...form, ruc: e.target.value })} inputMode="numeric" required /></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>Tipo de pago *</label><select value={form.tipo_pago} onChange={e => setForm({ ...form, tipo_pago: e.target.value, plazo_dias: e.target.value === 'Contado' ? 0 : form.plazo_dias })}><option>Contado</option><option>Crédito</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.tipo_pago === 'Contado'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div>
+        <label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Cliente activo</label>
+        <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar cliente'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
+      </form>
+    </div>}
+  </div>;
 }
 
-const emptyProveedor = { categoria: '', nombre: '', productos: '', telefono: '', observaciones: '', estado: true };
-const CATEGORIAS_PROVEEDOR = ['Material POP', 'Transporte', 'Imprenta', 'Infraestructuras', 'Merchandising', 'Anfitrionas'];
 
 export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
-  const [proveedores, setProveedores] = useState([]); const [busqueda, setBusqueda] = useState(''); const [form, setForm] = useState(emptyProveedor); const [editando, setEditando] = useState(null); const [cargando, setCargando] = useState(false);
-  const cargar = async () => { const { data, error } = await supabase.from('proveedores').select('*').order('nombre'); if (error) { console.error(error); return; } setProveedores(data || []); };
+  const [proveedores, setProveedores] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [form, setForm] = useState(emptyProveedor);
+  const [editando, setEditando] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [menuAbierto, setMenuAbierto] = useState(null);
+  const [detalleAbierto, setDetalleAbierto] = useState(null);
+
+  const cargar = async () => {
+    const { data, error } = await supabase.from('proveedores').select('*').order('nombre');
+    if (error) { console.error(error); return; }
+    setProveedores(data || []);
+  };
   useEffect(() => { cargar(); }, []);
-  const filtrados = useMemo(() => { const q = busqueda.trim().toLowerCase(); return !q ? proveedores : proveedores.filter(p => `${p.categoria} ${p.nombre} ${p.productos} ${p.telefono} ${p.observaciones || ''}`.toLowerCase().includes(q)); }, [proveedores, busqueda]);
-  const guardar = async e => { e.preventDefault(); if (!puedeGestionar) return; if (!form.categoria.trim() || !form.nombre.trim()) return alert('Completa la categoría y el nombre del proveedor.'); setCargando(true); try { const payload = { categoria: form.categoria.trim(), nombre: form.nombre.trim(), productos: form.productos.trim() || null, telefono: form.telefono.trim() || null, observaciones: form.observaciones.trim() || null, estado: !!form.estado }; const result = editando ? await supabase.from('proveedores').update(payload).eq('id', editando.id) : await supabase.from('proveedores').insert([payload]); if (result.error) throw result.error; onNotify(editando ? `Proveedor actualizado: ${payload.nombre}` : `Nuevo proveedor registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo'); onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Proveedor actualizado' : 'Proveedor creado'} · ${payload.nombre}`); setForm(emptyProveedor); setEditando(null); await cargar(); } catch (err) { console.error(err); alert(`No se pudo guardar el proveedor. ${err?.message || ''}`); } finally { setCargando(false); } };
-  const editar = p => { if (!puedeGestionar) return; setEditando(p); setForm({ ...emptyProveedor, ...p }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const toggle = async p => { if (!puedeGestionar) return; const { error } = await supabase.from('proveedores').update({ estado: !p.estado }).eq('id', p.id); if (error) return alert('No se pudo cambiar el estado.'); onAudit('Edición', `${p.nombre} · ${p.estado ? 'Desactivado' : 'Activado'}`); await cargar(); };
-  return <div><div className="section-header"><div><h3 className="section-title">🚚 Proveedores</h3><p className="panel-note">{puedeGestionar ? 'Directorio de proveedores por categoría, productos y contacto.' : 'Directorio de proveedores en modo solo lectura — no tienes permiso para gestionar proveedores.'}</p></div></div><div className="business-grid">{puedeGestionar && <form onSubmit={guardar} className="glass-card form-card"><h4 className="panel-title">{editando ? '✏️ Editar proveedor' : '➕ Registrar proveedor'}</h4><div className="form-grid-2"><div className="form-row"><label>Categoría *</label><input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} list="categorias-proveedor" placeholder="Ej. Imprenta" required /><datalist id="categorias-proveedor">{CATEGORIAS_PROVEEDOR.map(c => <option key={c} value={c} />)}</datalist></div><div className="form-row"><label>Nombre del proveedor *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div></div><div className="form-row"><label>Productos que vende</label><input value={form.productos} onChange={e => setForm({ ...form, productos: e.target.value })} placeholder="Ej. Banners, tarjetas personalizadas..." /></div><div className="form-grid-2"><div className="form-row"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div></div><label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Proveedor activo</label><div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proveedor'}</button>{editando && <button type="button" className="btn-secondary" onClick={() => { setEditando(null); setForm(emptyProveedor); }}>Cancelar</button>}</div></form>}<div className="glass-card form-card"><div className="section-header"><h4 className="panel-title">📋 Proveedores ({filtrados.length})</h4><input className="search-input business-search" placeholder="Buscar por nombre, categoría, producto o teléfono..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div>{filtrados.length === 0 ? <p className="empty-hint">No hay proveedores registrados.</p> : <div className="record-list">{filtrados.map(p => <div className="glass-card record-card business-record" key={p.id}><div><div className="record-tags-row"><span className={`code-tag ${p.estado ? 'tag-paid' : 'tag-pending'}`}>{p.estado ? 'Activo' : 'Inactivo'}</span><span className="record-date">{p.codigo}</span><span className="record-date">{p.categoria}</span></div><h4 className="record-title">{p.nombre}</h4><p className="record-meta">{p.productos || 'Sin productos registrados'}{p.telefono ? ` · ${p.telefono}` : ''}</p>{p.observaciones && <p className="record-note">{p.observaciones}</p>}</div>{puedeGestionar && <div className="record-actions"><button className="btn-muted" onClick={() => editar(p)}>Editar</button><button className={p.estado ? 'btn-delete' : 'btn-approve'} onClick={() => toggle(p)}>{p.estado ? 'Desactivar' : 'Activar'}</button></div>}</div>)}</div>}</div></div></div>;
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return proveedores.filter(p => {
+      const texto = `${p.categoria} ${p.nombre} ${p.productos} ${p.telefono} ${p.observaciones || ''}`.toLowerCase();
+      const fecha = p.created_at ? p.created_at.slice(0, 10) : '';
+      return (!q || texto.includes(q)) &&
+        (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
+        (!fechaHasta || (fecha && fecha <= fechaHasta));
+    });
+  }, [proveedores, busqueda, fechaDesde, fechaHasta]);
+
+  const abrirNuevo = () => { setEditando(null); setForm(emptyProveedor); setModalAbierto(true); };
+  const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ ...emptyProveedor, ...p }); setModalAbierto(true); };
+  const guardar = async e => {
+    e.preventDefault(); if (!puedeGestionar) return;
+    if (!form.categoria.trim() || !form.nombre.trim()) return alert('Completa la categoría y el nombre del proveedor.');
+    setCargando(true);
+    try {
+      const payload = { categoria: form.categoria.trim(), nombre: form.nombre.trim(), productos: form.productos.trim() || null, telefono: form.telefono.trim() || null, observaciones: form.observaciones.trim() || null, estado: !!form.estado };
+      const result = editando ? await supabase.from('proveedores').update(payload).eq('id', editando.id) : await supabase.from('proveedores').insert([payload]);
+      if (result.error) throw result.error;
+      onNotify(editando ? `Proveedor actualizado: ${payload.nombre}` : `Nuevo proveedor registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo');
+      onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Proveedor actualizado' : 'Proveedor creado'} · ${payload.nombre}`);
+      setForm(emptyProveedor); setEditando(null); setModalAbierto(false); await cargar();
+    } catch (err) { console.error(err); alert(`No se pudo guardar el proveedor. ${err?.message || ''}`); }
+    finally { setCargando(false); }
+  };
+  const toggle = async p => {
+    if (!puedeGestionar) return;
+    const { error } = await supabase.from('proveedores').update({ estado: !p.estado }).eq('id', p.id);
+    if (error) return alert('No se pudo cambiar el estado.');
+    setMenuAbierto(null); onAudit('Edición', `${p.nombre} · ${p.estado ? 'Desactivado' : 'Activado'}`); await cargar();
+  };
+
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
+    <div className="section-header">
+      <div><h3 className="section-title">🚚 Proveedores</h3><p className="panel-note">Directorio de proveedores por categoría, productos y contacto.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo proveedor</button>}
+    </div>
+    <div className="glass-card form-card business-toolbar">
+      <div className="quote-filter-bar">
+        <input className="search-input" placeholder="Buscar por nombre, categoría, producto o teléfono..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+        <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); }}>Limpiar filtros</button>
+      </div>
+      <div className="business-result-count">Mostrando <strong>{filtrados.length}</strong> de {proveedores.length} proveedores</div>
+    </div>
+    <div className="business-record-list">
+      {filtrados.length === 0 ? <p className="empty-hint">No hay proveedores con los filtros actuales.</p> : filtrados.map(p => {
+        const abierto = detalleAbierto === p.id;
+        return <article className={`business-pro-card ${abierto ? 'is-open' : ''}`} key={p.id}>
+          <div className="business-pro-main">
+            <div className="business-identity">
+              <span className={`business-status-dot ${p.estado ? 'status-active' : 'status-inactive'}`} />
+              <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>{p.categoria}</span><span>•</span><span>{p.telefono || 'Sin teléfono'}</span></div></div>
+            </div>
+            <div className="business-date-value"><span>Registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '—'}</strong></div>
+            <div className="business-menu-wrap">
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}>⋮</button>
+              {menuAbierto === p.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(p)}>✏️ <span>Editar proveedor</span></button>}
+                {puedeGestionar && <button className={p.estado ? 'danger' : ''} onClick={() => toggle(p)}>{p.estado ? '⏸' : '✓'} <span>{p.estado ? 'Desactivar proveedor' : 'Activar proveedor'}</span></button>}
+              </div>}
+            </div>
+          </div>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          {abierto && <div className="business-detail-grid">
+            <div><span>Categoría</span><strong>{p.categoria || '—'}</strong></div><div><span>Productos</span><strong>{p.productos || '—'}</strong></div><div><span>Teléfono</span><strong>{p.telefono || '—'}</strong></div><div><span>Estado</span><strong>{p.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
+            {p.observaciones && <div className="business-detail-wide"><span>Observaciones</span><strong>{p.observaciones}</strong></div>}
+          </div>}
+        </article>;
+      })}
+    </div>
+    {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
+      <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar proveedor' : '➕ Registrar proveedor'}</h4><p className="panel-note">Completa la información del proveedor.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="form-grid-2"><div className="form-row"><label>Categoría *</label><input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} list="categorias-proveedor" placeholder="Ej. Imprenta" required /><datalist id="categorias-proveedor">{CATEGORIAS_PROVEEDOR.map(c => <option key={c} value={c} />)}</datalist></div><div className="form-row"><label>Nombre del proveedor *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div></div>
+        <div className="form-row"><label>Productos que vende</label><input value={form.productos} onChange={e => setForm({ ...form, productos: e.target.value })} placeholder="Ej. Banners, tarjetas personalizadas..." /></div>
+        <div className="form-grid-2"><div className="form-row"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div></div>
+        <label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Proveedor activo</label>
+        <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proveedor'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
+      </form>
+    </div>}
+  </div>;
 }
+
 
 export function Proyectos({ onNotify, onAudit, puedeGestionar = true }) {
-  const [clientes, setClientes] = useState([]); const [proyectos, setProyectos] = useState([]); const [form, setForm] = useState(emptyProject); const [editando, setEditando] = useState(null); const [busqueda, setBusqueda] = useState(''); const [cargando, setCargando] = useState(false);
-  const cargar = async () => { const [{ data: c, error: ce }, { data: p, error: pe }] = await Promise.all([supabase.from('clientes').select('id,nombre,estado').order('nombre'), supabase.from('proyectos').select('*, clientes(nombre)').order('nombre')]); if (ce || pe) { console.error(ce || pe); return; } setClientes(c || []); setProyectos(p || []); };
+  const [clientes, setClientes] = useState([]);
+  const [proyectos, setProyectos] = useState([]);
+  const [cotizacionesProyecto, setCotizacionesProyecto] = useState([]);
+  const [form, setForm] = useState(emptyProject);
+  const [editando, setEditando] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [menuAbierto, setMenuAbierto] = useState(null);
+  const [detalleAbierto, setDetalleAbierto] = useState(null);
+
+  const cargar = async () => {
+    const [{ data: c, error: ce }, { data: p, error: pe }, { data: q, error: qe }] = await Promise.all([
+      supabase.from('clientes').select('id,nombre,estado').order('nombre'),
+      supabase.from('proyectos').select('*, clientes(nombre)').order('created_at', { ascending: false }),
+      supabase.from('cotizaciones').select('id,codigo,project_id,proyecto_nombre,subtotal,igv,total,estado,descripcion,created_at,client_id').order('created_at', { ascending: false })
+    ]);
+    if (ce || pe || qe) { console.error(ce || pe || qe); return; }
+    setClientes(c || []); setProyectos(p || []); setCotizacionesProyecto(q || []);
+  };
   useEffect(() => { cargar(); }, []);
-  const filtrados = proyectos.filter(p => `${p.nombre} ${p.descripcion || ''} ${p.clientes?.nombre || ''}`.toLowerCase().includes(busqueda.toLowerCase()));
-  const guardar = async e => { e.preventDefault(); if (!puedeGestionar) return; if (!form.nombre.trim() || !form.client_id) return; setCargando(true); try { const payload = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, estado: form.estado, client_id: form.client_id }; const result = editando ? await supabase.from('proyectos').update(payload).eq('id', editando.id) : await supabase.from('proyectos').insert([{ ...payload, id: id() }]); if (result.error) throw result.error; onNotify(editando ? `Proyecto actualizado: ${payload.nombre}` : `Nuevo proyecto registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo'); onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Proyecto actualizado' : 'Proyecto creado'} · ${payload.nombre}`); setForm(emptyProject); setEditando(null); await cargar(); } catch (err) { console.error(err); alert(`No se pudo guardar el proyecto. ${err?.message || ''}`); } finally { setCargando(false); } };
-  return <div><div className="section-header"><div><h3 className="section-title">📁 Proyectos</h3><p className="panel-note">{puedeGestionar ? 'Cada proyecto pertenece a un cliente. En Cotizaciones, asociarlo es opcional.' : 'Vista de proyectos en modo solo lectura — no tienes permiso para gestionar proyectos.'}</p></div></div><div className="business-grid">{puedeGestionar && <form onSubmit={guardar} className="glass-card form-card"><h4 className="panel-title">{editando ? '✏️ Editar proyecto' : '➕ Registrar proyecto'}</h4><div className="form-row"><label>Cliente *</label><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })} required><option value="">Selecciona un cliente...</option>{clientes.filter(c => c.estado).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div><div className="form-row"><label>Nombre del proyecto *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div><div className="form-row"><label>Descripción</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></div><div className="form-row"><label>Estado</label><select value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })}><option>Activo</option><option>En pausa</option><option>Finalizado</option></select></div><div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proyecto'}</button>{editando && <button type="button" className="btn-secondary" onClick={() => { setEditando(null); setForm(emptyProject); }}>Cancelar</button>}</div></form>}<div className="glass-card form-card"><div className="section-header"><h4 className="panel-title">📋 Proyectos ({filtrados.length})</h4><input className="search-input business-search" placeholder="Buscar proyecto o cliente..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div>{filtrados.length === 0 ? <p className="empty-hint">No hay proyectos registrados.</p> : <div className="record-list">{filtrados.map(p => <div className="glass-card record-card business-record" key={p.id}><div><div className="record-tags-row"><span className="code-tag tag-paid">{p.codigo}</span><span className="code-tag tag-paid">{p.estado}</span></div><h4 className="record-title">{p.nombre}</h4><p className="record-meta">Cliente: <strong>{p.clientes?.nombre || 'Sin cliente'}</strong></p>{p.descripcion && <p className="record-note">{p.descripcion}</p>}</div>{puedeGestionar && <div className="record-actions"><button className="btn-muted" onClick={() => { setEditando(p); setForm({ nombre: p.nombre, descripcion: p.descripcion || '', estado: p.estado, client_id: p.client_id }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Editar</button></div>}</div>)}</div>}</div></div></div>;
+
+  const filtrados = useMemo(() => proyectos.filter(p => {
+    const texto = `${p.nombre} ${p.descripcion || ''} ${p.clientes?.nombre || ''}`.toLowerCase();
+    const fecha = p.created_at ? p.created_at.slice(0, 10) : '';
+    return texto.includes(busqueda.toLowerCase()) &&
+      (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
+      (!fechaHasta || (fecha && fecha <= fechaHasta));
+  }), [proyectos, busqueda, fechaDesde, fechaHasta]);
+
+  const quoteForProject = p => cotizacionesProyecto.find(q =>
+    q.project_id === p.id || (q.proyecto_nombre || '').trim().toLowerCase() === (p.nombre || '').trim().toLowerCase()
+  );
+  const valorVenta = p => {
+    const q = quoteForProject(p);
+    return q ? num(q.subtotal) : 0;
+  };
+
+  const abrirNuevo = () => { setEditando(null); setForm(emptyProject); setModalAbierto(true); };
+  const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ nombre: p.nombre, descripcion: p.descripcion || '', estado: p.estado, client_id: p.client_id || '' }); setModalAbierto(true); };
+  const guardar = async e => {
+    e.preventDefault(); if (!puedeGestionar) return;
+    if (!form.nombre.trim() || !form.client_id) return alert('Completa el cliente y el nombre del proyecto.');
+    setCargando(true);
+    try {
+      const payload = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, estado: form.estado, client_id: form.client_id };
+      const result = editando ? await supabase.from('proyectos').update(payload).eq('id', editando.id) : await supabase.from('proyectos').insert([{ ...payload, id: id() }]);
+      if (result.error) throw result.error;
+      onNotify(editando ? `Proyecto actualizado: ${payload.nombre}` : `Nuevo proyecto registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo');
+      onAudit(editando ? 'Edición' : 'Creación', `${editando ? 'Proyecto actualizado' : 'Proyecto creado'} · ${payload.nombre}`);
+      setForm(emptyProject); setEditando(null); setModalAbierto(false); await cargar();
+    } catch (err) { console.error(err); alert(`No se pudo guardar el proyecto. ${err?.message || ''}`); }
+    finally { setCargando(false); }
+  };
+
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
+    <div className="section-header">
+      <div><h3 className="section-title">📁 Proyectos</h3><p className="panel-note">Proyectos con cliente, valor de venta y detalle vinculado a sus cotizaciones.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo proyecto</button>}
+    </div>
+    <div className="glass-card form-card business-toolbar">
+      <div className="quote-filter-bar">
+        <input className="search-input" placeholder="Buscar proyecto o cliente..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+        <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); }}>Limpiar filtros</button>
+      </div>
+      <div className="business-result-count">Mostrando <strong>{filtrados.length}</strong> de {proyectos.length} proyectos</div>
+    </div>
+    <div className="business-record-list">
+      {filtrados.length === 0 ? <p className="empty-hint">No hay proyectos con los filtros actuales.</p> : filtrados.map(p => {
+        const abierto = detalleAbierto === p.id;
+        const q = quoteForProject(p);
+        const venta = valorVenta(p);
+        return <article className={`business-pro-card project-pro-card ${abierto ? 'is-open' : ''}`} key={p.id}>
+          <div className="business-pro-main">
+            <div className="business-identity">
+              <span className="business-status-dot status-active" />
+              <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{p.estado}</span></div></div>
+            </div>
+            <div className="business-date-value"><span>Valor venta</span><strong>{money(venta)}</strong><small>{p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '—'}</small></div>
+            <div className="business-menu-wrap">
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}>⋮</button>
+              {menuAbierto === p.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(p)}>✏️ <span>Editar proyecto</span></button>}
+              </div>}
+            </div>
+          </div>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          {abierto && <div className="business-detail-grid">
+            <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{p.estado}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
+            <div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>
+            {q && <div className="business-detail-wide project-quote-summary"><span>Cotización vinculada</span><strong>{q.codigo} · {q.estado} · Precio total {money(q.total)}</strong><small>{q.descripcion || 'Sin notas adicionales.'}</small></div>}
+          </div>}
+        </article>;
+      })}
+    </div>
+    {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
+      <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar proyecto' : '➕ Registrar proyecto'}</h4><p className="panel-note">Asocia el proyecto a un cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="form-row"><label>Cliente *</label><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })} required><option value="">Selecciona un cliente...</option>{clientes.filter(c => c.estado).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
+        <div className="form-row"><label>Nombre del proyecto *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div>
+        <div className="form-row"><label>Descripción</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></div>
+        <div className="form-row"><label>Estado</label><select value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })}><option>Activo</option><option>En pausa</option><option>Finalizado</option></select></div>
+        <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proyecto'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
+      </form>
+    </div>}
+  </div>;
 }
 
+
 export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }) {
-  const [clientes, setClientes] = useState([]); const [proyectos, setProyectos] = useState([]); const [cotizaciones, setCotizaciones] = useState([]); const [vista, setVista] = useState('lista'); const [filtro, setFiltro] = useState('todas'); const [busqueda, setBusqueda] = useState(''); const [editando, setEditando] = useState(null); const [form, setForm] = useState({ client_id: '', proyecto_nombre: '', project_id: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); const [cargando, setCargando] = useState(false); const [nuevoCliente, setNuevoCliente] = useState(false); const [itemsEditando, setItemsEditando] = useState(() => new Set()); const [itemsColapsados, setItemsColapsados] = useState(() => new Set()); const [valorVentaDirecto, setValorVentaDirecto] = useState(0); const [clienteRapido, setClienteRapido] = useState(emptyClient); const [menuAbierto, setMenuAbierto] = useState(null); const [detalleAbierto, setDetalleAbierto] = useState(null); const [detalleItems, setDetalleItems] = useState({});
+  const [clientes, setClientes] = useState([]); const [proyectos, setProyectos] = useState([]); const [cotizaciones, setCotizaciones] = useState([]); const [vista, setVista] = useState('lista'); const [filtro, setFiltro] = useState('todas'); const [busqueda, setBusqueda] = useState(''); const [fechaDesde, setFechaDesde] = useState(''); const [fechaHasta, setFechaHasta] = useState(''); const [editando, setEditando] = useState(null); const [form, setForm] = useState({ client_id: '', proyecto_nombre: '', project_id: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); const [cargando, setCargando] = useState(false); const [nuevoCliente, setNuevoCliente] = useState(false); const [itemsEditando, setItemsEditando] = useState(() => new Set()); const [itemsColapsados, setItemsColapsados] = useState(() => new Set()); const [valorVentaDirecto, setValorVentaDirecto] = useState(0); const [clienteRapido, setClienteRapido] = useState(emptyClient); const [menuAbierto, setMenuAbierto] = useState(null); const [detalleAbierto, setDetalleAbierto] = useState(null); const [detalleItems, setDetalleItems] = useState({});
   const cargarDatos = async () => {
     const { data: c, error: ce } = await supabase.from('clientes').select('*').eq('estado', true).order('nombre');
     if (ce) { console.error('Error cargando clientes:', ce); setClientes([]); } else { setClientes(c || []); }
@@ -360,8 +664,8 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
     }
   };
   const guardarClienteRapido = async e => { e.preventDefault(); if (!clienteRapido.nombre.trim() || !clienteRapido.ruc.trim()) return; const payload = { ...clienteRapido, nombre: clienteRapido.nombre.trim(), ruc: clienteRapido.ruc.trim(), plazo_dias: clienteRapido.tipo_pago === 'Contado' ? 0 : Math.trunc(num(clienteRapido.plazo_dias)), id: id() }; const { error } = await supabase.from('clientes').insert([payload]); if (error) return alert(`No se pudo registrar el cliente. ${error.message}`); onNotify(`Nuevo cliente registrado: ${payload.nombre}`, 'nuevo'); onAudit('Creación', `Cliente creado desde Cotizaciones · ${payload.nombre}`); setNuevoCliente(false); setClienteRapido(emptyClient); await cargarDatos(); setForm(prev => ({ ...prev, client_id: payload.id })); };
-  const filtradas = cotizaciones.filter(q => { if (filtro !== 'todas' && q.estado !== filtro) return false; const text = `${q.codigo} ${q.clientes?.nombre || ''} ${q.proyectos?.nombre || ''} ${q.descripcion || ''}`.toLowerCase(); return !busqueda.trim() || text.includes(busqueda.toLowerCase()); });
-  const badge = estado => estado === 'Aprobado' ? 'tag-paid' : estado === 'En Revisión' ? 'tag-approval' : 'tag-pending';
+  const filtradas = cotizaciones.filter(q => { if (filtro !== 'todas' && q.estado !== filtro) return false; const text = `${q.codigo} ${q.clientes?.nombre || ''} ${q.proyectos?.nombre || ''} ${q.proyecto_nombre || ''} ${q.descripcion || ''}`.toLowerCase(); const fecha = q.created_at ? q.created_at.slice(0, 10) : ''; return (!busqueda.trim() || text.includes(busqueda.toLowerCase())) && (!fechaDesde || (fecha && fecha >= fechaDesde)) && (!fechaHasta || (fecha && fecha <= fechaHasta)); });
+  const badge = estado => estado === 'En Revisión' ? 'tag-paid' : estado === 'Aprobado' ? 'tag-approval' : 'tag-pending';
   if (vista === 'form') return <div><div className="section-header"><div><h3 className="section-title">{editando ? '✏️ Editar Cotización' : '📑 Nueva Cotización'}</h3><p className="panel-note">Cliente, proyecto obligatorio, ítems y control de rentabilidad.</p></div><button className="btn-secondary" onClick={reset}>← Volver</button></div><div className="glass-card form-card"><div className="form-grid-2"><div className="form-row"><label>Cliente *</label><div className="select-with-action"><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value, project_id: '' })} required><option value="">Selecciona un cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.ruc}</option>)}</select><button type="button" className="btn-muted" onClick={() => setNuevoCliente(v => !v)}>+ Cliente</button></div></div><div className="form-row"><label>Proyecto</label><div className="select-with-action"><select value={form.project_id} disabled={!form.usar_proyecto || !form.client_id} onChange={e => setForm({ ...form, project_id: e.target.value })}><option value="">{form.usar_proyecto ? (form.client_id ? 'Selecciona un proyecto...' : 'Primero selecciona cliente') : 'Proyecto no asociado'}</option>{proyectosDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div></div></div>{nuevoCliente && <form onSubmit={guardarClienteRapido} className="quick-client-card"><div className="quick-client-head"><strong>Registrar cliente sin salir de Cotizaciones</strong><button type="button" className="btn-muted" onClick={() => setNuevoCliente(false)}>Cerrar</button></div><div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={clienteRapido.nombre} onChange={e => setClienteRapido({ ...clienteRapido, nombre: e.target.value })} required /></div><div className="form-row"><label>N° DOC *</label><input value={clienteRapido.ruc} onChange={e => setClienteRapido({ ...clienteRapido, ruc: e.target.value })} required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento</label><select value={clienteRapido.tipo_documento} onChange={e => setClienteRapido({ ...clienteRapido, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>Tipo de pago</label><select value={clienteRapido.tipo_pago} onChange={e => setClienteRapido({ ...clienteRapido, tipo_pago: e.target.value })}><option>Contado</option><option>Crédito</option></select></div></div><div className="form-row quick-client-plazo"><label>Plazo (días)</label><input type="number" min="0" value={clienteRapido.plazo_dias} disabled={clienteRapido.tipo_pago === 'Contado'} onChange={e => setClienteRapido({ ...clienteRapido, plazo_dias: e.target.value })} /></div><button className="btn-primary btn-small">Registrar y seleccionar cliente</button></form>}<div className="form-row quote-project-required"><label>Proyecto *</label><input value={form.proyecto_nombre} onChange={e => setForm({ ...form, proyecto_nombre: e.target.value })} required placeholder="Escribe el nombre del proyecto..." /><small>El proyecto se creará automáticamente en Proyectos cuando la cotización sea aprobada.</small></div><div className="form-row"><label>Descripción / alcance</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Alcance, condiciones o notas de la cotización..." /></div><div className="quote-items-head"><div><h4 className="panel-title" style={{ margin: 0 }}>🧾 Ítems</h4><span className="panel-note">El modo Detallado / Directo se aplica a toda la cotización.</span></div><button type="button" className="btn-primary" onClick={addItem}>+ Agregar Ítem</button></div><div className="quote-items-list">{form.items.map((item, index) => {
   const qty = num(item.cantidad);
   const costoUnitario = num(item.costo_unitario ?? item.costo);
@@ -392,5 +696,5 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
     </div></>}
   </div>;
 })}</div><div className="quote-mode-global"><div><strong>Modo de valorización de la cotización</strong><span>En Directo puedes ajustar el valor de venta total sin modificar los datos de los ítems.</span></div><div className="quote-mode-switch"><button type="button" className={form.modo === 'detallado' ? 'active' : ''} onClick={() => cambiarModo('detallado')}>Detallado</button><button type="button" className={form.modo === 'directo' ? 'active' : ''} onClick={() => cambiarModo('directo')}>Directo</button></div></div><div className="quote-summary"><div><span>Valor venta total</span>{form.modo === 'directo' ? <input className="quote-direct-value" type="number" min="0" step="0.01" value={valorVentaDirecto} onChange={e => setValorVentaDirecto(e.target.value)} /> : <strong>{money(subtotal)}</strong>}</div><div><span>IGV</span><strong>{money(igv)}</strong></div><div><span>Precio total</span><strong>{money(total)}</strong></div><div><span>Costo total</span><strong>{money(costo)}</strong></div><div><span>Utilidad</span><strong>{money(ganancia)}</strong></div><div><span>Margen global</span><strong>{margen.toFixed(2)}%</strong></div></div><div className="modal-actions quote-actions"><button className="btn-secondary" onClick={() => guardar('Borrador')} disabled={cargando}>Guardar borrador</button><button className="btn-muted" onClick={() => guardar('En Revisión')} disabled={cargando}>Enviar a revisión</button>{puedeAprobar && <button className="btn-primary" onClick={() => guardar('Aprobado')} disabled={cargando}>Aprobar cotización</button>}</div></div></div>;
-  return <div onClick={() => menuAbierto && setMenuAbierto(null)}><div className="section-header"><div><h3 className="section-title">📑 Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}>+ Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="quote-filter-bar"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /><div className="quote-filters">{[['todas','Todas'],['Aprobado','Aprobadas'],['En Revisión','En Revisión'],['Borrador','Borradores']].map(([v,l]) => <button key={v} type="button" className={filtro === v ? 'active' : ''} onClick={() => setFiltro(v)}>{l}</button>)}</div></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; return <article className={`quote-record-pro ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Precio total</span><strong>{money(q.total)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}>⋮</button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}>✏️ <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}>◷ <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}>✓ <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}>📄 <span>Descargar PDF</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}>🗑 <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>IGV 18%</span><strong>{money(q.igv)}</strong></div><div><span>Precio total</span><strong>{money(q.total)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{num(q.margen).toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Venta</span><strong>{money(i.valor_total)}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}><div className="section-header"><div><h3 className="section-title">📑 Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}>+ Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="quote-filter-bar"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltro('todas'); }}>Limpiar filtros</button><div className="quote-filters">{[['todas','Todas'],['Aprobado','Aprobadas'],['En Revisión','En Revisión'],['Borrador','Borradores']].map(([v,l]) => <button key={v} type="button" className={filtro === v ? 'active' : ''} onClick={() => setFiltro(v)}>{l}</button>)}</div></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Precio total</span><strong>{money(q.total)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}>⋮</button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}>✏️ <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}>◷ <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}>✓ <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}>📄 <span>Descargar PDF</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}>🗑 <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>IGV 18%</span><strong>{money(q.igv)}</strong></div><div><span>Precio total</span><strong>{money(q.total)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{num(q.margen).toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Venta</span><strong>{money(i.valor_total)}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
 }
