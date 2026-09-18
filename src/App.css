@@ -2316,3 +2316,235 @@ button, input, select, textarea {
     white-space: normal;
   }
 }
+
+/* ---------- V18: CABECERA + PANTALLA DE INICIO ---------- */
+.topbar-right {
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.topbar-welcome {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 205px;
+  padding: 4px 4px;
+  line-height: 1.15;
+}
+
+.topbar-welcome strong {
+  color: #224248;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.topbar-welcome span {
+  margin-top: 4px;
+  color: #617477;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.user-profile-pill {
+  min-width: 235px;
+  min-height: 58px;
+  padding: 8px 13px;
+  gap: 12px;
+  border-radius: 17px;
+}
+
+.user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+}
+
+.user-profile-text {
+  min-width: 145px;
+  gap: 5px;
+}
+
+.user-profile-text strong {
+  font-size: 14px;
+}
+
+.user-profile-text span {
+  font-size: 10.5px;
+}
+
+.welcome-home-card {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.6fr);
+  gap: 26px;
+  align-items: center;
+  margin: 0 0 24px;
+  padding: 26px;
+  border: 1px solid rgba(34, 66, 72, 0.10);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255,255,255,.94), rgba(237,246,245,.84));
+  box-shadow: 0 18px 45px rgba(34,66,72,.10);
+  overflow: hidden;
+  position: relative;
+}
+
+.welcome-home-card::after {
+  content: '';
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -100px;
+  top: -120px;
+  border-radius: 50%;
+  background: rgba(34,66,72,.055);
+  pointer-events: none;
+}
+
+.welcome-home-logo {
+  min-height: 185px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.68);
+  border: 1px solid rgba(34,66,72,.07);
+}
+
+.welcome-home-logo img {
+  display: block;
+  width: 100%;
+  max-width: 330px;
+  height: 150px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.welcome-home-content {
+  position: relative;
+  z-index: 1;
+}
+
+.welcome-home-eyebrow {
+  color: #0d9488;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.welcome-home-content h1 {
+  margin: 6px 0 8px;
+  color: #224248;
+  font-size: clamp(1.7rem, 3vw, 2.45rem);
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: -.04em;
+}
+
+.welcome-home-content > p {
+  max-width: 760px;
+  margin: 0;
+  color: #5d7073;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.welcome-benefits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 17px;
+}
+
+.welcome-benefits > div {
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(34,66,72,.08);
+}
+
+.welcome-benefits strong,
+.welcome-benefits span {
+  display: block;
+}
+
+.welcome-benefits strong {
+  color: #224248;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.welcome-benefits span {
+  margin-top: 3px;
+  color: #718184;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .topbar-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .topbar-welcome {
+    min-width: 175px;
+  }
+
+  .welcome-home-card {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-home-logo {
+    min-height: 145px;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .topbar-welcome {
+    order: 2;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .profile-menu-wrap {
+    order: 3;
+  }
+
+  .user-profile-pill {
+    min-width: 0;
+    min-height: 52px;
+    padding: 6px 9px;
+  }
+
+  .user-profile-text {
+    min-width: 90px;
+  }
+
+  .user-profile-text strong {
+    font-size: 12px;
+  }
+
+  .welcome-home-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .welcome-home-logo {
+    min-height: 115px;
+  }
+
+  .welcome-home-logo img {
+    height: 100px;
+  }
+
+  .welcome-benefits {
+    grid-template-columns: 1fr;
+  }
+}

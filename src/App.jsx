@@ -28,6 +28,13 @@ const ETIQUETAS_DISPONIBLES = ['Neumática', 'Automatización', 'Mantenimiento',
 
 const NOMBRES_MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+const obtenerFechaActual = () => new Intl.DateTimeFormat('es-PE', {
+  weekday: 'long',
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date());
+
 /* ============================================================
    COMPONENTES DE APOYO (gráficos, sin librerías externas)
    ============================================================ */
@@ -1086,6 +1093,11 @@ function App() {
               marcarTodasLeidas={marcarTodasLeidas}
             />
 
+            <div className="topbar-welcome">
+              <strong>Bienvenido, {perfilNombre || usuarioLogueado}</strong>
+              <span>{obtenerFechaActual()}</span>
+            </div>
+
             <div className="profile-menu-wrap">
               <button type="button" className="user-profile-pill" onClick={() => setPerfilMenuAbierto(v => !v)} aria-label="Abrir menú de perfil">
                 <span className="user-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : '👤'}</span>
@@ -1106,7 +1118,6 @@ function App() {
               )}
             </div>
 
-            <button onClick={cerrarSesion} className="logout-btn">Salir 🚪</button>
           </div>
         </header>
 
@@ -1171,6 +1182,23 @@ function App() {
           {/* VISTA: DASHBOARD EJECUTIVO */}
           {vista === 'dashboard' && (
             <div>
+              <section className="welcome-home-card">
+                <div className="welcome-home-logo">
+                  <img src="/festoslogo-Photoroom.png" alt="FESTOS" />
+                </div>
+                <div className="welcome-home-content">
+                  <span className="welcome-home-eyebrow">FESTOS GESTIÓN EMPRESARIAL</span>
+                  <h1>Bienvenido, {perfilNombre || usuarioLogueado}</h1>
+                  <p>Una plataforma centralizada para gestionar las operaciones, el control administrativo y la información comercial de FESTOS desde un solo lugar.</p>
+                  <div className="welcome-benefits">
+                    <div><strong>📊 Control</strong><span>Visualiza pagos, pendientes y movimientos.</span></div>
+                    <div><strong>👥 Gestión</strong><span>Administra clientes, proveedores y proyectos.</span></div>
+                    <div><strong>📑 Cotizaciones</strong><span>Organiza el proceso comercial y sus estados.</span></div>
+                    <div><strong>🕵️ Trazabilidad</strong><span>Consulta auditoría, permisos y actividad.</span></div>
+                  </div>
+                </div>
+              </section>
+
               <h3 className="section-title">📊 Dashboard Ejecutivo General</h3>
 
               <div className="stat-grid">
