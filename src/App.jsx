@@ -4,7 +4,7 @@ import OneSignal from 'react-onesignal';
 import './App.css';
 import { Clientes, Proveedores, Proyectos, Cotizaciones } from './modules/BusinessModules';
 import { GestionRoles } from './modules/RolesModule';
-import { PERMISOS_DEFECTO, obtenerPermisos } from './permissions';
+import { PERMISOS_DEFECTO, obtenerPermisos, ROLES_LABEL } from './permissions';
 
 /* ============================================================
    CONFIGURACIÓN GLOBAL
@@ -165,6 +165,17 @@ function CentroNotificaciones({ notificaciones, panelAbierto, setPanelAbierto, m
       )}
     </div>
   );
+}
+
+
+function cargoUsuario(usuario) {
+  const cargos = {
+    gonzalo: 'Administrador General',
+    rodrigo: 'Jefe de Operaciones',
+    mar: 'Coordinadora Comercial',
+    jesus: 'Asistente Administrativo',
+  };
+  return cargos[String(usuario || '').trim().toLowerCase()] || 'Usuario del sistema';
 }
 
 function iconoPorTipo(tipo) {
@@ -997,7 +1008,7 @@ function App() {
               marcarTodasLeidas={marcarTodasLeidas}
             />
 
-            <span className="user-pill">👤 {usuarioLogueado}</span>
+            <div className="user-profile-pill"><span className="user-avatar">👤</span><div className="user-profile-text"><strong>{usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span></div></div>
 
             <button onClick={cerrarSesion} className="logout-btn">Salir 🚪</button>
           </div>
@@ -1350,6 +1361,7 @@ function App() {
           {/* VISTA: PROYECTOS */}
           {vista === 'proyectos' && misPermisos.ver_proyectos && (
             <Proyectos
+              usuario={usuarioLogueado}
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
               puedeGestionar={!!misPermisos.gestionar_proyectos}

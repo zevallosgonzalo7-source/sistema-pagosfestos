@@ -1721,3 +1721,197 @@ button, input, select, textarea {
 @media (max-width: 700px) {
   .btn-filter-clear { width: 100%; }
 }
+
+
+/* V2: estados de cotización por recuadro completo */
+.quote-record-pro.quote-status-aprobado{background:linear-gradient(145deg,rgba(210,245,225,.88),rgba(232,250,239,.72));border-color:rgba(42,139,83,.28)}
+.quote-record-pro.quote-status-revision{background:linear-gradient(145deg,rgba(224,234,237,.92),rgba(241,245,246,.78));border-color:rgba(91,112,118,.25)}
+.quote-record-pro.quote-status-borrador{background:linear-gradient(145deg,rgba(255,231,205,.92),rgba(255,242,226,.76));border-color:rgba(221,132,54,.28)}
+.quote-record-pro.quote-status-aprobado:hover{border-color:rgba(42,139,83,.42)}
+.quote-record-pro.quote-status-revision:hover{border-color:rgba(91,112,118,.38)}
+.quote-record-pro.quote-status-borrador:hover{border-color:rgba(221,132,54,.42)}
+.business-payment-filter{padding:9px 11px;border:1px solid rgba(13,148,136,.14);border-radius:9px;background:rgba(255,255,255,.7);color:#20383c;font-size:11px;outline:none}
+.contactos-section{margin-top:16px;padding-top:16px;border-top:1px solid rgba(13,148,136,.12)}
+.contactos-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.contactos-head div{display:flex;flex-direction:column;gap:3px}.contactos-head small{font-size:10px;color:#718084}.contacto-editor{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;padding:10px;border:1px solid rgba(13,148,136,.14);border-radius:12px;background:rgba(240,246,246,.45)}
+.contacto-editor input{min-width:0;padding:10px;border:1px solid rgba(20,44,48,.16);border-radius:9px;background:rgba(255,255,255,.8)}
+.contactos-list{display:flex;flex-direction:column;gap:7px;margin-top:10px}.contacto-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(13,148,136,.11)}.contacto-chip div{display:flex;flex-direction:column;gap:2px}.contacto-chip span{font-size:10px;color:#68787b}.contacto-chip button{border:0;background:transparent;font-size:18px;cursor:pointer;color:#a34a4a}
+@media(max-width:700px){.contacto-editor{grid-template-columns:1fr}.business-payment-filter{width:100%}.contactos-head{align-items:flex-start;flex-direction:column}.contactos-head .btn-muted{width:100%}}
+
+/* V3: Proyectos - estados, usuario cargador y total de filtros */
+.project-filter-total{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-radius:11px;background:rgba(34,66,72,.06);border:1px solid rgba(34,66,72,.10)}
+.project-filter-total span{font-size:11px;color:#647477;font-weight:700}.project-filter-total strong{font-size:17px;color:#224248;letter-spacing:.1px}
+.project-pro-card.project-status-en-proceso{background:linear-gradient(145deg,rgba(224,247,235,.88),rgba(244,251,247,.76));border-color:rgba(77,171,112,.22)}
+.project-pro-card.project-status-finalizado{background:linear-gradient(145deg,rgba(232,237,238,.92),rgba(247,249,249,.78));border-color:rgba(112,128,132,.22)}
+.project-pro-card.project-status-facturado{background:linear-gradient(145deg,rgba(255,237,215,.92),rgba(255,247,235,.78));border-color:rgba(221,132,54,.24)}
+.project-dot-en-proceso{background:#62d8a6;box-shadow:0 0 0 4px rgba(98,216,166,.09),0 0 14px rgba(98,216,166,.24)}
+.project-dot-finalizado{background:#8fa5aa;box-shadow:0 0 0 4px rgba(143,165,170,.07)}
+.project-dot-facturado{background:#e2a04b;box-shadow:0 0 0 4px rgba(226,160,75,.09),0 0 14px rgba(226,160,75,.20)}
+@media(max-width:700px){.project-filter-total{align-items:flex-start;flex-direction:column;gap:4px}.project-filter-total strong{font-size:16px}}
+
+
+/* Perfil superior con cargo */
+.user-profile-pill{display:flex;align-items:center;gap:10px;padding:7px 13px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:linear-gradient(135deg,rgba(34,66,72,.95),rgba(25,39,43,.92));box-shadow:0 5px 18px rgba(0,0,0,.16)}
+.user-avatar{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:rgba(155,214,170,.18);font-size:18px}
+.user-profile-text{display:flex;flex-direction:column;line-height:1.15;gap:4px;min-width:105px}
+.user-profile-text strong{font-size:13px;color:#f2f7f5;text-transform:capitalize}
+.user-profile-text span{font-size:10px;color:#b7d6c5;letter-spacing:.25px}
+@media(max-width:700px){.user-profile-text{min-width:0}.user-profile-text span{display:none}.user-profile-pill{padding:5px 8px}.user-avatar{width:30px;height:30px}}
+
+/* Exportación Excel */
+.quote-action-menu button.excel-export-action{color:#1f6f43}
+.quote-action-menu button.excel-export-action:hover{background:rgba(31,111,67,.08)}
+
+/* Proveedores: condición y plazo visibles directamente en la tarjeta */
+.payment-term-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(34, 66, 72, 0.10);
+  border: 1px solid rgba(34, 66, 72, 0.18);
+  color: #224248;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   V11 · BARRA DE DIRECTORIOS EN 2 FILAS
+   Fila 1: búsqueda únicamente
+   Fila 2: filtros + limpiar
+   El botón + Nuevo permanece arriba, junto al título.
+   ============================================================ */
+.business-toolbar,
+.quote-list-shell {
+  padding: 14px 16px;
+}
+
+.business-toolbar .toolbar-search-row,
+.quote-list-shell .toolbar-search-row {
+  display: flex;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.business-toolbar .toolbar-search-row .search-input,
+.quote-list-shell .toolbar-search-row .search-input {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.business-toolbar .toolbar-filter-row,
+.quote-list-shell .toolbar-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.business-toolbar .toolbar-filter-row .date-filter-group,
+.quote-list-shell .toolbar-filter-row .date-filter-group {
+  flex: 0 0 auto;
+}
+
+.business-toolbar .toolbar-filter-row .business-payment-filter {
+  flex: 0 1 190px;
+  min-width: 145px;
+}
+
+.business-toolbar .toolbar-filter-row .btn-filter-clear,
+.quote-list-shell .toolbar-filter-row .btn-filter-clear {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.quote-list-shell .toolbar-filter-row.quote-filter-row {
+  justify-content: flex-start;
+}
+
+.quote-list-shell .quote-filters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+
+.quote-list-shell .quote-filters button {
+  white-space: nowrap;
+}
+
+.project-filter-row .project-filter-total {
+  margin: 0 0 0 auto;
+  min-width: 190px;
+  padding: 8px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 9px;
+  background: rgba(34,66,72,.055);
+  border: 1px solid rgba(34,66,72,.10);
+}
+
+.project-filter-row .project-filter-total span {
+  font-size: 10px;
+  color: #647477;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.project-filter-row .project-filter-total strong {
+  font-size: 14px;
+  color: #224248;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) and (min-width: 701px) {
+  .business-toolbar .toolbar-filter-row,
+  .quote-list-shell .toolbar-filter-row {
+    flex-wrap: wrap;
+  }
+
+  .business-toolbar .toolbar-filter-row .btn-filter-clear,
+  .quote-list-shell .toolbar-filter-row .btn-filter-clear {
+    margin-left: 0;
+  }
+
+  .project-filter-row .project-filter-total {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .business-toolbar .toolbar-filter-row,
+  .quote-list-shell .toolbar-filter-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .business-toolbar .toolbar-filter-row .date-filter-group,
+  .quote-list-shell .toolbar-filter-row .date-filter-group {
+    width: 100%;
+  }
+
+  .business-toolbar .toolbar-filter-row .business-payment-filter,
+  .business-toolbar .toolbar-filter-row .btn-filter-clear,
+  .quote-list-shell .toolbar-filter-row .btn-filter-clear {
+    width: 100%;
+    max-width: none;
+  }
+
+  .quote-list-shell .quote-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .quote-list-shell .quote-filters button {
+    flex: 1 1 calc(50% - 5px);
+  }
+
+  .project-filter-row .project-filter-total {
+    width: 100%;
+    margin: 0;
+  }
+}
