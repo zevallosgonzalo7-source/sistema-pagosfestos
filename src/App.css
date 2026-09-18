@@ -1098,11 +1098,6 @@ button, input, select, textarea {
 /* ============================================================
    RESPONSIVE
    ============================================================ */
-@media (min-width: 1024px) {
-  .sidebar { transform: translateX(0); position: sticky; }
-  .sidebar-overlay { display: none; }
-}
-
 @media (max-width: 1023px) {
   .sidebar { width: 84vw; max-width: 300px; }
 }
@@ -2547,4 +2542,160 @@ button, input, select, textarea {
   .welcome-benefits {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- INICIO: resumen corporativo y estructura del equipo ---------- */
+.inicio-page{display:flex;flex-direction:column;gap:22px}
+.company-summary-card{padding:26px;border:1px solid rgba(34,66,72,.10);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(239,246,245,.86));box-shadow:0 18px 45px rgba(34,66,72,.09);overflow:hidden}
+.company-summary-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:24px}
+.company-summary-heading h2{margin:5px 0 4px;color:#224248;font-size:clamp(1.35rem,2.4vw,1.9rem);font-weight:950;letter-spacing:-.035em}
+.company-summary-heading p{margin:0;color:#647477;font-size:12px}
+.company-summary-badge{flex:0 0 auto;padding:9px 12px;border-radius:999px;background:rgba(34,66,72,.08);color:#224248;font-size:9px;font-weight:900;letter-spacing:.08em}
+.org-flow{position:relative;display:flex;flex-direction:column;align-items:center}
+.org-node{position:relative;min-width:190px;padding:18px 15px 15px;text-align:center;border:1px solid rgba(34,66,72,.10);border-radius:18px;background:rgba(255,255,255,.78);box-shadow:0 10px 25px rgba(34,66,72,.07);transition:transform .18s ease,box-shadow .18s ease}
+.org-node:hover{transform:translateY(-2px);box-shadow:0 15px 30px rgba(34,66,72,.11)}
+.org-node-main{min-width:245px;border-color:rgba(34,66,72,.18);background:linear-gradient(145deg,#224248,#315960);color:#fff;box-shadow:0 15px 30px rgba(34,66,72,.18)}
+.org-avatar{width:42px;height:42px;margin:0 auto 8px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(34,66,72,.10);color:#224248;font-size:15px;font-weight:950}
+.org-node-main .org-avatar{background:rgba(255,255,255,.14);color:#fff}
+.org-node-name{font-size:13px;font-weight:950;letter-spacing:.06em;color:#224248}
+.org-node-main .org-node-name{color:#fff}
+.org-node-role{margin-top:4px;color:#0d9488;font-size:10px;font-weight:950;letter-spacing:.035em}
+.org-node-main .org-node-role{color:#bce7e0}
+.org-node-caption{display:block;margin-top:6px;color:#7a898b;font-size:9px}
+.org-node-main .org-node-caption{color:rgba(255,255,255,.72)}
+.org-flow-line{width:2px;height:38px;position:relative;background:linear-gradient(to bottom,rgba(34,66,72,.25),rgba(34,66,72,.12));margin:0}
+.org-flow-line span{position:absolute;bottom:-1px;width:8px;height:8px;border-radius:50%;background:#224248;transform:translateX(-3px)}
+.org-flow-line span:nth-child(1){left:-105px}.org-flow-line span:nth-child(2){left:0}.org-flow-line span:nth-child(3){left:105px}
+.org-team-grid{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;position:relative;padding-top:10px}
+.org-team-grid::before{content:'';position:absolute;top:0;left:calc(16.666% + 8px);right:calc(16.666% + 8px);height:2px;background:rgba(34,66,72,.13)}
+.org-team-grid .org-node::before{content:'';position:absolute;top:-11px;left:50%;width:2px;height:11px;background:rgba(34,66,72,.13)}
+@media(max-width:800px){.company-summary-heading{flex-direction:column}.org-team-grid{grid-template-columns:1fr}.org-team-grid::before{display:none}.org-flow-line{height:24px}.org-flow-line span{display:none}.org-team-grid .org-node::before{height:12px;top:-12px}}
+@media(max-width:560px){.company-summary-card{padding:18px;border-radius:18px}.org-node-main{min-width:0;width:100%}.org-node{min-width:0}.company-summary-badge{font-size:8px}}
+
+/* ---------- V20: INICIO — FOTOS DE EQUIPO + SIDEBAR COLAPSABLE ---------- */
+.org-avatar{
+  overflow:hidden;
+  box-shadow:0 8px 18px rgba(34,66,72,.13);
+  border:2px solid rgba(255,255,255,.82);
+}
+.org-avatar img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  object-position:center;
+}
+.org-node:not(.org-node-main){
+  box-shadow:0 14px 30px rgba(34,66,72,.12), 0 2px 7px rgba(34,66,72,.06);
+}
+.org-node:not(.org-node-main):hover{
+  box-shadow:0 20px 38px rgba(34,66,72,.16), 0 4px 10px rgba(34,66,72,.07);
+}
+.org-node-main{
+  box-shadow:0 18px 36px rgba(34,66,72,.22), 0 4px 10px rgba(34,66,72,.10);
+}
+
+/* El menú es flotante: al cerrarlo, el contenido central ocupa todo el ancho. */
+.sidebar{
+  box-shadow:18px 0 45px rgba(15,32,35,.10);
+}
+.main-content{
+  width:100%;
+}
+.icon-btn{
+  transition:transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.icon-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 7px 18px rgba(34,66,72,.12);
+}
+.hamburger-lines span{transition:transform .2s ease, opacity .2s ease, width .2s ease;}
+
+@media (min-width: 901px){
+  .sidebar-overlay{background:rgba(15,23,42,.18);backdrop-filter:blur(1px)}
+}
+
+
+/* ---------- V21 FINAL: INICIO CORPORATIVO + MENÚ REALMENTE COLAPSABLE ---------- */
+/* El sidebar permanece flotante en todos los tamaños. No ocupa espacio cuando está cerrado. */
+.sidebar{
+  position:fixed !important;
+  top:0 !important;
+  left:0 !important;
+  height:100vh !important;
+  transform:translateX(-105%) !important;
+  transition:transform .28s cubic-bezier(.22,1,.36,1) !important;
+  z-index:80 !important;
+}
+.sidebar.open{
+  transform:translateX(0) !important;
+}
+.sidebar-overlay{
+  display:block !important;
+  z-index:70 !important;
+}
+.main-content{
+  width:100% !important;
+  min-width:0;
+}
+/* El botón de tres rayas siempre queda disponible por encima del overlay. */
+.topbar{
+  z-index:100 !important;
+}
+.topbar-left .icon-btn{
+  position:relative;
+  z-index:110;
+  flex:0 0 auto;
+}
+
+.inicio-info-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:22px}
+.inicio-info-card,.inicio-modules-card,.inicio-benefits-card,.inicio-flow-card{border:1px solid rgba(34,66,72,.10);border-radius:24px;background:rgba(255,255,255,.91);box-shadow:0 16px 38px rgba(34,66,72,.08);padding:26px}
+.inicio-info-card{min-width:0}
+.inicio-about-card{background:linear-gradient(145deg,rgba(34,66,72,.98),rgba(49,89,96,.94));color:#fff;border-color:rgba(34,66,72,.25)}
+.inicio-section-kicker{display:inline-flex;color:#4d777b;font-size:9px;font-weight:950;letter-spacing:.13em;text-transform:uppercase}
+.inicio-about-card .inicio-section-kicker{color:#bce7e0}
+.inicio-info-card h2,.inicio-modules-card h2,.inicio-benefits-card h2,.inicio-flow-card h2{margin:7px 0 7px;color:#224248;font-size:clamp(1.25rem,2.2vw,1.75rem);font-weight:950;letter-spacing:-.035em}
+.inicio-about-card h2{color:#fff}
+.inicio-info-card p,.inicio-modules-card .inicio-section-heading p,.inicio-flow-card .inicio-section-heading p{margin:0;color:#68797c;font-size:12px;line-height:1.65}
+.inicio-about-card p{color:rgba(255,255,255,.78)}
+.inicio-about-points{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.inicio-about-points span{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.10);color:#fff;font-size:9px;font-weight:800}
+.inicio-mini-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:22px}
+.inicio-mini-stat-row div{padding:13px 10px;border-radius:15px;background:rgba(34,66,72,.06);border:1px solid rgba(34,66,72,.07);display:flex;flex-direction:column;gap:4px}
+.inicio-mini-stat-row strong{font-size:18px;color:#224248;font-weight:950}
+.inicio-mini-stat-row span{font-size:9px;color:#718184;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.inicio-modules-card,.inicio-benefits-card,.inicio-flow-card{overflow:hidden}
+.inicio-section-heading{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.inicio-modules-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.inicio-module-item{display:flex;align-items:flex-start;gap:12px;padding:15px;border-radius:17px;background:rgba(239,246,245,.72);border:1px solid rgba(34,66,72,.07);transition:transform .18s ease,box-shadow .18s ease}
+.inicio-module-item:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(34,66,72,.09)}
+.inicio-module-item>span{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:#224248;color:#fff;font-size:17px;flex:0 0 auto}
+.inicio-module-item div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.inicio-module-item strong{color:#224248;font-size:12px;font-weight:950}
+.inicio-module-item small{color:#718184;font-size:9px;line-height:1.45}
+.inicio-benefits-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.inicio-benefits-grid>div{padding:18px;border-radius:18px;background:linear-gradient(145deg,#f5f9f8,#edf4f3);border:1px solid rgba(34,66,72,.07)}
+.inicio-benefits-grid span{display:block;color:#6b8d90;font-size:9px;font-weight:950;letter-spacing:.1em;margin-bottom:12px}
+.inicio-benefits-grid strong{display:block;color:#224248;font-size:13px;font-weight:950;margin-bottom:5px}
+.inicio-benefits-grid p{margin:0;color:#718184;font-size:9px;line-height:1.55}
+.inicio-process-flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.inicio-process-step{min-width:120px;padding:15px 13px;border-radius:17px;background:#f1f6f5;border:1px solid rgba(34,66,72,.08);text-align:center}
+.inicio-process-step span{display:block;color:#6d8b8e;font-size:8px;font-weight:950;margin-bottom:5px}
+.inicio-process-step strong{display:block;color:#224248;font-size:9px;font-weight:950;letter-spacing:.04em}
+.inicio-process-step.highlight{background:#fff8cf;border-color:#e5ca55;box-shadow:0 8px 20px rgba(205,171,45,.13)}
+.inicio-process-arrow{color:#719093;font-size:19px;font-weight:900}
+
+@media(max-width:900px){
+  .inicio-info-grid{grid-template-columns:1fr}
+  .inicio-modules-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .inicio-benefits-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .inicio-info-card,.inicio-modules-card,.inicio-benefits-card,.inicio-flow-card{padding:18px;border-radius:19px}
+  .inicio-modules-grid,.inicio-benefits-grid{grid-template-columns:1fr}
+  .inicio-process-flow{align-items:stretch;flex-direction:column}
+  .inicio-process-step{width:100%;min-width:0}
+  .inicio-process-arrow{transform:rotate(90deg);height:15px;text-align:center}
+  .inicio-mini-stat-row{gap:6px}
+  .inicio-mini-stat-row div{padding:11px 8px}
 }

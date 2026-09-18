@@ -175,12 +175,29 @@ function CentroNotificaciones({ notificaciones, panelAbierto, setPanelAbierto, m
 }
 
 
+const CLAVES_PERFIL = {
+  nombre: 'festos_perfil_nombre_',
+  foto: 'festos_perfil_foto_',
+};
+
+function clavePerfil(tipo, usuario) {
+  return `${CLAVES_PERFIL[tipo]}${String(usuario || '').trim().toLowerCase()}`;
+}
+
+function obtenerFotoPerfilUsuario(usuario) {
+  try {
+    return localStorage.getItem(clavePerfil('foto', usuario)) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
 function cargoUsuario(usuario) {
   const cargos = {
-    gonzalo: 'Administrador General',
-    rodrigo: 'Jefe de Operaciones',
-    mar: 'Coordinadora Comercial',
-    jesus: 'Asistente Administrativo',
+    gonzalo: 'HEAD ADMIN',
+    rodrigo: 'DESARROLLADOR SOFTWARE',
+    mar: 'OPERADORA COMERCIAL',
+    jesus: 'ADMIN',
   };
   return cargos[String(usuario || '').trim().toLowerCase()] || 'Usuario del sistema';
 }
@@ -258,8 +275,14 @@ function App() {
 
   // Perfil del usuario: nombre visible y foto se guardan localmente para no alterar
   // la estructura actual de usuarios. La contraseña sí se actualiza mediante el RPC existente.
-  const [perfilNombre, setPerfilNombre] = useState(() => localStorage.getItem('festos_perfil_nombre') || '');
-  const [perfilFoto, setPerfilFoto] = useState(() => localStorage.getItem('festos_perfil_foto') || '');
+  const [perfilNombre, setPerfilNombre] = useState(() => {
+    const u = localStorage.getItem('festos_sesion_usuario') || '';
+    return localStorage.getItem(clavePerfil('nombre', u)) || u;
+  });
+  const [perfilFoto, setPerfilFoto] = useState(() => {
+    const u = localStorage.getItem('festos_sesion_usuario') || '';
+    return localStorage.getItem(clavePerfil('foto', u)) || '';
+  });
   const [perfilMenuAbierto, setPerfilMenuAbierto] = useState(false);
   const [perfilModalAbierto, setPerfilModalAbierto] = useState(false);
   const [perfilNombreEdit, setPerfilNombreEdit] = useState('');
@@ -267,6 +290,29 @@ function App() {
   const [perfilPassword, setPerfilPassword] = useState('');
   const [perfilPasswordConfirm, setPerfilPasswordConfirm] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+
+  // Cada usuario conserva su propia foto y nombre visible. Al cambiar de sesión
+  // se recarga el perfil correspondiente sin compartir datos entre usuarios.
+  useEffect(() => {
+    if (!usuarioLogueado) {
+      setPerfilNombre('');
+      setPerfilFoto('');
+      return;
+    }
+    const nombreGuardado = localStorage.getItem(clavePerfil('nombre', usuarioLogueado));
+    const fotoGuardada = localStorage.getItem(clavePerfil('foto', usuarioLogueado));
+
+    // Compatibilidad con la V18/V19: migra una sola vez el perfil antiguo
+    // al perfil individual del usuario que está entrando.
+    const nombreLegacy = localStorage.getItem('festos_perfil_nombre');
+    const fotoLegacy = localStorage.getItem('festos_perfil_foto');
+    const esGonzalo = String(usuarioLogueado).trim().toLowerCase() === 'gonzalo';
+    if (esGonzalo && !nombreGuardado && nombreLegacy) localStorage.setItem(clavePerfil('nombre', usuarioLogueado), nombreLegacy);
+    if (esGonzalo && !fotoGuardada && fotoLegacy) localStorage.setItem(clavePerfil('foto', usuarioLogueado), fotoLegacy);
+
+    setPerfilNombre(nombreGuardado || (esGonzalo ? nombreLegacy : '') || usuarioLogueado);
+    setPerfilFoto(fotoGuardada || (esGonzalo ? fotoLegacy : '') || '');
+  }, [usuarioLogueado]);
 
   // Tema fijo: interfaz profesional en blanco + verde petróleo Festos.
   // (Se eliminó el selector de modo oscuro/claro a pedido del cliente.)
@@ -435,8 +481,8 @@ function App() {
     if (perfilPassword !== perfilPasswordConfirm) return alert('Las contraseñas no coinciden.');
     setGuardandoPerfil(true);
     try {
-      localStorage.setItem('festos_perfil_nombre', nombre);
-      localStorage.setItem('festos_perfil_foto', perfilFotoEdit || '');
+      localStorage.setItem(clavePerfil('nombre', usuarioLogueado), nombre);
+      localStorage.setItem(clavePerfil('foto', usuarioLogueado), perfilFotoEdit || '');
       setPerfilNombre(nombre);
       setPerfilFoto(perfilFotoEdit || '');
       if (perfilPassword) {
@@ -956,7 +1002,7 @@ function App() {
   };
 
   const itemsNav = [
-    { id: 'dashboard', icono: '📊', label: 'Dashboard' },
+    { id: 'dashboard', icono: '🏠', label: 'Inicio' },
     { id: 'subir', icono: '📤', label: 'Subir Pago' },
     { id: 'porPagar', icono: '⏳', label: 'Por Pagar', badge: pagosPendientesList.length + pagosEnAprobacionList.length },
     { id: 'historial', icono: '📂', label: 'Historial' },
@@ -1179,9 +1225,9 @@ function App() {
             </div>
           )}
 
-          {/* VISTA: DASHBOARD EJECUTIVO */}
+          {/* VISTA: INICIO */}
           {vista === 'dashboard' && (
-            <div>
+            <div className="inicio-page">
               <section className="welcome-home-card">
                 <div className="welcome-home-logo">
                   <img src="/festoslogo-Photoroom.png" alt="FESTOS" />
@@ -1199,59 +1245,123 @@ function App() {
                 </div>
               </section>
 
-              <h3 className="section-title">📊 Dashboard Ejecutivo General</h3>
-
-              <div className="stat-grid">
-                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(34,197,94,0.6)' }}>
-                  <p className="stat-label">Gasto Total Pagado</p>
-                  <h2 className="stat-value" style={{ color: '#22c55e' }}>S/. {gastoTotalAcumulado.toFixed(2)}</h2>
-                </div>
-                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(245,158,11,0.6)' }}>
-                  <p className="stat-label">Total Por Pagar</p>
-                  <h2 className="stat-value" style={{ color: '#f59e0b' }}>S/. {montoPendienteTotal.toFixed(2)}</h2>
-                </div>
-                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(13,148,136,0.6)' }}>
-                  <p className="stat-label">Registros con Factura</p>
-                  <h2 className="stat-value" style={{ color: '#0d9488' }}>{totalConFactura} / {pagos.length}</h2>
-                </div>
-                <div className="glass-card stat-card" style={{ '--accent-line': 'rgba(239,68,68,0.6)' }}>
-                  <p className="stat-label">En Aprobación (Control Dual)</p>
-                  <h2 className="stat-value" style={{ color: '#ef4444' }}>{pagosEnAprobacionList.length}</h2>
-                </div>
-              </div>
-
-              <div className="panel-grid">
-                <div className="glass-card panel-card panel-center">
-                  <h4 className="panel-title">📌 Cobertura de Facturación</h4>
-                  <AnilloProgreso
-                    porcentaje={porcentajeConFactura}
-                    color="#0d9488"
-                    pistaColor={tema.border}
-                    texto={`${porcentajeConFactura.toFixed(0)}%`}
-                    subtexto="con factura"
-                    textoColor={tema.textMain}
-                  />
-                  <p className="panel-note">{pagosPendientesList.length} registro(s) aún sin comprobante adjunto</p>
+              <section className="company-summary-card">
+                <div className="company-summary-heading">
+                  <div>
+                    <span className="welcome-home-eyebrow">NUESTRA ORGANIZACIÓN</span>
+                    <h2>Equipo FESTOS</h2>
+                    <p>Personas y responsabilidades que forman parte de la operación de FESTOS.</p>
+                  </div>
+                  <div className="company-summary-badge">🏢 ESTRUCTURA INTERNA</div>
                 </div>
 
-                <div className="glass-card panel-card">
-                  <h4 className="panel-title">⚖️ Pagado vs. Pendiente</h4>
-                  <BarraComparativa etiqueta="Pagado" valor={gastoTotalAcumulado} total={totalFlujo} color="#22c55e" tema={tema} />
-                  <BarraComparativa etiqueta="Por Pagar" valor={montoPendienteTotal} total={totalFlujo} color="#f59e0b" tema={tema} />
-                </div>
+                <div className="org-flow" aria-label="Estructura del equipo FESTOS">
+                  <div className="org-node org-node-main">
+                    <div className="org-avatar">{obtenerFotoPerfilUsuario('gonzalo') ? <img src={obtenerFotoPerfilUsuario('gonzalo')} alt="Gonzalo" /> : 'G'}</div>
+                    <div className="org-node-name">GONZALO</div>
+                    <div className="org-node-role">HEAD ADMIN</div>
+                    <span className="org-node-caption">Dirección y administración</span>
+                  </div>
 
-                <div className="glass-card panel-card">
-                  <h4 className="panel-title">📈 Tendencia de Gasto Pagado</h4>
-                  <TendenciaGastos datos={tendenciaGastos} tema={tema} />
-                </div>
-              </div>
+                  <div className="org-flow-line" aria-hidden="true"><span></span><span></span><span></span></div>
 
-              <div className="glass-card panel-card">
-                <h4 className="panel-title">💡 Consejos Financieros Festos</h4>
-                <p className="tip-line">• Recuerda subir los comprobantes faltantes desde la pestaña de Historial.</p>
-                <p className="tip-line">• Utiliza el asistente IA para consultas rápidas por proveedor o proyecto.</p>
-                <p className="tip-line">• Los pagos desde S/. {UMBRAL_APROBACION.toFixed(2)} requieren aprobación de un segundo miembro (control dual).</p>
-              </div>
+                  <div className="org-team-grid">
+                    <div className="org-node">
+                      <div className="org-avatar">{obtenerFotoPerfilUsuario('jesus') ? <img src={obtenerFotoPerfilUsuario('jesus')} alt="Jesus" /> : 'J'}</div>
+                      <div className="org-node-name">JESUS</div>
+                      <div className="org-node-role">ADMIN</div>
+                      <span className="org-node-caption">Administración</span>
+                    </div>
+                    <div className="org-node">
+                      <div className="org-avatar">{obtenerFotoPerfilUsuario('mar') ? <img src={obtenerFotoPerfilUsuario('mar')} alt="Mar" /> : 'M'}</div>
+                      <div className="org-node-name">MAR</div>
+                      <div className="org-node-role">OPERADORA COMERCIAL</div>
+                      <span className="org-node-caption">Operaciones comerciales</span>
+                    </div>
+                    <div className="org-node">
+                      <div className="org-avatar">{obtenerFotoPerfilUsuario('rodrigo') ? <img src={obtenerFotoPerfilUsuario('rodrigo')} alt="Rodrigo" /> : 'R'}</div>
+                      <div className="org-node-name">RODRIGO</div>
+                      <div className="org-node-role">DESARROLLADOR SOFTWARE</div>
+                      <span className="org-node-caption">Tecnología y software</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="inicio-info-grid">
+                <article className="inicio-info-card inicio-about-card">
+                  <span className="inicio-section-kicker">CONTROL FESTOS</span>
+                  <h2>¿Qué es Control Festos?</h2>
+                  <p>Es el centro de gestión de FESTOS: reúne en un solo lugar la operación comercial, administrativa y de proyectos para trabajar con información organizada y trazable.</p>
+                  <div className="inicio-about-points">
+                    <span>✓ Información centralizada</span>
+                    <span>✓ Procesos conectados</span>
+                    <span>✓ Trazabilidad de actividad</span>
+                  </div>
+                </article>
+
+                <article className="inicio-info-card">
+                  <span className="inicio-section-kicker">PROPÓSITO</span>
+                  <h2>Una sola plataforma</h2>
+                  <p>La idea es que cada área pueda consultar y actualizar la información que necesita sin perder el contexto del proceso.</p>
+                  <div className="inicio-mini-stat-row">
+                    <div><strong>01</strong><span>Orden</span></div>
+                    <div><strong>02</strong><span>Control</span></div>
+                    <div><strong>03</strong><span>Trazabilidad</span></div>
+                  </div>
+                </article>
+              </section>
+
+              <section className="inicio-modules-card">
+                <div className="inicio-section-heading">
+                  <div>
+                    <span className="inicio-section-kicker">CENTRO DE OPERACIONES</span>
+                    <h2>Áreas del sistema</h2>
+                    <p>Los principales módulos que forman parte de Control Festos.</p>
+                  </div>
+                </div>
+                <div className="inicio-modules-grid">
+                  <div className="inicio-module-item"><span>💳</span><div><strong>Pagos</strong><small>Control de facturas, comprobantes y estados.</small></div></div>
+                  <div className="inicio-module-item"><span>👥</span><div><strong>Clientes</strong><small>Directorio comercial y contactos.</small></div></div>
+                  <div className="inicio-module-item"><span>🚚</span><div><strong>Proveedores</strong><small>Servicios, categorías y condiciones de pago.</small></div></div>
+                  <div className="inicio-module-item"><span>📑</span><div><strong>Cotizaciones</strong><small>El proceso comercial desde borrador hasta aprobación.</small></div></div>
+                  <div className="inicio-module-item"><span>📁</span><div><strong>Proyectos</strong><small>Seguimiento de trabajos y ejecución.</small></div></div>
+                  <div className="inicio-module-item"><span>🕵️</span><div><strong>Auditoría</strong><small>Registro de actividad y trazabilidad.</small></div></div>
+                </div>
+              </section>
+
+              <section className="inicio-benefits-card">
+                <div className="inicio-section-heading">
+                  <div>
+                    <span className="inicio-section-kicker">VALOR PARA FESTOS</span>
+                    <h2>¿Qué nos permite?</h2>
+                  </div>
+                </div>
+                <div className="inicio-benefits-grid">
+                  <div><span>01</span><strong>Más orden</strong><p>La información se mantiene organizada por proceso y área.</p></div>
+                  <div><span>02</span><strong>Mejor seguimiento</strong><p>Los responsables pueden identificar estados y pendientes.</p></div>
+                  <div><span>03</span><strong>Menos duplicidad</strong><p>Clientes, cotizaciones y proyectos se conectan dentro del sistema.</p></div>
+                  <div><span>04</span><strong>Mayor trazabilidad</strong><p>Las acciones relevantes quedan registradas para consulta.</p></div>
+                </div>
+              </section>
+
+              <section className="inicio-flow-card">
+                <div className="inicio-section-heading">
+                  <div>
+                    <span className="inicio-section-kicker">FLUJO FESTOS</span>
+                    <h2>Del cliente a la operación</h2>
+                    <p>El recorrido principal de una oportunidad dentro de Control Festos.</p>
+                  </div>
+                </div>
+                <div className="inicio-process-flow" aria-label="Flujo principal de Control Festos">
+                  {['CLIENTE','COTIZACIÓN','APROBACIÓN','PROYECTO','OPERACIÓN','FACTURACIÓN'].map((paso, index) => (
+                    <React.Fragment key={paso}>
+                      <div className={`inicio-process-step ${index === 2 ? 'highlight' : ''}`}><span>{String(index + 1).padStart(2, '0')}</span><strong>{paso}</strong></div>
+                      {index < 5 && <div className="inicio-process-arrow" aria-hidden="true">→</div>}
+                    </React.Fragment>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
 
