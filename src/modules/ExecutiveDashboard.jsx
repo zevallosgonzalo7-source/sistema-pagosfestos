@@ -210,8 +210,8 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
   const [filtroLob, setFiltroLob] = useState('TODOS');
   const [filtrosMovilAbiertos, setFiltrosMovilAbiertos] = useState(false);
 
-  const cargar = async () => {
-    setLoading(true);
+  const cargar = async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     setErrorMessage('');
     try {
       const [qRes, pRes, cRes] = await Promise.all([
@@ -234,13 +234,18 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
     if (dashboardActivo !== 'proyectos') { setLoading(false); return; }
     cargar();
     const channel = supabase.channel('festos-dashboard-categorias-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, () => cargar())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, () => cargar(true))
       .subscribe();
-    const refrescarAlVolver = () => { if (!document.hidden) cargar(); };
+    const refrescarAlVolver = () => { if (!document.hidden) cargar(true); };
+    const refrescarAlEditar = () => cargar(true);
+    const intervalo = window.setInterval(() => { if (!document.hidden) cargar(true); }, 20000);
+    window.addEventListener('festos:proyectos-actualizados', refrescarAlEditar);
     document.addEventListener('visibilitychange', refrescarAlVolver);
     window.addEventListener('focus', refrescarAlVolver);
     return () => {
       supabase.removeChannel(channel);
+      window.clearInterval(intervalo);
+      window.removeEventListener('festos:proyectos-actualizados', refrescarAlEditar);
       document.removeEventListener('visibilitychange', refrescarAlVolver);
       window.removeEventListener('focus', refrescarAlVolver);
     };

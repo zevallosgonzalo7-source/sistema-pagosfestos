@@ -28,16 +28,6 @@ public/voice-assets/models/
 public/voice-assets/onnx/
 public/voice-assets/ready.json
 
-# Archivos generados por Electron
 /release/
-/dist-electron/
-/out/
-
-# Dependencias
-/node_modules/
-
-# Archivos temporales
-*.tmp
-*.log
 
 /release/
