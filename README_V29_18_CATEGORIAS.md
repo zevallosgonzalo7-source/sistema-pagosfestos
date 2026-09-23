@@ -1,0 +1,1 @@
+FESTOS V29.18: ocho categorías nuevas y migración SQL de 55 proyectos. Ejecutar el SQL en Supabase antes de usar el dashboard. Si hay proyectos sin coincidencia exacta o duplicados, la migración se revierte sin cambiar registros. Los proyectos no incluidos en la lista conservan su categoría previa y aparecerán como pendientes de clasificar hasta que se asignen manualmente.

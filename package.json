@@ -1,13 +1,23 @@
 {
-  "name": "sistema-pagos",
+  "name": "festos-gestion-empresarial",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.3.17",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "desktop:build": "npm run build && electron-builder --win --x64",
+    "desktop:build:portable": "npm run build && electron-builder --win portable --x64",
+    "desktop:build:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
+    "desktop:build:mac:arm64": "npm run build && electron-builder --mac dmg --arm64",
+    "desktop:build:mac:x64": "npm run build && electron-builder --mac dmg --x64",
+    "test:voice": "node --test tests/voice.test.mjs tests/wake.test.mjs",
+    "voice:prepare": "node scripts/prepare-voice-assets.mjs",
+    "voice:check": "node scripts/check-voice-assets.mjs",
+    "test:dashboard": "node --test tests/dashboard-links.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
@@ -21,6 +31,80 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
-    "vite": "^8.2.2"
-  }
+    "vite": "^8.2.2",
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12",
+    "concurrently": "^9.2.1",
+    "wait-on": "^9.0.1",
+    "@huggingface/transformers": "3.8.1"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.festos.gestionempresarial",
+    "productName": "FESTOS Gestión Empresarial",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build_icon.ico",
+      "artifactName": "FESTOS-Gestion-Empresarial-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FESTOS Gestión Empresarial"
+    },
+    "asar": true,
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.business",
+      "icon": "build_icon.icns",
+      "artifactName": "FESTOS-Gestion-Empresarial-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "FESTOS utiliza el micrófono solo cuando activas el asistente de voz."
+      }
+    },
+    "dmg": {
+      "title": "FESTOS Gestión Empresarial ${version}",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 140,
+          "y": 220,
+          "type": "file"
+        },
+        {
+          "x": 420,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "description": "FESTOS Gestión Empresarial - Operaciones y Administración",
+  "author": "FESTOS"
 }

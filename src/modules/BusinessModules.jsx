@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { matchVoiceClient } from '../voice/commands';
 import { supabase } from '../supabaseClient';
 import { jsPDF } from 'jspdf';
+import { FestosIcon } from '../FestosIcon';
+import { CATEGORIAS_FESTOS, categoriaAnterior, CATEGORIA_PENDIENTE, categoriaDelProyecto, categoriaActual } from '../categories';
 
 const IGV_RATE = 0.18;
 const money = (v) => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v) || 0)}`;
@@ -34,7 +37,7 @@ const registrarAvisoEmail = async (quoteId, codigo, tipo) => {
 
 const emptyClient = { nombre: '', ruc: '', tipo_documento: 'RUC', categoria: '', tipo_pago: 'CONTADO', plazo_dias: 0, estado: true };
 const emptyClientContact = { telefono: '', nombre: '', cargo: '' };
-const emptyProject = { nombre: '', descripcion: '', estado: 'EN PROCESO', client_id: '', ejecutivo: 'GONZALO', lob: 'Espacio de estructuras' };
+const emptyProject = { valor_venta: '', nombre: '', descripcion: '', estado: 'EN PROCESO', client_id: '', ejecutivo: 'GONZALO', lob: '', fecha_pedido: '', fecha_inicio: '', fecha_entrega: '' };
 const emptyProveedor = { categoria: '', nombre: '', productos: '', telefono: '', contacto_nombre: '', condicion_pago: 'CONTADO', plazo_dias: 0, observaciones: '', estado: true };
 const CATEGORIAS_PROVEEDOR = ['Imprenta', 'Publicidad', 'Materiales', 'Transporte', 'Servicios', 'Equipamiento', 'Tecnología', 'Otros'];
 const newItem = () => ({ id: id(), descripcion: '', cantidad: 1, valor_unitario: '', valor_total: '', costo: '' });
@@ -204,8 +207,8 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
 
   return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
     <div className="section-header">
-      <div><h3 className="section-title">👥 Clientes</h3><p className="panel-note">Directorio de clientes reutilizable en proyectos y cotizaciones.</p></div>
-      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo cliente</button>}
+      <div><h3 className="section-title"><FestosIcon name="Users" size={21} /> Clientes</h3><p className="panel-note">Directorio de clientes reutilizable en proyectos y cotizaciones.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}><FestosIcon name="Plus" size={16} /> Nuevo cliente</button>}
     </div>
     <div className="glass-card form-card business-toolbar">
       <div className="toolbar-search-row">
@@ -228,15 +231,15 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
             </div>
             <div className="business-date-value"><span>Registro</span><strong>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-PE') : '—'}</strong></div>
             <div className="business-menu-wrap">
-              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === c.id ? null : c.id); }}>⋮</button>
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === c.id ? null : c.id); }}><FestosIcon name="MoreVertical" size={18} /></button>
               {menuAbierto === c.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : c.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
-                {puedeGestionar && <button onClick={() => editar(c)}>✏️ <span>Editar cliente</span></button>}
-                {puedeGestionar && <button className={c.estado ? 'danger' : ''} onClick={() => toggle(c)}>{c.estado ? '⏸' : '✓'} <span>{c.estado ? 'Desactivar cliente' : 'Activar cliente'}</span></button>}
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : c.id); }}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(c)}><FestosIcon name="Pencil" size={16} /> <span>Editar cliente</span></button>}
+                {puedeGestionar && <button className={c.estado ? 'danger' : ''} onClick={() => toggle(c)}><FestosIcon name={c.estado ? 'PauseCircle' : 'CheckCircle2'} size={16} /> <span>{c.estado ? 'Desactivar cliente' : 'Activar cliente'}</span></button>}
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
           {abierto && <div className="business-detail-grid">
             <div><span>Documento</span><strong>{c.tipo_documento} {c.ruc}</strong></div><div><span>Categoría</span><strong>{c.categoria || 'Sin categoría'}</strong></div><div><span>Condición de pago</span><strong>{String(c.tipo_pago || '').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(c.tipo_pago || '').toUpperCase() === 'CREDITO' ? `${c.plazo_dias} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{c.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{c.created_at ? new Date(c.created_at).toLocaleString('es-PE') : '—'}</strong></div>
           </div>}
@@ -245,10 +248,10 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
     </div>
     {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
       <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar cliente' : '➕ Registrar cliente'}</h4><p className="panel-note">Completa la información del cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18} /> Editar cliente</> : <><FestosIcon name="UserPlus" size={18} /> Registrar cliente</>}</h4><p className="panel-note">Completa la información del cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
         <div className="form-row"><label>Cliente / Razón Social *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div>
         <div className="form-row"><label>Categoría</label><input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} placeholder="Ej. Corporativo, Retail, Gobierno..." /></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento *</label><select value={form.tipo_documento} onChange={e => setForm({ ...form, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>N° DOC *</label><input value={form.ruc} onChange={e => setForm({ ...form, ruc: e.target.value })} inputMode="numeric" required /></div></div>
-        <div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.tipo_pago} onChange={e => setForm({ ...form, tipo_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.tipo_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del cliente.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}>+ Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor"><input placeholder="Telefono:" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><input placeholder="Nombre:" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><input placeholder="Cargo:" value={contactoForm.cargo} onChange={e => setContactoForm({ ...contactoForm, cargo: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim() && !contactoForm.cargo.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm(emptyClientContact); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'} · {ct.cargo || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div>
+        <div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.tipo_pago} onChange={e => setForm({ ...form, tipo_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.tipo_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del cliente.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}><FestosIcon name="Plus" size={15} /> Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor"><input placeholder="Telefono:" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><input placeholder="Nombre:" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><input placeholder="Cargo:" value={contactoForm.cargo} onChange={e => setContactoForm({ ...contactoForm, cargo: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim() && !contactoForm.cargo.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm(emptyClientContact); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'} · {ct.cargo || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div>
         <label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Cliente activo</label>
         <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar cliente'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
       </form>
@@ -325,8 +328,8 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
 
   return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
     <div className="section-header">
-      <div><h3 className="section-title">🚚 Proveedores</h3><p className="panel-note">Directorio de proveedores por categoría, productos y contacto.</p></div>
-      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo proveedor</button>}
+      <div><h3 className="section-title"><FestosIcon name="Truck" size={21} /> Proveedores</h3><p className="panel-note">Directorio de proveedores por categoría, productos y contacto.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}><FestosIcon name="Plus" size={16} /> Nuevo proveedor</button>}
     </div>
     <div className="glass-card form-card business-toolbar">
       <div className="toolbar-search-row">
@@ -346,19 +349,19 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
           <div className="business-pro-main">
             <div className="business-identity">
               <span className={`business-status-dot ${p.estado ? 'status-active' : 'status-inactive'}`} />
-              <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>{p.categoria}</span><span>•</span><span>{p.telefono || 'Sin teléfono'}</span><span>•</span><span>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</span>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' && <span className="payment-term-badge">📅 {Number(p.plazo_dias) || 0} días</span>}</div></div>
+              <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>{p.categoria}</span><span>•</span><span>{p.telefono || 'Sin teléfono'}</span><span>•</span><span>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</span>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' && <span className="payment-term-badge"><FestosIcon name="Clock3" size={14} /> {Number(p.plazo_dias) || 0} días</span>}</div></div>
             </div>
             <div className="business-date-value"><span>Registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '—'}</strong></div>
             <div className="business-menu-wrap">
-              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}>⋮</button>
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}><FestosIcon name="MoreVertical" size={18} /></button>
               {menuAbierto === p.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
-                {puedeGestionar && <button onClick={() => editar(p)}>✏️ <span>Editar proveedor</span></button>}
-                {puedeGestionar && <button className={p.estado ? 'danger' : ''} onClick={() => toggle(p)}>{p.estado ? '⏸' : '✓'} <span>{p.estado ? 'Desactivar proveedor' : 'Activar proveedor'}</span></button>}
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(p)}><FestosIcon name="Pencil" size={16} /> <span>Editar proveedor</span></button>}
+                {puedeGestionar && <button className={p.estado ? 'danger' : ''} onClick={() => toggle(p)}><FestosIcon name={p.estado ? 'PauseCircle' : 'CheckCircle2'} size={16} /> <span>{p.estado ? 'Desactivar proveedor' : 'Activar proveedor'}</span></button>}
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
           {abierto && <div className="business-detail-grid">
             <div><span>Categoría</span><strong>{p.categoria || '—'}</strong></div><div><span>Productos</span><strong>{p.productos || '—'}</strong></div><div><span>Teléfono</span><strong>{p.telefono || '—'}</strong></div><div><span>Nombre de contacto</span><strong>{p.contacto_nombre || '—'}</strong></div><div><span>Condición de pago</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' ? `${Number(p.plazo_dias) || 0} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{p.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
             {p.observaciones && <div className="business-detail-wide"><span>Observaciones</span><strong>{p.observaciones}</strong></div>}
@@ -368,10 +371,10 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
     </div>
     {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
       <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar proveedor' : '➕ Registrar proveedor'}</h4><p className="panel-note">Completa la información del proveedor.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18} /> Editar proveedor</> : <><FestosIcon name="Plus" size={18} /> Registrar proveedor</>}</h4><p className="panel-note">Completa la información del proveedor.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
         <div className="form-grid-2"><div className="form-row"><label>Categoría *</label><input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} list="categorias-proveedor" placeholder="Ej. Imprenta" required /><datalist id="categorias-proveedor">{CATEGORIAS_PROVEEDOR.map(c => <option key={c} value={c} />)}</datalist></div><div className="form-row"><label>RAZÓN SOCIAL *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div></div>
         <div className="form-row"><label>PRODUCTO/SERVICIO QUE VENDE *</label><input value={form.productos} onChange={e => setForm({ ...form, productos: e.target.value })} placeholder="Ej. Banners, tarjetas personalizadas..." required /></div>
-        <div className="form-grid-2"><div className="form-row"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div><div className="form-row"><label>NOMBRE</label><input value={form.contacto_nombre} onChange={e => setForm({ ...form, contacto_nombre: e.target.value })} placeholder="Nombre del contacto principal" /></div></div><div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.condicion_pago} onChange={e => setForm({ ...form, condicion_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option>CONTADO</option><option>CREDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.condicion_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del proveedor.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}>+ Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor provider-contact-editor"><input placeholder="TELEFONO" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><input placeholder="NOMBRE" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div>
+        <div className="form-grid-2"><div className="form-row"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div><div className="form-row"><label>NOMBRE</label><input value={form.contacto_nombre} onChange={e => setForm({ ...form, contacto_nombre: e.target.value })} placeholder="Nombre del contacto principal" /></div></div><div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.condicion_pago} onChange={e => setForm({ ...form, condicion_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option>CONTADO</option><option>CREDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.condicion_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del proveedor.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}><FestosIcon name="Plus" size={15} /> Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor provider-contact-editor"><input placeholder="TELEFONO" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><input placeholder="NOMBRE" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div>
         <label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Proveedor activo</label>
         <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proveedor'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
       </form>
@@ -380,10 +383,11 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
 }
 
 
-export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true }) {
+export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, filtroDesdeDashboard = null, solicitudNuevo = false, onConsumirNuevo = () => {}, voiceCommand = null, onVoiceFeedback = () => {} }) {
   const [clientes, setClientes] = useState([]);
   const [proyectos, setProyectos] = useState([]);
   const [cotizacionesProyecto, setCotizacionesProyecto] = useState([]);
+  const [clientesListos, setClientesListos] = useState(false);
   const [form, setForm] = useState(emptyProject);
   const [editando, setEditando] = useState(null);
   const [busqueda, setBusqueda] = useState('');
@@ -392,10 +396,24 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
   const [filtroCargador, setFiltroCargador] = useState('TODOS');
   const [filtroLob, setFiltroLob] = useState('TODOS');
+  const [filtroEntrega, setFiltroEntrega] = useState('TODOS');
+  const [filtrosMovilAbiertos, setFiltrosMovilAbiertos] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(null);
   const [detalleAbierto, setDetalleAbierto] = useState(null);
+  useEffect(() => {
+    if (!filtroDesdeDashboard?.id) return;
+    setBusqueda('');
+    setFechaDesde(filtroDesdeDashboard.desde || '');
+    setFechaHasta(filtroDesdeDashboard.hasta || '');
+    setFiltroEstado(filtroDesdeDashboard.estado || 'TODOS');
+    setFiltroCargador(filtroDesdeDashboard.ejecutivo || 'TODOS');
+    setFiltroLob(filtroDesdeDashboard.categoria || 'TODOS');
+    setFiltroEntrega(filtroDesdeDashboard.entrega || 'TODOS');
+    setFiltrosMovilAbiertos(true); // El usuario ve los filtros aplicados desde el Dashboard.
+    setDetalleAbierto(null);
+  }, [filtroDesdeDashboard?.id]);
 
   const estadosProyecto = ['EN PROCESO', 'FINALIZADO', 'FACTURADO'];
   const normalizarEstado = estado => {
@@ -412,6 +430,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
       supabase.from('proyectos').select('*, clientes(nombre)').order('created_at', { ascending: false }),
       supabase.from('cotizaciones').select('id,codigo,project_id,proyecto_nombre,subtotal,igv,total,estado,descripcion,created_at,client_id,created_by,lob').order('created_at', { ascending: false })
     ]);
+    setClientesListos(true);
     if (ce || pe || qe) { console.error(ce || pe || qe); return; }
     setClientes(c || []); setProyectos(p || []); setCotizacionesProyecto(q || []);
   };
@@ -425,42 +444,95 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
   const quoteForProject = p => cotizacionesProyecto.find(q =>
     q.project_id === p.id || (q.proyecto_nombre || '').trim().toLowerCase() === (p.nombre || '').trim().toLowerCase()
   );
-  const valorVenta = p => num(quoteForProject(p)?.subtotal);
+  // Valor venta FESTOS = VALOR del Excel, antes de IGV.
+  // PRECIO del Excel es el precio con IGV y no se usa como Valor venta.
+  // Para proyectos antiguos, usamos el subtotal de la cotización como respaldo.
+  const valorVenta = p => {
+    const directo = num(p?.valor_base);
+    if (directo > 0) return directo;
+    const propio = num(p?.valor_venta);
+    if (propio > 0) return propio;
+    return num(quoteForProject(p)?.subtotal);
+  };
   const ejecutivoProyecto = p => String(p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || '').trim() || 'Sin registro';
+  const fechaProyecto = p => String(p?.fecha_pedido || p?.created_at || '').slice(0, 10);
 
   const filtrados = useMemo(() => proyectos.filter(p => {
     const q = quoteForProject(p);
     const texto = `${p.nombre} ${p.descripcion || ''} ${p.clientes?.nombre || ''} ${ejecutivoProyecto(p)}`.toLowerCase();
-    const fecha = p.created_at ? p.created_at.slice(0, 10) : '';
+    const fecha = fechaProyecto(p);
     const estado = normalizarEstado(p.estado);
     return texto.includes(busqueda.trim().toLowerCase()) &&
       (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
       (!fechaHasta || (fecha && fecha <= fechaHasta)) &&
       (filtroEstado === 'TODOS' || estado === filtroEstado) &&
       (filtroCargador === 'TODOS' || ejecutivoProyecto(p) === filtroCargador) &&
-      (filtroLob === 'TODOS' || String(p.lob || q?.lob || '').trim() === filtroLob);
-  }), [proyectos, cotizacionesProyecto, busqueda, fechaDesde, fechaHasta, filtroEstado, filtroCargador, filtroLob]);
+      (filtroLob === 'TODOS' || categoriaDelProyecto(p) === filtroLob) &&
+      (filtroEntrega === 'TODOS' || (() => {
+        const entrega = String(p.fecha_entrega || '').slice(0, 10);
+        if (!entrega || ['FINALIZADO', 'FACTURADO'].includes(estado)) return false;
+        const hoy = new Date();
+        const hoyKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+        const enSiete = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 7);
+        const sieteKey = `${enSiete.getFullYear()}-${String(enSiete.getMonth() + 1).padStart(2, '0')}-${String(enSiete.getDate()).padStart(2, '0')}`;
+        return filtroEntrega === 'VENCIDOS' ? entrega < hoyKey : entrega >= hoyKey && entrega <= sieteKey;
+      })());
+  }), [proyectos, cotizacionesProyecto, busqueda, fechaDesde, fechaHasta, filtroEstado, filtroCargador, filtroLob, filtroEntrega]);
 
   const subtotalFiltrado = useMemo(() => filtrados.reduce((sum, p) => sum + valorVenta(p), 0), [filtrados, cotizacionesProyecto]);
   const cargadores = useMemo(() => [...new Set(proyectos.map(ejecutivoProyecto).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')), [proyectos, cotizacionesProyecto]);
-  const lobsProyecto = ['Espacio de estructuras', 'Producción gráfica', 'Producción 360'];
+  const lobsProyecto = CATEGORIAS_FESTOS;
+  const categoriasProyectoFiltro = [...CATEGORIAS_FESTOS, ...(proyectos.some(p => categoriaDelProyecto(p) === CATEGORIA_PENDIENTE) ? [CATEGORIA_PENDIENTE] : [])];
+  const fechasHabilitadas = proyectos.some(p => Object.prototype.hasOwnProperty.call(p, 'fecha_entrega'));
+  const fechaPedidoHabilitada = proyectos.some(p => Object.prototype.hasOwnProperty.call(p, 'fecha_pedido'));
 
   const abrirNuevo = () => { setEditando(null); setForm(emptyProject); setModalAbierto(true); };
-  const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ nombre: p.nombre, descripcion: p.descripcion || '', estado: normalizarEstado(p.estado), client_id: p.client_id || '', ejecutivo: p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || 'GONZALO', lob: p.lob || quoteForProject(p)?.lob || 'Espacio de estructuras' }); setModalAbierto(true); };
+  useEffect(() => { if (solicitudNuevo && puedeGestionar) { abrirNuevo(); onConsumirNuevo(); } }, [solicitudNuevo]);
+  const lastProjectVoiceId = useRef(null);
+  useEffect(() => {
+    if (!voiceCommand || !puedeGestionar || lastProjectVoiceId.current === voiceCommand.id) return;
+    const fields = voiceCommand.fields || {};
+    if (fields.client_name && !clientesListos) return;
+    const client = fields.client_name ? matchVoiceClient(clientes, fields.client_name) : null;
+    lastProjectVoiceId.current = voiceCommand.id;
+    setForm(previous => ({
+      ...(voiceCommand.startNew ? emptyProject : previous),
+      ...(fields.project_name ? { nombre: fields.project_name } : {}),
+      ...(fields.description ? { descripcion: fields.description } : {}),
+      ...(fields.executive ? { ejecutivo: fields.executive } : {}),
+      ...(fields.lob ? { lob: fields.lob } : {}),
+      ...(fields.status ? { estado: fields.status } : {}),
+      ...(fields.sale_value !== undefined ? { valor_venta: String(fields.sale_value) } : {}),
+      ...(client?.status === 'matched' ? { client_id: client.id } : {}),
+    }));
+    if (voiceCommand.startNew) setEditando(null);
+    setModalAbierto(true);
+    if (client && client.status !== 'matched') onVoiceFeedback(`No identifiqué un cliente único para «${fields.client_name}». Selecciónalo en el formulario; no he creado ninguno.`);
+  }, [voiceCommand?.id, clientesListos, puedeGestionar]);
+
+  const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ valor_venta: p.valor_base ?? p.valor_venta ?? '', nombre: p.nombre, descripcion: p.descripcion || '', estado: normalizarEstado(p.estado), client_id: p.client_id || '', ejecutivo: p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || 'GONZALO', lob: p.lob || quoteForProject(p)?.lob || '', fecha_pedido: p.fecha_pedido || '', fecha_inicio: p.fecha_inicio || '', fecha_entrega: p.fecha_entrega || '' }); setModalAbierto(true); };
   const puedeEliminarProyecto = String(usuario || '').trim().toLowerCase() === 'gonzalo';
   const eliminarProyecto = async p => {
     if (!puedeEliminarProyecto) return alert('Solo GONZALO puede eliminar proyectos.');
     const ok = window.confirm(`¿Eliminar el proyecto ${p.nombre}?\n\nEsta acción no se puede deshacer.`);
     if (!ok) return;
     setMenuAbierto(null); setCargando(true);
-    try { const { error } = await supabase.rpc('eliminar_proyecto_gonzalo', { p_project_id: p.id, p_usuario: usuario }); if (error) throw error; onNotify(`Proyecto eliminado: ${p.nombre}`, 'edicion'); onAudit('Eliminación', `Proyecto eliminado · ${p.nombre}`); await cargar(); } catch (err) { console.error(err); alert(`No se pudo eliminar el proyecto. ${err?.message || ''}`); } finally { setCargando(false); }
+    try { const { error } = await supabase.rpc('eliminar_proyecto_gonzalo', { p_project_id: p.id }); if (error) throw error; onNotify(`Proyecto eliminado: ${p.nombre}`, 'edicion'); onAudit('Eliminación', `Proyecto eliminado · ${p.nombre}`); await cargar(); } catch (err) { console.error(err); alert(`No se pudo eliminar el proyecto. ${err?.message || ''}`); } finally { setCargando(false); }
   };
   const guardar = async e => {
     e.preventDefault(); if (!puedeGestionar) return;
     if (!form.nombre.trim() || !form.client_id) return alert('Completa el cliente y el nombre del proyecto.');
+    if (!form.lob) return alert('Selecciona una categoría para el proyecto.');
+    if (fechasHabilitadas && form.fecha_pedido && form.fecha_entrega && form.fecha_pedido > form.fecha_entrega) return alert('La fecha de entrega no puede ser anterior a la fecha de pedido.');
     setCargando(true);
     try {
-      const payload = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, estado: normalizarEstado(form.estado), client_id: form.client_id, ejecutivo: form.ejecutivo || 'GONZALO', lob: form.lob || 'Espacio de estructuras', created_by: editando ? (editando.created_by || quoteForProject(editando)?.created_by || form.ejecutivo || null) : (usuario || form.ejecutivo || null) };
+      // El código PRY se genera automáticamente en Supabase mediante trigger.
+      // Así cada alta manual o proyecto creado al aprobar una cotización recibe
+      // el siguiente correlativo PRY-YYYYMM-### sin depender del navegador.
+      const payload = { nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, estado: normalizarEstado(form.estado), client_id: form.client_id, ejecutivo: form.ejecutivo || 'GONZALO', lob: form.lob, created_by: editando ? (editando.created_by || quoteForProject(editando)?.created_by || form.ejecutivo || null) : (usuario || form.ejecutivo || null) };
+      if (fechaPedidoHabilitada) payload.fecha_pedido = form.fecha_pedido || null;
+      if (form.valor_venta !== '' && form.valor_venta !== null && form.valor_venta !== undefined) { const venta = Number(form.valor_venta); if (!Number.isFinite(venta) || venta < 0) throw new Error('Valor de venta no válido.'); payload.valor_base = venta; payload.valor_venta = venta; }
+      if (fechasHabilitadas) { payload.fecha_entrega = form.fecha_entrega || null; }
       const result = editando ? await supabase.from('proyectos').update(payload).eq('id', editando.id) : await supabase.from('proyectos').insert([{ ...payload, id: id() }]);
       if (result.error) throw result.error;
       onNotify(editando ? `Proyecto actualizado: ${payload.nombre}` : `Nuevo proyecto registrado: ${payload.nombre}`, editando ? 'edicion' : 'nuevo');
@@ -472,19 +544,21 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
 
   return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
     <div className="section-header">
-      <div><h3 className="section-title">📁 Proyectos</h3><p className="panel-note">Proyectos con cliente, valor de venta, estado y usuario que los cargó.</p></div>
-      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}>+ Nuevo proyecto</button>}
+      <div><h3 className="section-title"><FestosIcon name="FolderKanban" size={21} /> Proyectos</h3><p className="panel-note">Proyectos con fecha de pedido, ejecutivo comercial, cliente, valor de venta y estado.</p></div>
+      {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}><FestosIcon name="Plus" size={16} /> Nuevo proyecto</button>}
     </div>
     <div className="glass-card form-card business-toolbar">
       <div className="toolbar-search-row">
         <input className="search-input" placeholder="Buscar proyecto, cliente o usuario..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
       </div>
-      <div className="toolbar-filter-row project-filter-row">
+      <button type="button" className="project-mobile-filter-toggle" aria-expanded={filtrosMovilAbiertos} onClick={() => setFiltrosMovilAbiertos(v => !v)}>{filtrosMovilAbiertos ? "Ocultar filtros" : "Filtrar proyectos"} <FestosIcon name="ChevronDown" size={17} /></button>
+      <div className={`toolbar-filter-row project-filter-row ${filtrosMovilAbiertos ? "project-filters-open" : "project-filters-collapsed"}`}>
         <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div>
         <select className="business-payment-filter" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}><option value="TODOS">Estado: Todos</option>{estadosProyecto.map(estado => <option key={estado} value={estado}>{estado}</option>)}</select>
-        <select className="business-payment-filter" value={filtroCargador} onChange={e => setFiltroCargador(e.target.value)}><option value="TODOS">Ejecutivo: Todos</option>{cargadores.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select>
-        <select className="business-payment-filter" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">LOB: Todos</option>{lobsProyecto.map(lob => <option key={lob} value={lob}>{lob}</option>)}</select>
-        <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEstado('TODOS'); setFiltroCargador('TODOS'); setFiltroLob('TODOS'); }}>Limpiar filtros</button>
+        <select className="business-payment-filter" value={filtroCargador} onChange={e => setFiltroCargador(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{cargadores.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select>
+        <select className="business-payment-filter" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">Categoría: Todas</option>{categoriasProyectoFiltro.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select>
+        {filtroEntrega !== 'TODOS' && <span className="project-delivery-tag">{filtroEntrega === 'VENCIDOS' ? 'Entregas vencidas' : 'Entregas en los próximos 7 días'}</span>}
+        <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEstado('TODOS'); setFiltroCargador('TODOS'); setFiltroLob('TODOS'); setFiltroEntrega('TODOS'); }}>Limpiar filtros</button>
       </div>
       <div className="project-filter-subtotal-row"><div className="project-filter-total"><span>Subtotal filtrado</span><strong>{money(subtotalFiltrado)}</strong></div></div>
     </div>
@@ -495,51 +569,87 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true })
         const venta = valorVenta(p);
         const estado = normalizarEstado(p.estado);
         const ejecutivo = ejecutivoProyecto(p);
-        const lobProyecto = p.lob || q?.lob || 'Sin LOB';
+        const lobProyecto = categoriaDelProyecto(p);
         return <article className={`business-pro-card project-pro-card project-status-${estado.toLowerCase().replace(/\s+/g, '-')} ${abierto ? 'is-open' : ''}`} key={p.id}>
           <div className="business-pro-main">
             <div className="business-identity">
               <span className={`business-status-dot project-dot-${estado.toLowerCase().replace(/\s+/g, '-')}`} />
-              <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{estado}</span><span>•</span><span>Ejecutivo · {ejecutivo}</span></div></div>
+              <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{estado}</span><span>•</span><span>Ejecutivo comercial · {ejecutivo}</span></div></div>
             </div>
-            <div className="business-date-value"><span>Valor venta</span><strong>{money(venta)}</strong><small>{p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '—'}</small></div>
+            <div className="business-date-value"><span>Valor venta</span><strong>{money(venta)}</strong><small>Pedido · {fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</small></div>
             <div className="business-menu-wrap">
-              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}>⋮</button>
+              <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}><FestosIcon name="MoreVertical" size={18} /></button>
               {menuAbierto === p.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
-                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span></button>
-                {puedeGestionar && <button onClick={() => editar(p)}>✏️ <span>Editar proyecto</span></button>}
-                {puedeEliminarProyecto && <button className="danger" onClick={() => eliminarProyecto(p)}>🗑 <span>Eliminar proyecto</span></button>}
+                <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span></button>
+                {puedeGestionar && <button onClick={() => editar(p)}><FestosIcon name="Pencil" size={16} /> <span>Editar proyecto</span></button>}
+                {puedeEliminarProyecto && <button className="danger" onClick={() => eliminarProyecto(p)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar proyecto</span></button>}
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>
+          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
           {abierto && <div className="business-detail-grid">
-            <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>LOB</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Ejecutivo</span><strong>{ejecutivo}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
-            <div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>
-            {q && <div className="business-detail-wide project-quote-summary"><span>Cotización vinculada</span><strong>{q.codigo} · {q.estado} · LOB: {q.lob || '—'} · Precio total {money(q.total)}</strong><small>{q.descripcion || 'Sin notas adicionales.'}</small></div>}
+            <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>Categoría</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Ejecutivo comercial</span><strong>{ejecutivo}</strong></div><div><span>Fecha de pedido</span><strong>{fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</strong></div>
+            {fechasHabilitadas && <div><span>Fecha de entrega</span><strong>{p.fecha_entrega || 'Sin registrar'}</strong></div>}<div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>
+            {q && <div className="business-detail-wide project-quote-summary"><span>Cotización vinculada</span><strong>{q.codigo} · {q.estado} · Categoría: {q.lob || '—'} · Precio total {money(q.total)}</strong><small>{q.descripcion || 'Sin notas adicionales.'}</small></div>}
           </div>}
         </article>;
       })}
     </div>
     {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
       <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-head"><div><h4 className="panel-title">{editando ? '✏️ Editar proyecto' : '➕ Registrar proyecto'}</h4><p className="panel-note">Asocia el proyecto a un cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
+        <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18} /> Editar proyecto</> : <><FestosIcon name="Plus" size={18} /> Registrar proyecto</>}</h4><p className="panel-note">Asocia el proyecto a un cliente.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
         <div className="form-row"><label>Cliente *</label><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })} required><option value="">Selecciona un cliente...</option>{clientes.filter(c => c.estado).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
         <div className="form-row"><label>Nombre del proyecto *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div>
-        <div className="form-row"><label>Descripción</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></div>
-        <div className="form-grid-2"><div className="form-row"><label>Estado</label><select value={normalizarEstado(form.estado)} onChange={e => setForm({ ...form, estado: e.target.value })}>{estadosProyecto.map(estado => <option key={estado}>{estado}</option>)}</select></div><div className="form-row"><label>Ejecutivo *</label><select value={form.ejecutivo || 'GONZALO'} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="MAR">MAR</option><option value="GONZALO">GONZALO</option></select></div></div><div className="form-row"><label>LOB *</label><select value={form.lob || 'Espacio de estructuras'} onChange={e => setForm({ ...form, lob: e.target.value })} required>{lobsProyecto.map(lob => <option key={lob} value={lob}>{lob}</option>)}</select></div>
-        <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proyecto'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
+        <div className="form-row"><label>Descripción</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></div><div className="form-row"><label>Valor de venta sin IGV (S/.)</label><input type="number" min="0" step="0.01" value={form.valor_venta ?? ''} onChange={e => setForm({ ...form, valor_venta: e.target.value })} placeholder="Opcional; monto sin IGV" /><small>Se guarda sin IGV. Si lo dejas vacío, se conserva el valor existente o se toma el de su cotización.</small></div>
+        <div className="form-grid-2"><div className="form-row"><label>Estado</label><select value={normalizarEstado(form.estado)} onChange={e => setForm({ ...form, estado: e.target.value })}>{estadosProyecto.map(estado => <option key={estado}>{estado}</option>)}</select></div><div className="form-row"><label>Ejecutivo comercial *</label><select value={form.ejecutivo || 'GONZALO'} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="MAR">MAR</option><option value="GONZALO">GONZALO</option></select></div></div>{fechaPedidoHabilitada && <div className="form-row"><label>Fecha de pedido</label><input type="date" value={form.fecha_pedido || ''} onChange={e => setForm({ ...form, fecha_pedido: e.target.value })}/><small>Esta es la fecha comercial que usa Proyectos y Dashboard. Para los históricos proviene del Excel.</small></div>}<div className="form-row"><label>Categoría *</label><select value={form.lob || ''} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{lobsProyecto.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div>
+        {fechasHabilitadas && <div className="form-grid-2"><div className="form-row"><label>Fecha de entrega</label><input type="date" min={form.fecha_pedido || undefined} value={form.fecha_entrega || ''} onChange={e => setForm({ ...form, fecha_entrega: e.target.value })}/></div></div>}{!fechasHabilitadas && <p className="panel-note">Las fechas de entrega estarán disponibles después de ejecutar la migración opcional V28 de Supabase.</p>}<div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proyecto'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
       </form>
     </div>}
   </div>;
 }
 
 
-export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }) {
-  const [clientes, setClientes] = useState([]); const [proyectos, setProyectos] = useState([]); const [cotizaciones, setCotizaciones] = useState([]); const [vista, setVista] = useState('lista'); const [filtro, setFiltro] = useState('todas'); const [busqueda, setBusqueda] = useState(''); const [fechaDesde, setFechaDesde] = useState(''); const [fechaHasta, setFechaHasta] = useState(''); const [editando, setEditando] = useState(null); const [form, setForm] = useState({ client_id: '', proyecto_nombre: '', project_id: '', lob: 'Espacio de estructuras', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); const [cargando, setCargando] = useState(false); const [nuevoCliente, setNuevoCliente] = useState(false); const [itemsEditando, setItemsEditando] = useState(() => new Set()); const [itemsColapsados, setItemsColapsados] = useState(() => new Set()); const [valorVentaDirecto, setValorVentaDirecto] = useState(0); const [clienteRapido, setClienteRapido] = useState(emptyClient); const [menuAbierto, setMenuAbierto] = useState(null); const [detalleAbierto, setDetalleAbierto] = useState(null); const [detalleItems, setDetalleItems] = useState({});
+export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, puedeCrearCliente = false, solicitudNuevo = false, onConsumirNuevo = () => {}, voiceCommand = null, onVoiceFeedback = () => {} }) {
+  const [clientes, setClientes] = useState([]); const [clientesListos, setClientesListos] = useState(false); const [proyectos, setProyectos] = useState([]); const [cotizaciones, setCotizaciones] = useState([]); const [vista, setVista] = useState('lista'); const [filtro, setFiltro] = useState('todas'); const [busqueda, setBusqueda] = useState(''); const [fechaDesde, setFechaDesde] = useState(''); const [fechaHasta, setFechaHasta] = useState(''); const [editando, setEditando] = useState(null); const [form, setForm] = useState({ client_id: '', proyecto_nombre: '', project_id: '', lob: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); const [cargando, setCargando] = useState(false); const [nuevoCliente, setNuevoCliente] = useState(false); const [itemsEditando, setItemsEditando] = useState(() => new Set()); const [itemsColapsados, setItemsColapsados] = useState(() => new Set()); const [valorVentaDirecto, setValorVentaDirecto] = useState(0); const [clienteRapido, setClienteRapido] = useState(emptyClient); const [menuAbierto, setMenuAbierto] = useState(null); const [detalleAbierto, setDetalleAbierto] = useState(null); const [detalleItems, setDetalleItems] = useState({});
+  // Copia LOCAL del formulario NO guardado en Supabase, aislada por usuario.
+  const claveBorradorLocal = `festos_coti_local_v28_${String(usuario || '').trim().toLowerCase()}`;
+  const [borradorRecuperable, setBorradorRecuperable] = useState(() => {
+    try {
+      const raw = localStorage.getItem(`festos_coti_local_v28_${String(usuario || '').trim().toLowerCase()}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.form && parsed?.savedAt && Date.now() - parsed.savedAt < 7 * 24 * 60 * 60 * 1000 ? parsed : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (vista !== 'form' || editando) return;
+    const meaningful = form.client_id || form.proyecto_nombre?.trim() || form.descripcion?.trim() ||
+      form.items.some(i => String(i.descripcion || '').trim() || String(i.valor_unitario || '').trim());
+    if (!meaningful) return;
+    const draft = { form, valorVentaDirecto, savedAt: Date.now() };
+    try { localStorage.setItem(claveBorradorLocal, JSON.stringify(draft)); setBorradorRecuperable(draft); }
+    catch { /* Sin espacio local: el guardado en Supabase sigue funcionando. */ }
+  }, [vista, editando, form, valorVentaDirecto, claveBorradorLocal]);
+  const descartarBorradorLocal = () => {
+    try { localStorage.removeItem(claveBorradorLocal); } catch { /* opcional */ }
+    setBorradorRecuperable(null);
+  };
+  const recuperarBorradorLocal = () => {
+    if (!borradorRecuperable?.form) return;
+    const recovered = { ...borradorRecuperable.form,
+      items: (borradorRecuperable.form.items || []).map(item => ({ ...item, id: item.id || id() })) };
+    if (!recovered.items.length) recovered.items = [newItem()];
+    setEditando(null);
+    setForm(recovered);
+    setValorVentaDirecto(num(borradorRecuperable.valorVentaDirecto));
+    setItemsEditando(new Set(recovered.items.map(item => item.id)));
+    setItemsColapsados(new Set());
+    setVista('form');
+  };
   const cargarDatos = async () => {
     const { data: c, error: ce } = await supabase.from('clientes').select('*').eq('estado', true).order('nombre');
     if (ce) { console.error('Error cargando clientes:', ce); setClientes([]); } else { setClientes(c || []); }
+    setClientesListos(true);
 
     const { data: p, error: pe } = await supabase.from('proyectos').select('*, clientes(nombre)').order('nombre');
     if (pe) { console.error('Error cargando proyectos:', pe); setProyectos([]); } else { setProyectos(p || []); }
@@ -557,8 +667,56 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
   const proyectosDisponibles = form.client_id ? proyectos.filter(p => p.client_id === form.client_id && p.estado !== 'Finalizado') : [];
   const itemTotal = item => num(item.cantidad) * num(item.valor_unitario);
   const subtotalItems = form.items.reduce((s, i) => s + itemTotal(i), 0); const subtotal = form.modo === 'directo' ? num(valorVentaDirecto) : subtotalItems; const descuento = 0; const base = subtotal; const igv = base * IGV_RATE; const total = base + igv; const costo = form.items.reduce((s, i) => s + (num(i.costo_unitario ?? i.costo) * num(i.cantidad)), 0); const ganancia = base - costo; const margen = base > 0 ? (ganancia / base) * 100 : 0;
-  const reset = () => { setForm({ client_id: '', proyecto_nombre: '', project_id: '', lob: 'Espacio de estructuras', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); setValorVentaDirecto(0); setEditando(null); setItemsEditando(new Set()); setItemsColapsados(new Set()); setVista('lista'); };
-  const nuevaCotizacion = () => { const item = newItem(); setEditando(null); setForm({ client_id: '', proyecto_nombre: '', project_id: '', lob: 'Espacio de estructuras', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [item] }); setValorVentaDirecto(0); setItemsEditando(new Set([item.id])); setItemsColapsados(new Set()); setNuevoCliente(false); setVista('form'); };
+  const reset = () => { setForm({ client_id: '', proyecto_nombre: '', project_id: '', lob: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newItem()] }); setValorVentaDirecto(0); setEditando(null); setItemsEditando(new Set()); setItemsColapsados(new Set()); setVista('lista'); };
+  const nuevaCotizacion = () => { const item = newItem(); setEditando(null); setForm({ client_id: '', proyecto_nombre: '', project_id: '', lob: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [item] }); setValorVentaDirecto(0); setItemsEditando(new Set([item.id])); setItemsColapsados(new Set()); setNuevoCliente(false); setVista('form'); };
+  useEffect(() => { if (solicitudNuevo) { nuevaCotizacion(); onConsumirNuevo(); } }, [solicitudNuevo]);
+  const lastQuoteVoiceId = useRef(null);
+  useEffect(() => {
+    if (!voiceCommand || lastQuoteVoiceId.current === voiceCommand.id) return;
+    const fields = voiceCommand.fields || {};
+    if (fields.client_name && !clientesListos) return;
+
+    const client = fields.client_name ? matchVoiceClient(clientes, fields.client_name) : null;
+    lastQuoteVoiceId.current = voiceCommand.id;
+    if (voiceCommand.startNew) { setEditando(null); setNuevoCliente(false); }
+    setVista('form');
+    // El ID se crea fuera del updater: React StrictMode puede evaluar el updater dos veces.
+    const newVoiceItem = newItem();
+    const changesItem = fields.item_description || fields.quantity !== undefined || fields.unit_price !== undefined || fields.unit_cost !== undefined;
+    const appendItem = !!(fields.append_item && !voiceCommand.startNew && form.items.some(item => String(item.descripcion || '').trim()));
+    const editedItemId = appendItem || voiceCommand.startNew ? newVoiceItem.id : (form.items?.[0]?.id || newVoiceItem.id);
+    setForm(previous => {
+      const base = voiceCommand.startNew ? { client_id: '', proyecto_nombre: '', project_id: '', lob: '', descripcion: '', aplicar_igv: true, descuento: 0, modo: 'detallado', items: [newVoiceItem] } : previous;
+      const next = { ...base,
+        ...(fields.project_name ? { proyecto_nombre: fields.project_name } : {}),
+        ...(fields.description ? { descripcion: fields.description } : {}),
+        ...((fields.lob || fields.item_category) ? { lob: fields.lob || fields.item_category } : {}),
+        ...(fields.mode ? { modo: fields.mode } : {}),
+        ...(client?.status === 'matched' ? { client_id: client.id, project_id: '' } : {}),
+        ...(fields.sale_value !== undefined ? { modo: 'directo' } : {}),
+      };
+      if (changesItem) {
+        const first = appendItem ? newVoiceItem : { ...(base.items?.[0] || newVoiceItem) };
+        if (fields.item_description) first.descripcion = fields.item_description;
+        if (fields.quantity !== undefined && fields.quantity > 0) first.cantidad = fields.quantity;
+        if (fields.unit_price !== undefined) first.valor_unitario = fields.unit_price;
+        if (fields.unit_cost !== undefined) first.costo_unitario = fields.unit_cost;
+        next.items = appendItem ? [...(base.items || []), first] : [first, ...(base.items || []).slice(1)];
+      }
+      return next;
+    });
+    if (voiceCommand.startNew) {
+      setItemsEditando(new Set([newVoiceItem.id]));
+      setItemsColapsados(new Set());
+    } else if (changesItem) {
+      setItemsEditando(old => new Set([...old, editedItemId]));
+      setItemsColapsados(old => { const next = new Set(old); next.delete(editedItemId); return next; });
+    }
+    if (fields.sale_value !== undefined) setValorVentaDirecto(fields.sale_value);
+    else if (voiceCommand.startNew) setValorVentaDirecto(0);
+    if (client && client.status !== 'matched') onVoiceFeedback(`No identifiqué un cliente único para «${fields.client_name}». Selecciónalo en el formulario antes de guardar.`);
+  }, [voiceCommand?.id, clientesListos]);
+
   const updateItem = (itemId, changes) => setForm(prev => ({ ...prev, items: prev.items.map(i => i.id === itemId ? { ...i, ...changes } : i) }));
   const addItem = () => { const item = newItem(); setForm(prev => ({ ...prev, items: [...prev.items, item] })); setItemsEditando(prev => new Set([...prev, item.id])); setItemsColapsados(prev => { const next = new Set(prev); next.delete(item.id); return next; }); };
   const guardarItem = itemId => { setItemsEditando(prev => { const next = new Set(prev); next.delete(itemId); return next; }); setItemsColapsados(prev => new Set([...prev, itemId])); };
@@ -578,9 +736,9 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
     setItemsColapsados(prev => { const next = new Set(prev); next.delete(itemId); return next; });
   };
   const cambiarModo = modo => { if (modo === 'directo') setValorVentaDirecto(subtotalItems); setForm(prev => ({ ...prev, modo })); };
-  const guardar = async (estado = 'Borrador') => { if (estado === 'Aprobado' && !puedeAprobar) return alert('No tienes permiso para aprobar cotizaciones.'); if (!form.client_id) return alert('Selecciona un cliente.'); if (!form.proyecto_nombre.trim()) return alert('Escribe el nombre del proyecto. La cotización no puede guardarse sin proyecto.'); if (!form.items.some(i => i.descripcion.trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.'); setCargando(true); try { const codigo = editando?.codigo || `COT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`; const payload = { client_id: form.client_id, project_id: editando?.project_id || null, proyecto_nombre: form.proyecto_nombre.trim(), lob: form.lob, codigo, descripcion: form.descripcion.trim() || null, estado, aplicar_igv: true, igv_rate: IGV_RATE, subtotal, descuento: 0, igv, total, costo_estimado: costo, ganancia_estimada: ganancia, margen, updated_by: usuario }; let quoteId = editando?.id; let error; if (editando) { ({ error } = await supabase.from('cotizaciones').update(payload).eq('id', editando.id)); if (!error) { const del = await supabase.from('cotizacion_items').delete().eq('quote_id', editando.id); if (del.error) throw del.error; } } else { quoteId = id(); ({ error } = await supabase.from('cotizaciones').insert([{ ...payload, id: quoteId, created_by: usuario }])); } if (error) throw error; const itemsPayload = form.items.filter(i => i.descripcion.trim()).map((i, index) => ({ id: id(), quote_id: quoteId, orden: index + 1, descripcion: i.descripcion.trim(), modo: form.modo, cantidad: num(i.cantidad), valor_unitario: num(i.valor_unitario), valor_total: itemTotal(i), costo: num(i.costo_unitario ?? i.costo) * num(i.cantidad), margen: itemTotal(i) > 0 ? ((itemTotal(i) - (num(i.costo_unitario ?? i.costo) * num(i.cantidad))) / itemTotal(i)) * 100 : 0 })); const itemsResult = await supabase.from('cotizacion_items').insert(itemsPayload); if (itemsResult.error) throw itemsResult.error;
+  const guardar = async (estado = 'Borrador') => { if (estado === 'Aprobado' && !puedeAprobar) return alert('No tienes permiso para aprobar cotizaciones.'); if (!form.client_id) return alert('Selecciona un cliente.'); if (!form.proyecto_nombre.trim()) return alert('Escribe el nombre del proyecto. La cotización no puede guardarse sin proyecto.'); if (!form.lob) return alert('Selecciona la categoría general de la cotización.'); if (!form.items.some(i => i.descripcion.trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.'); setCargando(true); try { const codigo = editando?.codigo || `COT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`; const payload = { client_id: form.client_id, project_id: editando?.project_id || null, proyecto_nombre: form.proyecto_nombre.trim(), lob: form.lob, codigo, descripcion: form.descripcion.trim() || null, estado, aplicar_igv: true, igv_rate: IGV_RATE, subtotal, descuento: 0, igv, total, costo_estimado: costo, ganancia_estimada: ganancia, margen, updated_by: usuario }; let quoteId = editando?.id; let error; if (editando) { ({ error } = await supabase.from('cotizaciones').update(payload).eq('id', editando.id)); if (!error) { const del = await supabase.from('cotizacion_items').delete().eq('quote_id', editando.id); if (del.error) throw del.error; } } else { quoteId = id(); ({ error } = await supabase.from('cotizaciones').insert([{ ...payload, id: quoteId, created_by: usuario }])); } if (error) throw error; const itemsPayload = form.items.filter(i => i.descripcion.trim()).map((i, index) => ({ id: id(), quote_id: quoteId, orden: index + 1, descripcion: i.descripcion.trim(), categoria: null, modo: form.modo, cantidad: num(i.cantidad), valor_unitario: num(i.valor_unitario), valor_total: itemTotal(i), costo: num(i.costo_unitario ?? i.costo) * num(i.cantidad), margen: itemTotal(i) > 0 ? ((itemTotal(i) - (num(i.costo_unitario ?? i.costo) * num(i.cantidad))) / itemTotal(i)) * 100 : 0 })); const itemsResult = await supabase.from('cotizacion_items').insert(itemsPayload); if (itemsResult.error) throw itemsResult.error;
       if (estado === 'Aprobado') {
-        const { error: approvalError } = await supabase.rpc('aprobar_cotizacion', { p_cotizacion_id: quoteId, p_usuario: usuario });
+        const { error: approvalError } = await supabase.rpc('aprobar_cotizacion', { p_cotizacion_id: quoteId });
         if (approvalError) throw approvalError;
         await registrarAvisoEmail(quoteId, codigo, 'aprobada');
         onNotify(`${editando ? 'Cotización actualizada y aprobada' : 'Nueva cotización aprobada'}: ${codigo} · Proyecto creado`, 'aprobacion');
@@ -590,14 +748,14 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
         if (estado === 'En Revisión') await registrarAvisoEmail(quoteId, codigo, 'en_revision');
         onAudit(editando ? 'Edición' : 'Creación', `${codigo} · Estado: ${estado}`);
       }
-      await cargarDatos(); reset(); } catch (err) { console.error(err); alert(`No se pudo guardar la cotización. ${err?.message || 'Verifica las tablas y políticas de Supabase.'}`); } finally { setCargando(false); } };
-  const editar = async q => { const { data: items, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden'); if (error) return alert('No se pudieron cargar los ítems.'); const modo = items?.[0]?.modo || 'detallado'; setEditando(q); setItemsEditando(new Set((items || []).map(i => i.id))); setItemsColapsados(new Set()); setValorVentaDirecto(num(q.subtotal)); setForm({ client_id: q.client_id, proyecto_nombre: q.proyecto_nombre || q.proyectos?.nombre || '', project_id: q.project_id || '', lob: q.lob || 'Espacio de estructuras', descripcion: q.descripcion || '', aplicar_igv: true, descuento: 0, modo, items: (items || []).map(i => ({ id: i.id || id(), descripcion: i.descripcion || '', cantidad: i.cantidad ?? 1, valor_unitario: i.valor_unitario ?? '', valor_total: i.valor_total ?? '', costo: i.costo ?? '', costo_unitario: i.costo_unitario ?? (num(i.cantidad) > 0 ? num(i.costo) / num(i.cantidad) : 0) })) .concat((items || []).length ? [] : [newItem()]) }); setVista('form'); };
+      await cargarDatos(); if (!editando) descartarBorradorLocal(); reset(); } catch (err) { console.error(err); alert(`No se pudo guardar la cotización. ${err?.message || 'Verifica las tablas y políticas de Supabase.'}`); } finally { setCargando(false); } };
+  const editar = async q => { const { data: items, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden'); if (error) return alert('No se pudieron cargar los ítems.'); const modo = items?.[0]?.modo || 'detallado'; setEditando(q); setItemsEditando(new Set((items || []).map(i => i.id))); setItemsColapsados(new Set()); setValorVentaDirecto(num(q.subtotal)); setForm({ client_id: q.client_id, proyecto_nombre: q.proyecto_nombre || q.proyectos?.nombre || '', project_id: q.project_id || '', lob: q.lob || '', descripcion: q.descripcion || '', aplicar_igv: true, descuento: 0, modo, items: (items || []).map(i => ({ id: i.id || id(), descripcion: i.descripcion || '', cantidad: i.cantidad ?? 1, valor_unitario: i.valor_unitario ?? '', valor_total: i.valor_total ?? '', costo: i.costo ?? '', costo_unitario: i.costo_unitario ?? (num(i.cantidad) > 0 ? num(i.costo) / num(i.cantidad) : 0) })) .concat((items || []).length ? [] : [newItem()]) }); setVista('form'); };
   const cambiarEstado = async (q, estado) => {
     if (estado === 'Aprobado' && !puedeAprobar) { alert('No tienes permiso para aprobar cotizaciones.'); return; }
     setMenuAbierto(null); setCargando(true);
     try {
       if (estado === 'Aprobado') {
-        const { error } = await supabase.rpc('aprobar_cotizacion', { p_cotizacion_id: q.id, p_usuario: usuario });
+        const { error } = await supabase.rpc('aprobar_cotizacion', { p_cotizacion_id: q.id });
         if (error) throw error;
         await registrarAvisoEmail(q.id, q.codigo, 'aprobada');
         onNotify(`${q.codigo} aprobada · Proyecto creado`, 'aprobacion');
@@ -638,7 +796,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
 
       const logoToDataUrl = async () => {
         try {
-          const r = await fetch('/festoslogo-Photoroom.png');
+          const r = await fetch(`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`);
           const b = await r.blob();
           return await new Promise((resolve, reject) => {
             const fr = new FileReader();
@@ -698,6 +856,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
       const pago = q.clientes?.tipo_pago || '';
       const plazo = num(q.clientes?.plazo_dias);
       if (pago) doc.text(`Condición: ${pago}${pago === 'Crédito' ? ` · ${plazo} días` : ''}`, 112, y);
+      if (q.lob) { y += 5; doc.text(`CATEGORÍA: ${String(q.lob)}`, margin, y); }
 
       y += 9;
       doc.setDrawColor(...border);
@@ -848,7 +1007,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
         [{ value: 'Tipo documento', style: 2 }, { value: cliente.tipo_documento || '' }, { value: 'Condición de pago', style: 2 }, { value: cliente.tipo_pago || cliente.condicion_pago || '' }],
         [{ value: 'Plazo de pago (días)', style: 2 }, { value: num(cliente.plazo_dias), numeric: true, style: 3 }, { value: 'Categoría cliente', style: 2 }, { value: cliente.categoria || '' }],
         [{ value: 'Proyecto', style: 2 }, { value: q.proyecto_nombre || proyecto.nombre || '' }, { value: 'Proyecto ID', style: 2 }, { value: q.project_id || proyecto.id || '' }],
-        [{ value: 'LOB', style: 2 }, { value: q.lob || '' }, { value: 'Modo', style: 2 }, { value: q.modo || ((items || [])[0]?.modo) || '' }],
+        [{ value: 'Categoría', style: 2 }, { value: q.lob || '' }, { value: 'Modo', style: 2 }, { value: q.modo || ((items || [])[0]?.modo) || '' }],
         [{ value: 'Descripción / alcance', style: 2 }, { value: q.descripcion || '' }, { value: 'Creado por', style: 2 }, { value: q.created_by || '' }],
         [{ value: 'Actualizado por', style: 2 }, { value: q.updated_by || '' }, { value: 'Aplicar IGV', style: 2 }, { value: q.aplicar_igv ? 'Sí' : 'No' }],
         [{ value: 'Valor de venta / Subtotal', style: 2 }, { value: num(q.subtotal), numeric: true, style: 7 }, { value: 'Descuento', style: 2 }, { value: num(q.descuento), numeric: true, style: 7 }],
@@ -866,7 +1025,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
       const sheet1 = `${xmlHeader}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="25" customWidth="1"/><col min="2" max="2" width="42" customWidth="1"/><col min="3" max="3" width="25" customWidth="1"/><col min="4" max="4" width="42" customWidth="1"/></cols><sheetData>${excelRowsXml([...detailRows, ...itemRows])}</sheetData><mergeCells count="3"><mergeCell ref="A1:D1"/><mergeCell ref="A2:D2"/><mergeCell ref="A17:D17"/></mergeCells></worksheet>`;
       const itemTotalRow = [{ value: 'TOTAL', style: 5 }, { value: '' }, { value: '' }, { value: '' }, { value: '' }, { value: num(q.subtotal), numeric: true, style: 7 }, { value: '' }, { value: num(q.costo_estimado), numeric: true, style: 7 }, { value: num(q.margen), numeric: true, style: 7 }];
       itemRows.push(itemTotalRow);
-      const sheet2Base = buildSheetXml(itemRows, [8, 44, 18, 12, 18, 18, 18, 18, 14]);
+      const sheet2Base = buildSheetXml(itemRows, [8, 48, 18, 12, 18, 18, 18, 18, 14]);
       const sheet2 = sheet2Base.replace('<sheetData>', '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>');
       const blob = await createXlsxBlob(xlsxBaseFiles(sheet1, sheet2));
       const url = URL.createObjectURL(blob);
@@ -881,10 +1040,10 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
       alert(`No se pudo generar el Excel. ${error?.message || ''}`);
     }
   };
-  const guardarClienteRapido = async e => { e.preventDefault(); if (!clienteRapido.nombre.trim() || !clienteRapido.ruc.trim()) return; const payload = { ...clienteRapido, nombre: clienteRapido.nombre.trim(), ruc: clienteRapido.ruc.trim(), plazo_dias: clienteRapido.tipo_pago === 'Contado' ? 0 : Math.trunc(num(clienteRapido.plazo_dias)), id: id() }; const { error } = await supabase.from('clientes').insert([payload]); if (error) return alert(`No se pudo registrar el cliente. ${error.message}`); onNotify(`Nuevo cliente registrado: ${payload.nombre}`, 'nuevo'); onAudit('Creación', `Cliente creado desde Cotizaciones · ${payload.nombre}`); setNuevoCliente(false); setClienteRapido(emptyClient); await cargarDatos(); setForm(prev => ({ ...prev, client_id: payload.id })); };
+  const guardarClienteRapido = async e => { e.preventDefault(); if (!puedeCrearCliente) { setNuevoCliente(false); return alert('Solo HEAD ADMIN, ADMIN y DESARROLLADOR SOFTWARE pueden registrar clientes.'); } if (!clienteRapido.nombre.trim() || !clienteRapido.ruc.trim()) return; const payload = { ...clienteRapido, nombre: clienteRapido.nombre.trim(), ruc: clienteRapido.ruc.trim(), plazo_dias: clienteRapido.tipo_pago === 'Contado' ? 0 : Math.trunc(num(clienteRapido.plazo_dias)), id: id() }; const { error } = await supabase.from('clientes').insert([payload]); if (error) return alert(`No se pudo registrar el cliente. ${error.message}`); onNotify(`Nuevo cliente registrado: ${payload.nombre}`, 'nuevo'); onAudit('Creación', `Cliente creado desde Cotizaciones · ${payload.nombre}`); setNuevoCliente(false); setClienteRapido(emptyClient); await cargarDatos(); setForm(prev => ({ ...prev, client_id: payload.id })); };
   const filtradas = cotizaciones.filter(q => { if (filtro !== 'todas' && q.estado !== filtro) return false; const text = `${q.codigo} ${q.clientes?.nombre || ''} ${q.proyectos?.nombre || ''} ${q.proyecto_nombre || ''} ${q.descripcion || ''}`.toLowerCase(); const fecha = q.created_at ? q.created_at.slice(0, 10) : ''; return (!busqueda.trim() || text.includes(busqueda.toLowerCase())) && (!fechaDesde || (fecha && fecha >= fechaDesde)) && (!fechaHasta || (fecha && fecha <= fechaHasta)); });
   const badge = estado => estado === 'En Revisión' ? 'tag-paid' : estado === 'Aprobado' ? 'tag-approval' : 'tag-pending';
-  if (vista === 'form') return <div><div className="section-header"><div><h3 className="section-title">{editando ? '✏️ Editar Cotización' : '📑 Nueva Cotización'}</h3><p className="panel-note">Cliente, proyecto obligatorio, ítems y control de rentabilidad.</p></div><button className="btn-secondary" onClick={reset}>← Volver</button></div><div className="glass-card form-card"><div className="form-grid-2"><div className="form-row"><label>Cliente *</label><div className="select-with-action"><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value, project_id: '' })} required><option value="">Selecciona un cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.ruc}</option>)}</select><button type="button" className="btn-muted" onClick={() => setNuevoCliente(v => !v)}>+ Cliente</button></div></div><div className="form-row"><label>Proyecto</label><div className="select-with-action"><select value={form.project_id} disabled={!form.usar_proyecto || !form.client_id} onChange={e => setForm({ ...form, project_id: e.target.value })}><option value="">{form.usar_proyecto ? (form.client_id ? 'Selecciona un proyecto...' : 'Primero selecciona cliente') : 'Proyecto no asociado'}</option>{proyectosDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div></div><div className="form-row"><label>LOB *</label><select value={form.lob} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="Espacio de estructuras">Espacio de estructuras</option><option value="Producción gráfica">Producción gráfica</option><option value="Producción 360">Producción 360</option></select></div></div>{nuevoCliente && <form onSubmit={guardarClienteRapido} className="quick-client-card"><div className="quick-client-head"><strong>Registrar cliente sin salir de Cotizaciones</strong><button type="button" className="btn-muted" onClick={() => setNuevoCliente(false)}>Cerrar</button></div><div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={clienteRapido.nombre} onChange={e => setClienteRapido({ ...clienteRapido, nombre: e.target.value })} required /></div><div className="form-row"><label>N° DOC *</label><input value={clienteRapido.ruc} onChange={e => setClienteRapido({ ...clienteRapido, ruc: e.target.value })} required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento</label><select value={clienteRapido.tipo_documento} onChange={e => setClienteRapido({ ...clienteRapido, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>CONDICIÓN DE PAGO</label><select value={clienteRapido.tipo_pago} onChange={e => setClienteRapido({ ...clienteRapido, tipo_pago: e.target.value })}><option>Contado</option><option>Crédito</option></select></div></div><div className="form-row quick-client-plazo"><label>Plazo (días)</label><input type="number" min="0" value={clienteRapido.plazo_dias} disabled={clienteRapido.tipo_pago === 'Contado'} onChange={e => setClienteRapido({ ...clienteRapido, plazo_dias: e.target.value })} /></div><button className="btn-primary btn-small">Registrar y seleccionar cliente</button></form>}<div className="form-row quote-project-required"><label>Proyecto *</label><input value={form.proyecto_nombre} onChange={e => setForm({ ...form, proyecto_nombre: e.target.value })} required placeholder="Escribe el nombre del proyecto..." /><small>El proyecto se creará automáticamente en Proyectos cuando la cotización sea aprobada.</small></div><div className="form-row"><label>Descripción / alcance</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Alcance, condiciones o notas de la cotización..." /></div><div className="quote-items-head"><div><h4 className="panel-title" style={{ margin: 0 }}>🧾 Ítems</h4><span className="panel-note">El modo Detallado / Directo se aplica a toda la cotización.</span></div><button type="button" className="btn-primary" onClick={addItem}>+ Agregar Ítem</button></div><div className="quote-items-list">{form.items.map((item, index) => {
+  if (vista === 'form') return <div><div className="section-header"><div><h3 className="section-title">{editando ? <><FestosIcon name="Pencil" size={21} /> Editar Cotización</> : <><FestosIcon name="FileText" size={21} /> Nueva Cotización</>}</h3><p className="panel-note">Cliente, proyecto obligatorio, ítems y control de rentabilidad.</p></div><button className="btn-secondary" onClick={reset}><FestosIcon name="ArrowLeft" size={16} /> Volver</button></div><div className="glass-card form-card"><div className="form-grid-2"><div className="form-row"><label>Cliente *</label><div className="select-with-action"><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value, project_id: '' })} required><option value="">Selecciona un cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.ruc}</option>)}</select>{puedeCrearCliente && <button type="button" className="btn-muted" onClick={() => setNuevoCliente(v => !v)}><FestosIcon name="Plus" size={15} /> Cliente</button>}</div></div><div className="form-row"><label>Proyecto</label><div className="select-with-action"><select value={form.project_id} disabled={!form.usar_proyecto || !form.client_id} onChange={e => setForm({ ...form, project_id: e.target.value })}><option value="">{form.usar_proyecto ? (form.client_id ? 'Selecciona un proyecto...' : 'Primero selecciona cliente') : 'Proyecto no asociado'}</option>{proyectosDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div></div><div className="form-row"><label>Categoría general *</label><select value={form.lob} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{CATEGORIAS_FESTOS.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div></div>{puedeCrearCliente && nuevoCliente && <form onSubmit={guardarClienteRapido} className="quick-client-card"><div className="quick-client-head"><strong>Registrar cliente sin salir de Cotizaciones</strong><button type="button" className="btn-muted" onClick={() => setNuevoCliente(false)}>Cerrar</button></div><div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={clienteRapido.nombre} onChange={e => setClienteRapido({ ...clienteRapido, nombre: e.target.value })} required /></div><div className="form-row"><label>N° DOC *</label><input value={clienteRapido.ruc} onChange={e => setClienteRapido({ ...clienteRapido, ruc: e.target.value })} required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento</label><select value={clienteRapido.tipo_documento} onChange={e => setClienteRapido({ ...clienteRapido, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>CONDICIÓN DE PAGO</label><select value={clienteRapido.tipo_pago} onChange={e => setClienteRapido({ ...clienteRapido, tipo_pago: e.target.value })}><option>Contado</option><option>Crédito</option></select></div></div><div className="form-row quick-client-plazo"><label>Plazo (días)</label><input type="number" min="0" value={clienteRapido.plazo_dias} disabled={clienteRapido.tipo_pago === 'Contado'} onChange={e => setClienteRapido({ ...clienteRapido, plazo_dias: e.target.value })} /></div><button className="btn-primary btn-small">Registrar y seleccionar cliente</button></form>}<div className="form-row quote-project-required"><label>Proyecto *</label><input value={form.proyecto_nombre} onChange={e => setForm({ ...form, proyecto_nombre: e.target.value })} required placeholder="Escribe el nombre del proyecto..." /><small>El proyecto se creará automáticamente en Proyectos cuando la cotización sea aprobada.</small></div><div className="form-row"><label>Descripción / alcance</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Alcance, condiciones o notas de la cotización..." /></div><div className="quote-items-head"><div><h4 className="panel-title icon-heading" style={{ margin: 0 }}><FestosIcon name="ClipboardList" size={18} /> Ítems</h4><span className="panel-note">El modo Detallado / Directo se aplica a toda la cotización.</span></div><button type="button" className="btn-primary" onClick={addItem}><FestosIcon name="Plus" size={15} /> Agregar Ítem</button></div><div className="quote-items-list">{form.items.map((item, index) => {
   const qty = num(item.cantidad);
   const costoUnitario = num(item.costo_unitario ?? item.costo);
   const valorUnitario = form.modo === 'detallado' ? num(item.valor_unitario) : (qty > 0 ? num(item.valor_total) / qty : 0);
@@ -914,5 +1073,5 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true }
     </div></>}
   </div>;
 })}</div><div className="quote-mode-global"><div><strong>Modo de valorización de la cotización</strong><span>En Directo puedes ajustar el valor de venta total sin modificar los datos de los ítems.</span></div><div className="quote-mode-switch"><button type="button" className={form.modo === 'detallado' ? 'active' : ''} onClick={() => cambiarModo('detallado')}>Detallado</button><button type="button" className={form.modo === 'directo' ? 'active' : ''} onClick={() => cambiarModo('directo')}>Directo</button></div></div><div className="quote-summary"><div><span>Valor venta total</span>{form.modo === 'directo' ? <input className="quote-direct-value" type="number" min="0" step="0.01" value={valorVentaDirecto} onChange={e => setValorVentaDirecto(e.target.value)} /> : <strong>{money(subtotal)}</strong>}</div><div><span>IGV</span><strong>{money(igv)}</strong></div><div><span>Precio total</span><strong>{money(total)}</strong></div><div><span>Costo total</span><strong>{money(costo)}</strong></div><div><span>Utilidad</span><strong>{money(ganancia)}</strong></div><div><span>Margen global</span><strong>{margen.toFixed(2)}%</strong></div></div><div className="modal-actions quote-actions"><button className="btn-secondary" onClick={() => guardar('Borrador')} disabled={cargando}>Guardar borrador</button><button className="btn-muted" onClick={() => guardar('En Revisión')} disabled={cargando}>Enviar a revisión</button>{puedeAprobar && <button className="btn-primary" onClick={() => guardar('Aprobado')} disabled={cargando}>Aprobar cotización</button>}</div></div></div>;
-  return <div onClick={() => menuAbierto && setMenuAbierto(null)}><div className="section-header"><div><h3 className="section-title">📑 Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}>+ Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><div className="quote-filters">{[['todas','Todas'],['Aprobado','Aprobadas'],['En Revisión','En Revisión'],['Borrador','Borradores']].map(([v,l]) => <button key={v} type="button" className={filtro === v ? 'active' : ''} onClick={() => setFiltro(v)}>{l}</button>)}</div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltro('todas'); }}>Limpiar filtros</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin LOB'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Precio total</span><strong>{money(q.total)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}>⋮</button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}>⌄ <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}>✏️ <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}>◷ <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}>✓ <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}>📄 <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}>📊 <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}>🗑 <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}>⌄</span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>LOB</span><strong>{q.lob || '—'}</strong></div><div><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>IGV 18%</span><strong>{money(q.igv)}</strong></div><div><span>Precio total</span><strong>{money(q.total)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{num(q.margen).toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Venta</span><strong>{money(i.valor_total)}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>{borradorRecuperable && <div className="quote-local-draft-banner"><div><FestosIcon name="FileText" size={19}/><span><strong>Cotización sin guardar recuperable</strong><small>Se guardó una copia temporal en este dispositivo · {new Date(borradorRecuperable.savedAt).toLocaleString('es-PE')}</small></span></div><div><button type="button" className="btn-primary" onClick={recuperarBorradorLocal}>Continuar</button><button type="button" className="btn-muted" onClick={descartarBorradorLocal}>Descartar</button></div></div>}<div className="section-header"><div><h3 className="section-title"><FestosIcon name="FileText" size={21} /> Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}><FestosIcon name="Plus" size={16} /> Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><div className="quote-filters">{[['todas','Todas'],['Aprobado','Aprobadas'],['En Revisión','En Revisión'],['Borrador','Borradores']].map(([v,l]) => <button key={v} type="button" className={filtro === v ? 'active' : ''} onClick={() => setFiltro(v)}>{l}</button>)}</div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltro('todas'); }}>Limpiar filtros</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin categoría'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Precio total</span><strong>{money(q.total)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}><FestosIcon name="MoreVertical" size={18} /></button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}><FestosIcon name="Pencil" size={16} /> <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}><FestosIcon name="Clock3" size={16} /> <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}><FestosIcon name="CheckCircle2" size={16} /> <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}><FestosIcon name="FileDown" size={16} /> <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}><FestosIcon name="Sheet" size={16} /> <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Categoría</span><strong>{q.lob || '—'}</strong></div><div><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>IGV 18%</span><strong>{money(q.igv)}</strong></div><div><span>Precio total</span><strong>{money(q.total)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{num(q.margen).toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Venta</span><strong>{money(i.valor_total)}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
 }

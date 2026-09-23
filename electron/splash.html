@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iniciando FESTOS</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      color: #f6faf9;
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background:
+        radial-gradient(ellipse at 52% 13%, rgba(72,143,142,.34), transparent 48%),
+        linear-gradient(145deg, #18383e 0%, #0d252a 55%, #0b1c21 100%);
+      overflow: hidden;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+    .grid { position:absolute; inset:0; background-image:linear-gradient(rgba(182,229,218,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(182,229,218,.055) 1px,transparent 1px);background-size:28px 28px; mask-image:linear-gradient(to bottom,transparent 3%,#000 65%);pointer-events:none;}
+    .glow { position: absolute; top: -105px; left: 50%; width: 350px; height: 350px; transform: translateX(-50%); border: 1px solid rgba(166,233,223,.10); border-radius:50%;box-shadow:0 0 0 24px rgba(154,220,212,.035),0 0 0 58px rgba(154,220,212,.025);pointer-events:none;}
+    main { position:relative; display:flex; align-items:center; flex-direction:column; justify-content:space-between; height:100%; padding:35px 38px 27px; text-align:center; }
+    .brand { min-height:171px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+    .brand-icon { width:180px; height:86px; object-fit:contain; filter:drop-shadow(0 5px 16px rgba(40, 180, 160,.17)); animation: breathe 2.2s ease-in-out infinite; }
+    h1 { font-size:24px; font-weight:750; letter-spacing:.085em; margin: 5px 0 5px; }
+    .sub { font-size:12px; letter-spacing:.23em; color:#c1d6d3; font-weight:600; margin:0; }
+    .progress { width:100%; max-width:310px; }
+    .line { height:3px; border-radius:10px; overflow:hidden; background:rgba(180,220,216,.18); position:relative; }
+    .line::before {content:''; position:absolute; width:34%;height:100%;left:-34%;border-radius:10px;background:linear-gradient(90deg,transparent,#74cebc,#b8f1dc);box-shadow:0 0 14px rgba(133,233,203,.55);animation: travel 1.6s ease-in-out infinite;}
+    .load {font-size:12px;font-weight:500; color:#d9e9e4;letter-spacing:.035em;margin:0 0 15px;}
+    .footer {font-size:10px;letter-spacing:.17em;color:#86aca9; margin:15px 0 0;}
+    @keyframes travel {0%{left:-35%;}100%{left:110%;}}
+    @keyframes breathe {0%,100%{opacity:.87;transform:scale(.985);}50%{opacity:1;transform:scale(1.035);}}
+    @media (prefers-reduced-motion:reduce) { .brand-icon,.line::before {animation:none;} .line::before{left:33%;} }
+  </style>
+</head>
+<body>
+  <div class="grid" aria-hidden="true"></div><div class="glow" aria-hidden="true"></div>
+  <main aria-label="Iniciando FESTOS Gestión Empresarial">
+    <div class="brand">
+      <img class="brand-icon" src="./splash-logo.png" alt="FESTOS">
+      <h1>FESTOS</h1>
+      <p class="sub">GESTIÓN EMPRESARIAL</p>
+    </div>
+    <div class="progress" role="status" aria-live="polite">
+      <p class="load">Preparando tu espacio de trabajo…</p>
+      <div class="line" aria-hidden="true"></div>
+      <p class="footer">OPERACIONES · ADMINISTRACIÓN</p>
+    </div>
+  </main>
+</body>
+</html>

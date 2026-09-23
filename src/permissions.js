@@ -30,8 +30,8 @@ export const CAMPOS_PERMISOS = [
 export const ROLES_LABEL = {
   gonzalo: 'HEAD ADMIN',
   jesus: 'ADMIN',
-  rodrigo: 'Desarrollador Software',
-  mar: 'COMERCIAL',
+  rodrigo: 'DESARROLLADOR SOFTWARE',
+  mar: 'OPERADORA COMERCIAL',
 };
 
 // Permisos por defecto (usados si aún no hay nada guardado en Supabase
@@ -68,7 +68,7 @@ export const PERMISOS_DEFECTO = {
   // menos gestionar roles). Esto se puede ajustar en cualquier momento
   // desde el panel "Roles y Permisos" (solo accesible para Gonzalo).
   rodrigo: {
-    rol_label: 'Desarrollador Software',
+    rol_label: 'DESARROLLADOR SOFTWARE',
     ver_clientes: true,
     gestionar_clientes: true,
     ver_proveedores: true,
@@ -81,7 +81,7 @@ export const PERMISOS_DEFECTO = {
     gestionar_roles: false,
   },
   mar: {
-    rol_label: 'COMERCIAL',
+    rol_label: 'OPERADORA COMERCIAL',
     ver_clientes: true,
     gestionar_clientes: false,
     ver_proveedores: true,

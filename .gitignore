@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Voice model is prepared on the build machine and distributed inside installers.
+public/voice-assets/models/
+public/voice-assets/onnx/
+public/voice-assets/ready.json
+
+# Archivos generados por Electron
+/release/
+/dist-electron/
+/out/
+
+# Dependencias
+/node_modules/
+
+# Archivos temporales
+*.tmp
+*.log
+
+/release/

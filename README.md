@@ -1,3 +1,9 @@
+# Versión actual: FESTOS V28 · Centro de trabajo (1.2.0)
+
+Leer primero **README_V28_CENTRO_DE_TRABAJO.md**. La migración opcional de fechas está en `supabase/V28_FECHAS_PROYECTOS_OPCIONAL.sql`. Para seguridad y actualizaciones: **PLAN_SEGURIDAD_ACTUALIZACIONES_V28.md**.
+
+---
+
 # Control Festos V13 — PDF comercial profesional
 
 V13 mantiene el flujo de Cotizaciones de V12 y mejora únicamente la salida PDF para cliente.
@@ -21,3 +27,6 @@ npm run dev
 ```
 
 La dependencia `jspdf` ya está incluida en `package.json`.
+
+## V29.5 · FESTOS AI con voz
+Antes de probar el asistente inteligente en Electron, consulta `README_V29_5_FESTOS_AI_VOZ.md`: la Edge Function de Supabase y su secreto de API deben desplegarse por separado. El ZIP no lleva una clave privada ni activa automáticamente el servicio de IA.

@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { interpretVoiceCommand } from './voice/commands';
+import { answerDashboardQuestion, classifyDashboardQuestion } from './voice/metrics';
+import { answerSmallTalk } from './voice/smallTalk';
+import { answerRecordQuestion } from './voice/records';
 import { supabase } from './supabaseClient';
 import OneSignal from 'react-onesignal';
 import './App.css';
 import { Clientes, Proveedores, Proyectos, Cotizaciones } from './modules/BusinessModules';
+import { ExecutiveDashboard } from './modules/ExecutiveDashboard';
+import { OperationsCenter } from './modules/OperationsCenter';
 import { GestionRoles } from './modules/RolesModule';
-import { PERMISOS_DEFECTO, obtenerPermisos, ROLES_LABEL } from './permissions';
+import { PERMISOS_VACIOS } from './permissions';
+import { FestosIcon } from './FestosIcon';
 
 /* ============================================================
    CONFIGURACIÓN GLOBAL
    ============================================================ */
 
-// Respaldo temporal: si en Supabase todavía no se ejecutó
-// supabase_usuarios_v15.sql, el login sigue funcionando con estas
-// credenciales fijas para no dejar a nadie fuera del sistema.
-const USUARIOS_VALIDOS_RESPALDO = {
-  gonzalo: 'ADMIN9090',
-  rodrigo: 'ADMIN8080',
-  mar: 'ADMIN7070',
-  jesus: 'ADMIN6060',
-};
 
 // Monto (S/. con IGV) a partir del cual un pago requiere control dual
 // (aprobación de un miembro distinto de quien lo registró/solicitó).
@@ -34,6 +32,41 @@ const obtenerFechaActual = () => new Intl.DateTimeFormat('es-PE', {
   month: 'long',
   year: 'numeric',
 }).format(new Date());
+
+function saludoPorHora() {
+  const hora = new Date().getHours();
+  if (hora < 12) return 'Buenos días';
+  if (hora < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+function FestosWelcomeOverlay({ nombre, cargo, correo, foto, onClose }) {
+  return (
+    <div className="festos-welcome-overlay" role="dialog" aria-modal="true" aria-label="Bienvenida a FESTOS" onClick={onClose}>
+      <div className="festos-welcome-orbit orbit-a" aria-hidden="true" />
+      <div className="festos-welcome-orbit orbit-b" aria-hidden="true" />
+      <div className="festos-welcome-beam" aria-hidden="true" />
+      <div className="festos-welcome-card" onClick={e => e.stopPropagation()}>
+        <div className="festos-welcome-shine" aria-hidden="true" />
+        <div className="festos-welcome-brand">
+          <img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="FESTOS" />
+          <span>GESTIÓN EMPRESARIAL</span>
+        </div>
+        <div className="festos-welcome-avatar">
+          {foto ? <img src={foto} alt="Perfil" /> : <FestosIcon name="UserRound" size={34} strokeWidth={1.6} />}
+          <span className="festos-welcome-status" />
+        </div>
+        <span className="festos-welcome-greeting">{saludoPorHora()}</span>
+        <h1>BIENVENID@ A FESTOS GESTIÓN</h1>
+        <h2>{nombre}</h2>
+        <div className="festos-welcome-role"><FestosIcon name="ShieldCheck" size={17} /> {cargo}</div>
+        <div className="festos-welcome-mail"><FestosIcon name="Mail" size={15} /> {correo}</div>
+        <div className="festos-welcome-progress"><span /></div>
+        <small>Preparando tu espacio de trabajo seguro</small>
+      </div>
+    </div>
+  );
+}
 
 /* ============================================================
    COMPONENTES DE APOYO (gráficos, sin librerías externas)
@@ -136,7 +169,7 @@ function CentroNotificaciones({ notificaciones, panelAbierto, setPanelAbierto, m
         title="Notificaciones"
         aria-label="Notificaciones"
       >
-        🔔
+        <FestosIcon name="Bell" size={19} />
         {noLeidas > 0 && <span className="notif-badge">{noLeidas > 9 ? '9+' : noLeidas}</span>}
       </button>
 
@@ -158,7 +191,7 @@ function CentroNotificaciones({ notificaciones, panelAbierto, setPanelAbierto, m
               ) : (
                 notificaciones.map(n => (
                   <div key={n.id} className={`notif-item ${n.leido ? '' : 'unread'}`}>
-                    <span className="notif-item-icon">{iconoPorTipo(n.tipo)}</span>
+                    <span className="notif-item-icon"><FestosIcon name={iconoPorTipo(n.tipo)} size={17} /></span>
                     <div>
                       <p className="notif-item-msg">{n.mensaje}</p>
                       <span className="notif-item-time">{n.timestamp}</span>
@@ -204,25 +237,25 @@ function cargoUsuario(usuario) {
 
 function iconoPorTipo(tipo) {
   switch (tipo) {
-    case 'nuevo': return '📤';
-    case 'pagado': return '✅';
-    case 'pendiente': return '↩️';
-    case 'edicion': return '✏️';
-    case 'eliminado': return '🗑️';
-    case 'aprobacion': return '🔐';
-    default: return '🔔';
+    case 'nuevo': return 'Upload';
+    case 'pagado': return 'CheckCircle2';
+    case 'pendiente': return 'History';
+    case 'edicion': return 'Pencil';
+    case 'eliminado': return 'Trash2';
+    case 'aprobacion': return 'LockKeyhole';
+    default: return 'Bell';
   }
 }
 
 function iconoPorAccion(accion) {
   switch (accion) {
-    case 'Creación': return '📤';
-    case 'Edición': return '✏️';
-    case 'Eliminación': return '🗑️';
-    case 'Solicitud de Aprobación': return '🔐';
-    case 'Aprobación y Pago': return '✅';
-    case 'Reversión a Pendiente': return '↩️';
-    default: return '📌';
+    case 'Creación': return 'Upload';
+    case 'Edición': return 'Pencil';
+    case 'Eliminación': return 'Trash2';
+    case 'Solicitud de Aprobación': return 'LockKeyhole';
+    case 'Aprobación y Pago': return 'CheckCircle2';
+    case 'Reversión a Pendiente': return 'History';
+    default: return 'Pin';
   }
 }
 
@@ -260,29 +293,98 @@ function ChipsEtiquetas({ etiquetas }) {
   );
 }
 
+function GlobalSearchPalette({ open, onClose, onNavigate, permisos }) {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [records, setRecords] = useState([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    let activo = true;
+    const cargar = async () => {
+      setLoading(true);
+      try {
+        const [c, p, pr, q] = await Promise.all([
+          permisos.ver_clientes ? supabase.from('clientes').select('id,nombre,ruc').limit(60) : Promise.resolve({data:[]}),
+          permisos.ver_proveedores ? supabase.from('proveedores').select('id,nombre,categoria,productos').limit(60) : Promise.resolve({data:[]}),
+          permisos.ver_proyectos ? supabase.from('proyectos').select('id,codigo,nombre,estado,ejecutivo').limit(80) : Promise.resolve({data:[]}),
+          permisos.ver_cotizaciones ? supabase.from('cotizaciones').select('id,codigo,proyecto_nombre,estado').limit(80) : Promise.resolve({data:[]}),
+        ]);
+        if (!activo) return;
+        const all = [
+          ...(c.data || []).map(x => ({ id:`cliente-${x.id}`, view:'clientes', icon:'Users', type:'Cliente', title:x.nombre, subtitle:x.ruc || 'Cliente FESTOS' })),
+          ...(p.data || []).map(x => ({ id:`proveedor-${x.id}`, view:'proveedores', icon:'Truck', type:'Proveedor', title:x.nombre, subtitle:[x.categoria,x.productos].filter(Boolean).join(' · ') || 'Proveedor FESTOS' })),
+          ...(pr.data || []).map(x => ({ id:`proyecto-${x.id}`, view:'proyectos', icon:'FolderKanban', type:'Proyecto', title:x.nombre || x.codigo, subtitle:[x.codigo,x.estado,x.ejecutivo ? `Ejecutivo comercial: ${x.ejecutivo}` : ''].filter(Boolean).join(' · ') })),
+          ...(q.data || []).map(x => ({ id:`cotizacion-${x.id}`, view:'cotizaciones', icon:'FileText', type:'Cotización', title:x.codigo || x.proyecto_nombre, subtitle:[x.proyecto_nombre,x.estado].filter(Boolean).join(' · ') })),
+        ];
+        setRecords(all);
+      } catch (err) {
+        console.error('Búsqueda global:', err);
+        setRecords([]);
+      } finally {
+        if (activo) setLoading(false);
+      }
+    };
+    cargar();
+    return () => { activo = false; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const cerrar = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', cerrar);
+    return () => window.removeEventListener('keydown', cerrar);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  const q = query.trim().toLowerCase();
+  const filtered = records.filter(item => !q || `${item.type} ${item.title} ${item.subtitle}`.toLowerCase().includes(q)).slice(0, 12);
+
+  return <div className="command-overlay" onMouseDown={onClose}>
+    <div className="command-palette" onMouseDown={e => e.stopPropagation()}>
+      <div className="command-search-row">
+        <FestosIcon name="Search" size={19} />
+        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar cliente, proyecto, cotización o proveedor…" />
+        <kbd>ESC</kbd>
+      </div>
+      <div className="command-meta"><span>BÚSQUEDA GLOBAL FESTOS</span><small>Ctrl + K</small></div>
+      <div className="command-quick-actions" aria-label="Accesos rápidos">
+        {[['dashboard','House','Inicio'],['analisis','LayoutDashboard','Dashboard'],['operaciones','CalendarDays','Centro de trabajo'],...(permisos.gestionar_proyectos && permisos.ver_proyectos ? [['nuevo-proyecto','Plus','Nuevo proyecto']] : []),...(permisos.gestionar_cotizaciones && permisos.ver_cotizaciones ? [['nueva-cotizacion','Plus','Nueva cotización']] : [])].filter(x => !q || x[2].toLowerCase().includes(q)).map(([id,icon,label]) => <button type="button" key={id} onClick={() => { onNavigate(id); onClose(); }}><FestosIcon name={icon} size={16}/>{label}</button>)}
+      </div>
+      <div className="command-results">
+        {loading ? <div className="command-loading"><i/><i/><i/><i/></div> : filtered.length ? filtered.map(item =>
+          <button key={item.id} type="button" className="command-result" onClick={() => { onNavigate(item.view); onClose(); }}>
+            <span className="command-result-icon"><FestosIcon name={item.icon} size={18} /></span>
+            <span><strong>{item.title}</strong><small>{item.subtitle || item.type}</small></span>
+            <em>{item.type}</em>
+            <b><FestosIcon name="ArrowRight" size={15} /></b>
+          </button>
+        ) : <div className="command-empty"><span><FestosIcon name="Search" size={22} /></span><strong>Sin coincidencias</strong><small>Prueba con otro nombre, código o palabra.</small></div>}
+      </div>
+      <div className="command-footer"><span>↑↓ Explorar</span><span>↵ Abrir módulo</span><span>ESC Cerrar</span></div>
+    </div>
+  </div>;
+}
+
 /* ============================================================
    APP PRINCIPAL
    ============================================================ */
 
 function App() {
-  // --- ESTADOS DE AUTENTICACIÓN ---
-  const [usuarioLogueado, setUsuarioLogueado] = useState(() => {
-    return localStorage.getItem('festos_sesion_usuario') || '';
-  });
+  // --- ESTADOS DE AUTENTICACIÓN (Supabase Auth · V29 Security Lite) ---
+  const [usuarioLogueado, setUsuarioLogueado] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authReady, setAuthReady] = useState(false);
+  const [perfilServidor, setPerfilServidor] = useState(null);
   const [inputUser, setInputUser] = useState('');
   const [inputPass, setInputPass] = useState('');
   const [errorLogin, setErrorLogin] = useState('');
 
-  // Perfil del usuario: nombre visible y foto se guardan localmente para no alterar
-  // la estructura actual de usuarios. La contraseña sí se actualiza mediante el RPC existente.
-  const [perfilNombre, setPerfilNombre] = useState(() => {
-    const u = localStorage.getItem('festos_sesion_usuario') || '';
-    return localStorage.getItem(clavePerfil('nombre', u)) || u;
-  });
-  const [perfilFoto, setPerfilFoto] = useState(() => {
-    const u = localStorage.getItem('festos_sesion_usuario') || '';
-    return localStorage.getItem(clavePerfil('foto', u)) || '';
-  });
+  // Perfil visual local: nombre/foto se guardan por dispositivo. La contraseña
+  // se actualiza directamente en Supabase Auth y FESTOS nunca la almacena.
+  const [perfilNombre, setPerfilNombre] = useState('');
+  const [perfilFoto, setPerfilFoto] = useState('');
   const [perfilMenuAbierto, setPerfilMenuAbierto] = useState(false);
   const [perfilModalAbierto, setPerfilModalAbierto] = useState(false);
   const [perfilNombreEdit, setPerfilNombreEdit] = useState('');
@@ -290,6 +392,80 @@ function App() {
   const [perfilPassword, setPerfilPassword] = useState('');
   const [perfilPasswordConfirm, setPerfilPasswordConfirm] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [mostrarBienvenida, setMostrarBienvenida] = useState(false);
+
+  const cargarPerfilAutenticado = async (authUser) => {
+    if (!authUser?.id) {
+      setUsuarioLogueado('');
+      setAuthEmail('');
+      setPerfilServidor(null);
+      return false;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id,email,usuario,nombre,rol_label,activo,permisos')
+      .eq('user_id', authUser.id)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error('Perfil FESTOS no disponible:', error);
+      await supabase.auth.signOut();
+      setUsuarioLogueado('');
+      setAuthEmail('');
+      setPerfilServidor(null);
+      setErrorLogin('Tu cuenta existe en Supabase Auth, pero aún no tiene un perfil FESTOS habilitado. Contacta al HEAD ADMIN.');
+      return false;
+    }
+
+    if (!data.activo) {
+      await supabase.auth.signOut();
+      setUsuarioLogueado('');
+      setAuthEmail('');
+      setPerfilServidor(null);
+      setErrorLogin('Tu acceso a FESTOS está desactivado. Contacta al HEAD ADMIN.');
+      return false;
+    }
+
+    setPerfilServidor(data);
+    setUsuarioLogueado(String(data.usuario || '').trim().toLowerCase());
+    setAuthEmail(data.email || authUser.email || '');
+    return true;
+  };
+
+  useEffect(() => {
+    let activo = true;
+    try { localStorage.removeItem('festos_sesion_usuario'); } catch (e) { /* legacy cleanup */ }
+
+    const sincronizar = async (session) => {
+      if (!activo) return;
+      try {
+        if (session?.user) await cargarPerfilAutenticado(session.user);
+        else {
+          setUsuarioLogueado('');
+          setAuthEmail('');
+          setPerfilServidor(null);
+        }
+      } finally {
+        if (activo) setAuthReady(true);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) console.error('No se pudo recuperar la sesión de Supabase Auth:', error);
+      sincronizar(data?.session || null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => sincronizar(session), 0);
+    });
+
+    return () => {
+      activo = false;
+      listener?.subscription?.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cada usuario conserva su propia foto y nombre visible. Al cambiar de sesión
   // se recarga el perfil correspondiente sin compartir datos entre usuarios.
@@ -310,15 +486,52 @@ function App() {
     if (esGonzalo && !nombreGuardado && nombreLegacy) localStorage.setItem(clavePerfil('nombre', usuarioLogueado), nombreLegacy);
     if (esGonzalo && !fotoGuardada && fotoLegacy) localStorage.setItem(clavePerfil('foto', usuarioLogueado), fotoLegacy);
 
-    setPerfilNombre(nombreGuardado || (esGonzalo ? nombreLegacy : '') || usuarioLogueado);
+    setPerfilNombre(nombreGuardado || perfilServidor?.nombre || (esGonzalo ? nombreLegacy : '') || usuarioLogueado);
     setPerfilFoto(fotoGuardada || (esGonzalo ? fotoLegacy : '') || '');
-  }, [usuarioLogueado]);
+  }, [usuarioLogueado, perfilServidor?.nombre]);
 
-  // Tema fijo: interfaz profesional en blanco + verde petróleo Festos.
-  // (Se eliminó el selector de modo oscuro/claro a pedido del cliente.)
-  const modoOscuro = false;
+  // Bienvenida animada: se muestra una sola vez por sesión autenticada.
+  // Funciona tanto al iniciar sesión como al abrir FESTOS con una sesión vigente.
+  useEffect(() => {
+    if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return undefined;
+    setMostrarBienvenida(true);
+    const timer = window.setTimeout(() => setMostrarBienvenida(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [authReady, usuarioLogueado, perfilServidor?.activo]);
+
+  // Tema visual persistente. V27 permite alternar entre claro y oscuro
+  // sin cambiar la identidad verde petróleo de FESTOS.
+  const [modoOscuro, setModoOscuro] = useState(() => {
+    try { return localStorage.getItem('festos_tema') === 'dark'; } catch (e) { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('festos_tema', modoOscuro ? 'dark' : 'light'); } catch (e) { /* no-op */ }
+  }, [modoOscuro]);
+
+  const [busquedaGlobalAbierta, setBusquedaGlobalAbierta] = useState(false);
+  const [enLinea, setEnLinea] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
+
+  useEffect(() => {
+    const abrir = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setBusquedaGlobalAbierta(true);
+      }
+    };
+    window.addEventListener('keydown', abrir);
+    return () => window.removeEventListener('keydown', abrir);
+  }, []);
+
+  useEffect(() => {
+    const online = () => setEnLinea(true);
+    const offline = () => setEnLinea(false);
+    window.addEventListener('online', online);
+    window.addEventListener('offline', offline);
+    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
+  }, []);
 
   // --- SIDEBAR (única navegación de la app) ---
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true;
   });
@@ -396,47 +609,30 @@ function App() {
     });
   };
 
-  // Manejo de Inicio de Sesión: valida contra la tabla real de usuarios en
-  // Supabase (creada por supabase_usuarios_v15.sql). Si esa función aún no
-  // existe (script no ejecutado todavía), cae de respaldo a las 4
-  // credenciales fijas originales para no dejar a nadie sin acceso.
+  // Inicio de sesión por correo + contraseña con Supabase Auth.
   const [verificandoLogin, setVerificandoLogin] = useState(false);
 
   const manejarLogin = async (e) => {
     e.preventDefault();
     setErrorLogin('');
-    const userInput = inputUser.trim();
-    const passInput = inputPass;
-    if (!userInput || !passInput) return;
+    const email = inputUser.trim().toLowerCase();
+    const password = inputPass;
+    if (!email || !password) return;
 
     setVerificandoLogin(true);
     try {
-      const { data, error } = await supabase.rpc('verificar_login', {
-        p_usuario: userInput,
-        p_password: passInput,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      if (data && data.length > 0) {
-        const usuarioValido = data[0].usuario;
-        localStorage.setItem('festos_sesion_usuario', usuarioValido);
-        setUsuarioLogueado(usuarioValido);
-        setInputUser('');
-        setInputPass('');
-      } else {
-        setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
+      const ok = await cargarPerfilAutenticado(data.user);
+      if (!ok) {
+        await supabase.auth.signOut();
+        return;
       }
+      setInputUser('');
+      setInputPass('');
     } catch (err) {
-      console.warn('No se pudo validar el login contra Supabase, usando respaldo local.', err);
-      const userLower = userInput.toLowerCase();
-      if (USUARIOS_VALIDOS_RESPALDO[userLower] && USUARIOS_VALIDOS_RESPALDO[userLower] === passInput) {
-        localStorage.setItem('festos_sesion_usuario', userLower);
-        setUsuarioLogueado(userLower);
-        setInputUser('');
-        setInputPass('');
-      } else {
-        setErrorLogin('Acceso denegado: Usuario o contraseña incorrectos.');
-      }
+      console.error('No se pudo iniciar sesión con Supabase Auth:', err);
+      setErrorLogin('Correo o contraseña incorrectos, o la cuenta no está habilitada para FESTOS.');
     } finally {
       setVerificandoLogin(false);
     }
@@ -477,7 +673,7 @@ function App() {
     e.preventDefault();
     const nombre = perfilNombreEdit.trim();
     if (!nombre) return alert('El nombre es obligatorio.');
-    if (perfilPassword && perfilPassword.length < 4) return alert('La nueva contraseña debe tener al menos 4 caracteres.');
+    if (perfilPassword && perfilPassword.length < 8) return alert('La nueva contraseña debe tener al menos 8 caracteres.');
     if (perfilPassword !== perfilPasswordConfirm) return alert('Las contraseñas no coinciden.');
     setGuardandoPerfil(true);
     try {
@@ -486,11 +682,7 @@ function App() {
       setPerfilNombre(nombre);
       setPerfilFoto(perfilFotoEdit || '');
       if (perfilPassword) {
-        const { error } = await supabase.rpc('cambiar_password', {
-          p_usuario: usuarioLogueado,
-          p_password_nueva: perfilPassword,
-          p_actor: usuarioLogueado,
-        });
+        const { error } = await supabase.auth.updateUser({ password: perfilPassword });
         if (error) throw error;
       }
       setPerfilModalAbierto(false);
@@ -503,44 +695,49 @@ function App() {
     }
   };
 
-  const cerrarSesion = () => {
+  const cerrarSesion = async () => {
     setPerfilMenuAbierto(false);
-    localStorage.removeItem('festos_sesion_usuario');
+    setMostrarBienvenida(false);
+    try { await supabase.auth.signOut(); } catch (err) { console.error('Error cerrando sesión:', err); }
+    setPerfilServidor(null);
+    setAuthEmail('');
     setUsuarioLogueado('');
   };
 
-  // --- ROLES Y PERMISOS ---
-  const [permisosPorUsuario, setPermisosPorUsuario] = useState(() => {
-    try {
-      const guardado = localStorage.getItem('festos_roles_permisos');
-      return guardado ? { ...PERMISOS_DEFECTO, ...JSON.parse(guardado) } : PERMISOS_DEFECTO;
-    } catch (e) {
-      return PERMISOS_DEFECTO;
-    }
-  });
-
+  // --- ROLES Y PERMISOS (servidor) ---
   const cargarPermisos = async () => {
+    if (!usuarioLogueado) return;
     try {
-      const { data, error } = await supabase.from('roles_permisos').select('*');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id,email,usuario,nombre,rol_label,activo,permisos')
+        .eq('usuario', usuarioLogueado)
+        .maybeSingle();
       if (error) throw error;
-      if (data && data.length > 0) {
-        const mapa = { ...PERMISOS_DEFECTO };
-        data.forEach(fila => {
-          mapa[fila.usuario] = { rol_label: fila.rol_label, ...fila.permisos };
-        });
-        setPermisosPorUsuario(mapa);
-        try { localStorage.setItem('festos_roles_permisos', JSON.stringify(mapa)); } catch (e) { /* no-op */ }
-      }
+      if (data?.activo) setPerfilServidor(data);
     } catch (err) {
-      // Si la tabla aún no existe en Supabase (no se corrió supabase_roles_v14.sql),
-      // la app sigue funcionando con los permisos por defecto / guardados localmente.
-      console.warn('No se pudo cargar roles_permisos desde Supabase, usando valores locales.', err);
+      console.warn('No se pudo refrescar el perfil/permisos desde Supabase.', err);
     }
   };
 
-  const misPermisos = obtenerPermisos(permisosPorUsuario, usuarioLogueado);
+  const misPermisos = perfilServidor
+    ? { ...PERMISOS_VACIOS, ...(perfilServidor.permisos || {}), rol_label: perfilServidor.rol_label || 'Usuario' }
+    : PERMISOS_VACIOS;
 
   const [vista, setVista] = useState('dashboard');
+  const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
+  const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
+  const [voiceCommand, setVoiceCommand] = useState(null);
+  const [proyectosDesdeDashboard, setProyectosDesdeDashboard] = useState(null);
+  const puedeRegistrarCliente = !!misPermisos.gestionar_clientes && ['HEAD ADMIN', 'ADMIN', 'DESARROLLADOR SOFTWARE'].includes(String(perfilServidor?.rol_label || '').trim().toUpperCase());
+  const abrirProyectosFiltrados = filtro => {
+    if (!misPermisos.ver_proyectos) return;
+    setProyectosDesdeDashboard({ ...filtro, id: Date.now() });
+    setVoiceCommand(null);
+    setVista('proyectos');
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) setSidebarOpen(false);
+  };
+  const [voiceFeedback, setVoiceFeedback] = useState(null);
   const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
 
@@ -578,7 +775,7 @@ function App() {
   const precioFinalCalculado = aplicarIgv ? (valorBase * 1.18).toFixed(2) : valorBase.toFixed(2);
 
   useEffect(() => {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    if (window.festosDesktop?.isDesktop || window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return;
     }
 
@@ -600,10 +797,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (usuarioLogueado) {
-      obtenerPagos();
-      cargarPermisos();
-    }
+    if (usuarioLogueado) cargarPermisos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioLogueado]);
 
   // Si el usuario pierde acceso a la vista en la que está (por un cambio de
@@ -620,7 +815,7 @@ function App() {
       setVista('dashboard');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vista, usuarioLogueado, permisosPorUsuario]);
+  }, [vista, usuarioLogueado, perfilServidor]);
 
   const obtenerPagos = async () => {
     const { data, error } = await supabase.from('pagos').select('*');
@@ -1002,27 +1197,96 @@ function App() {
   };
 
   const itemsNav = [
-    { id: 'dashboard', icono: '🏠', label: 'Inicio' },
-    { id: 'subir', icono: '📤', label: 'Subir Pago' },
-    { id: 'porPagar', icono: '⏳', label: 'Por Pagar', badge: pagosPendientesList.length + pagosEnAprobacionList.length },
-    { id: 'historial', icono: '📂', label: 'Historial' },
-    { id: 'auditoria', icono: '🕵️', label: 'Auditoría' },
-    { id: 'asistente', icono: '🤖', label: 'Asistente IA' },
-    ...(misPermisos.ver_clientes ? [{ id: 'clientes', icono: '👥', label: 'Clientes' }] : []),
-    ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: '🚚', label: 'Proveedores' }] : []),
-    ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: '📁', label: 'Proyectos' }] : []),
-    ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: '📑', label: 'Cotizaciones' }] : []),
-    ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: '🔐', label: 'Roles y Permisos' }] : []),
+    { id: 'dashboard', icono: 'House', label: 'Inicio' },
+    { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard' },
+    { id: 'operaciones', icono: 'CalendarDays', label: 'Centro de trabajo' },
+    // Módulos temporalmente ocultos del menú lateral.
+    // Su lógica permanece intacta para poder reactivarlos más adelante:
+    // Subir Pago · Por Pagar · Historial · Auditoría · Asistente IA
+    ...(misPermisos.ver_clientes ? [{ id: 'clientes', icono: 'Users', label: 'Clientes' }] : []),
+    ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: 'Truck', label: 'Proveedores' }] : []),
+    ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos' }] : []),
+    ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
+    ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: 'ShieldCheck', label: 'Roles y Permisos' }] : []),
   ];
 
   const irAVista = (id) => {
+    // Una entrada manual a Proyectos no conserva filtros de un salto anterior desde Dashboard.
+    if (id === 'proyectos') setProyectosDesdeDashboard(null);
+    // Evita reabrir un dictado anterior al volver manualmente a otro modulo.
+    const targetKind = id === 'proyectos' || id === 'nuevo-proyecto' ? 'project' : id === 'cotizaciones' || id === 'nueva-cotizacion' ? 'quote' : null;
+    setVoiceCommand(old => old?.kind === targetKind ? old : null);
+    if (id === 'nuevo-proyecto') {
+      if (!misPermisos.gestionar_proyectos || !misPermisos.ver_proyectos) return;
+      setNuevoProyectoSolicitado(true);
+      id = 'proyectos';
+    } else if (id === 'nueva-cotizacion') {
+      if (!misPermisos.gestionar_cotizaciones || !misPermisos.ver_cotizaciones) return;
+      setNuevaCotizacionSolicitada(true);
+      id = 'cotizaciones';
+    }
     setVista(id);
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
   };
 
+  const feedbackVoz = text => { setVoiceFeedback({ text, id: Date.now() }); return text; };
+  const ejecutarOrdenVoz = async (utterance) => {
+    const social = answerSmallTalk(utterance, perfilNombre || perfilServidor?.nombre || usuarioLogueado);
+    if (social) return feedbackVoz(social);
+    const parsed = interpretVoiceCommand(utterance, vista === 'cotizaciones' ? 'quote' : vista === 'proyectos' ? 'project' : '');
+    // Consultas concretas de registros tienen prioridad sobre agregados de Dashboard.
+    // Sin SQL libre, sin permisos de administración ni escrituras por voz.
+    if (parsed.action !== 'navigate' && parsed.action !== 'confirm-required'
+      && !/^\s*(?:crea|crear|creame|nueva?|registra|prepara)\b/i.test(utterance)) {
+      try {
+        const recordAnswer = await answerRecordQuestion(utterance, misPermisos);
+        if (recordAnswer) return feedbackVoz(recordAnswer);
+      } catch (error) { return feedbackVoz(`No pude consultar el registro: ${error.message}`); }
+    }
+    // La navegación explícita tiene prioridad frente a las preguntas numéricas.
+    // Todos los cálculos se ejecutan con la sesión y RLS de este usuario.
+    if (parsed.action !== 'navigate' && parsed.action !== 'draft' && parsed.action !== 'confirm-required'
+      && classifyDashboardQuestion(utterance)) {
+      try { return feedbackVoz(await answerDashboardQuestion(utterance, misPermisos)); }
+      catch (error) { return feedbackVoz(`No pude consultar el Dashboard en Supabase: ${error.message}`); }
+    }
+    if (parsed.action === 'confirm-required') {
+      return feedbackVoz('Por seguridad, guarda, aprueba o elimina registros desde sus botones después de revisar los datos.');
+    }
+    if (parsed.action === 'navigate') {
+      const allowed = {
+        dashboard: true, analisis: true, analisis_ventas: true, operaciones: true,
+        clientes: misPermisos.ver_clientes, proveedores: misPermisos.ver_proveedores,
+        proyectos: misPermisos.ver_proyectos, cotizaciones: misPermisos.ver_cotizaciones,
+        roles: misPermisos.gestionar_roles, perfil: true, notificaciones: true,
+      };
+      if (!Object.prototype.hasOwnProperty.call(allowed, parsed.target) || !allowed[parsed.target]) return feedbackVoz('No tienes permiso para abrir ese apartado.');
+      if (parsed.target === 'perfil') { setPerfilModalAbierto(true); return feedbackVoz('He abierto tu perfil.'); }
+      if (parsed.target === 'notificaciones') { setPanelNotifAbierto(true); return feedbackVoz('He abierto tus notificaciones.'); }
+      irAVista(parsed.target);
+      return feedbackVoz(`He abierto ${parsed.target === 'dashboard' ? 'Inicio' : parsed.target === 'analisis' ? 'Dashboard proyectos' : parsed.target === 'analisis_ventas' ? 'Dashboard ventas' : parsed.target === 'operaciones' ? 'Centro de trabajo' : parsed.target}.`);
+    }
+    if (parsed.action === 'draft') {
+      const permission = parsed.kind === 'quote'
+        ? !!(misPermisos.ver_cotizaciones && misPermisos.gestionar_cotizaciones)
+        : !!(misPermisos.ver_proyectos && misPermisos.gestionar_proyectos);
+      if (!permission) return feedbackVoz('Tu cuenta no tiene permiso para crear o editar este tipo de registro.');
+      setVoiceCommand({ ...parsed, id: Date.now() + Math.random() });
+      // El comando de voz abre y reinicia el formulario por si mismo.
+      // Evita dos efectos de creación simultáneos (React StrictMode).
+      irAVista(parsed.kind === 'quote' ? 'cotizaciones' : 'proyectos');
+      return feedbackVoz(`${parsed.kind === 'quote' ? 'Cotización' : 'Proyecto'} ${parsed.startNew ? 'nuevo' : 'actualizado'} en pantalla. Revisa los campos y sigue dictando; no se ha guardado nada.`);
+    }
+    return feedbackVoz('No entendí bien esa frase. Puedes decir: hola, dime la hora, abre Cotizaciones, crea un proyecto, dame un resumen del Dashboard o dime la utilidad proyectada.');
+  };
+
   /* -------------------- PANTALLA DE LOGIN -------------------- */
+  if (!authReady) {
+    return <div className="login-screen"><div className="login-center"><div className="login-card"><div className="login-brand"><div className="login-brand-logo"><img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="Festos" className="login-brand-img" /></div><div className="login-brand-copy"><strong>FESTOS GESTIÓN EMPRESARIAL</strong><span>VALIDANDO SESIÓN SEGURA</span></div></div></div></div></div>;
+  }
+
   if (!usuarioLogueado) {
     return (
       <div className="login-screen">
@@ -1035,7 +1299,7 @@ function App() {
           <form onSubmit={manejarLogin} className="login-card">
             <div className="login-brand">
               <div className="login-brand-logo">
-                <img src="/festoslogo-header.png" alt="Festos" className="login-brand-img" />
+                <img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="Festos" className="login-brand-img" />
               </div>
               <div className="login-brand-copy">
                 <strong>FESTOS GESTIÓN EMPRESARIAL</strong>
@@ -1046,11 +1310,12 @@ function App() {
             {errorLogin && <div className="login-error">{errorLogin}</div>}
 
             <div className="login-field">
-              <label>Usuario</label>
+              <label>Correo corporativo</label>
               <input
-                type="text"
-                placeholder="Ej. Gonzalo, Rodrigo, Mar, Jesus"
+                type="email"
+                placeholder="nombre@festosmkt.com"
                 value={inputUser}
+                autoComplete="username"
                 onChange={(e) => setInputUser(e.target.value)}
                 required
               />
@@ -1062,6 +1327,7 @@ function App() {
                 type="password"
                 placeholder="••••••••"
                 value={inputPass}
+                autoComplete="current-password"
                 onChange={(e) => setInputPass(e.target.value)}
                 required
               />
@@ -1086,21 +1352,48 @@ function App() {
         <div className="ambient-glow" />
       </div>
 
+      <GlobalSearchPalette
+        open={busquedaGlobalAbierta}
+        onClose={() => setBusquedaGlobalAbierta(false)}
+        onNavigate={irAVista}
+        permisos={misPermisos}
+      />
+
+      {mostrarBienvenida && (
+        <FestosWelcomeOverlay
+          nombre={(perfilNombre || perfilServidor?.nombre || usuarioLogueado).toUpperCase()}
+          cargo={perfilServidor?.rol_label || cargoUsuario(usuarioLogueado)}
+          correo={authEmail}
+          foto={perfilFoto}
+          onClose={() => setMostrarBienvenida(false)}
+        />
+      )}
+
+      {/* FESTOS Voz temporalmente oculto: sin escucha ni indicadores. Código conservado para reactivación futura. */}
+
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <img src="/festoslogo-Photoroom.png" alt="Festos" />
+          <img src={`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`} alt="Festos" />
         </div>
 
         <nav className="sidebar-nav">
-          {itemsNav.map(item => (
-            <button
-              key={item.id}
-              className={`sidebar-item ${vista === item.id ? 'active' : ''}`}
-              onClick={() => irAVista(item.id)}
-            >
-              <span className="sidebar-item-icon">{item.icono}</span>
+          {itemsNav.map(item => item.id === 'analisis' ? (
+            <div className="sidebar-dashboard-group" key="analisis">
+              <button type="button" className={`sidebar-item sidebar-dashboard-toggle ${['analisis','analisis_ventas'].includes(vista) ? 'active' : ''}`} aria-expanded={dashboardMenuOpen} aria-controls="festos-dashboard-submenu" onClick={() => setDashboardMenuOpen(open => !open)}>
+                <span className="sidebar-item-icon"><FestosIcon name="LayoutDashboard" size={20} /></span>
+                <span>Dashboard</span>
+                <span className={`sidebar-chevron ${dashboardMenuOpen ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span>
+              </button>
+              {dashboardMenuOpen && <div id="festos-dashboard-submenu" className="sidebar-submenu">
+                <button type="button" className={`sidebar-item sidebar-subitem ${vista === 'analisis' ? 'active' : ''}`} onClick={() => irAVista('analisis')}><FestosIcon name="FolderKanban" size={17} /> Proyectos</button>
+                <button type="button" className={`sidebar-item sidebar-subitem ${vista === 'analisis_ventas' ? 'active' : ''}`} onClick={() => irAVista('analisis_ventas')}><FestosIcon name="ChartNoAxesColumnIncreasing" size={17} /> Ventas</button>
+              </div>}
+            </div>
+          ) : (
+            <button key={item.id} className={`sidebar-item ${vista === item.id ? 'active' : ''}`} onClick={() => irAVista(item.id)}>
+              <span className="sidebar-item-icon"><FestosIcon name={item.icono} size={20} /></span>
               {item.label}
               {!!item.badge && <span className="sidebar-item-badge">{item.badge}</span>}
             </button>
@@ -1132,6 +1425,18 @@ function App() {
           </div>
 
           <div className="topbar-right">
+            <button type="button" className="global-search-trigger" onClick={() => setBusquedaGlobalAbierta(true)} title="Búsqueda global (Ctrl + K)">
+              <FestosIcon name="Search" size={17} /><strong>Buscar</strong><kbd>Ctrl K</kbd>
+            </button>
+
+            <span className={`connection-chip ${enLinea ? 'online' : 'offline'}`} title={enLinea ? 'Hay conectividad de red. La confirmación de guardado depende de Supabase.' : 'Sin conexión a Internet'}>
+              <i /> {enLinea ? 'Red disponible' : 'Sin conexión'}
+            </span>
+
+            <button type="button" className="theme-toggle" onClick={() => setModoOscuro(v => !v)} title={modoOscuro ? 'Usar tema claro' : 'Usar tema oscuro'} aria-label="Cambiar tema">
+              <span><FestosIcon name={modoOscuro ? 'Sun' : 'Moon'} size={18} /></span>
+            </button>
+
             <CentroNotificaciones
               notificaciones={notificaciones}
               panelAbierto={panelNotifAbierto}
@@ -1146,19 +1451,19 @@ function App() {
 
             <div className="profile-menu-wrap">
               <button type="button" className="user-profile-pill" onClick={() => setPerfilMenuAbierto(v => !v)} aria-label="Abrir menú de perfil">
-                <span className="user-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : '👤'}</span>
-                <div className="user-profile-text"><strong>{perfilNombre || usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span></div>
-                <span className="profile-more-dots">⋮</span>
+                <span className="user-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : <FestosIcon name="UserRound" size={19} />}</span>
+                <div className="user-profile-text"><strong>{perfilNombre || usuarioLogueado}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span></div>
+                <span className="profile-more-dots"><FestosIcon name="MoreVertical" size={18} /></span>
               </button>
               {perfilMenuAbierto && (
                 <>
                   <div className="profile-menu-backdrop" onClick={() => setPerfilMenuAbierto(false)} />
                   <div className="profile-menu">
-                    <div className="profile-menu-user"><span className="profile-menu-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : '👤'}</span><div><strong>{perfilNombre || usuarioLogueado}</strong><small>{cargoUsuario(usuarioLogueado)}</small></div></div>
-                    <button type="button" onClick={abrirPerfil}>👤 <span>Ver perfil</span></button>
-                    <button type="button" onClick={abrirPerfil}>⚙️ <span>Preferencias de cuenta</span></button>
+                    <div className="profile-menu-user"><span className="profile-menu-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : <FestosIcon name="UserRound" size={19} />}</span><div><strong>{perfilNombre || usuarioLogueado}</strong><small>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</small></div></div>
+                    <button type="button" onClick={abrirPerfil}><FestosIcon name="UserRound" size={17} /> <span>Ver perfil</span></button>
+                    <button type="button" onClick={abrirPerfil}><FestosIcon name="Settings" size={17} /> <span>Preferencias de cuenta</span></button>
                     <div className="profile-menu-separator" />
-                    <button type="button" className="danger" onClick={cerrarSesion}>↪ <span>Cerrar sesión</span></button>
+                    <button type="button" className="danger" onClick={cerrarSesion}><FestosIcon name="LogOut" size={17} /> <span>Cerrar sesión</span></button>
                   </div>
                 </>
               )}
@@ -1173,19 +1478,19 @@ function App() {
             <div className="modal-overlay" onClick={() => !guardandoPerfil && setPerfilModalAbierto(false)}>
               <form className="glass-card modal-card profile-modal" onSubmit={guardarPerfil} onClick={e => e.stopPropagation()}>
                 <div className="modal-head">
-                  <div><h4 className="panel-title">👤 Mi perfil</h4><p className="panel-note">Personaliza cómo apareces dentro de FESTOS.</p></div>
+                  <div><h4 className="panel-title icon-heading"><FestosIcon name="UserRound" size={18} /> Mi perfil</h4><p className="panel-note">Personaliza cómo apareces dentro de FESTOS.</p></div>
                   <button type="button" className="modal-close-btn" onClick={() => setPerfilModalAbierto(false)}>×</button>
                 </div>
                 <div className="profile-hero">
-                  <div className="profile-avatar-large">{perfilFotoEdit ? <img src={perfilFotoEdit} alt="Foto de perfil" /> : '👤'}</div>
-                  <div><strong>{perfilNombre || usuarioLogueado}</strong><span>{cargoUsuario(usuarioLogueado)}</span><label className="profile-upload-btn">📷 Cambiar foto<input type="file" accept="image/*" onChange={seleccionarFotoPerfil} /></label></div>
+                  <div className="profile-avatar-large">{perfilFotoEdit ? <img src={perfilFotoEdit} alt="Foto de perfil" /> : <FestosIcon name="UserRound" size={34} />}</div>
+                  <div><strong>{perfilNombre || usuarioLogueado}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span><label className="profile-upload-btn"><FestosIcon name="Camera" size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={seleccionarFotoPerfil} /></label></div>
                 </div>
                 <div className="profile-section-title">Información personal</div>
                 <div className="form-row"><label>Nombre visible</label><input value={perfilNombreEdit} onChange={e => setPerfilNombreEdit(e.target.value)} placeholder="Tu nombre" /></div>
-                <div className="profile-info-grid"><div><span>Usuario de acceso</span><strong>{usuarioLogueado}</strong></div><div><span>Cargo</span><strong>{cargoUsuario(usuarioLogueado)}</strong></div></div>
+                <div className="profile-info-grid"><div><span>Correo de acceso</span><strong>{authEmail || '—'}</strong></div><div><span>Usuario interno</span><strong>{usuarioLogueado}</strong></div><div><span>Cargo</span><strong>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</strong></div></div>
                 <div className="profile-section-title">Seguridad</div>
-                <div className="form-grid-2"><div className="form-row"><label>Nueva contraseña</label><input type="password" value={perfilPassword} onChange={e => setPerfilPassword(e.target.value)} placeholder="Mínimo 4 caracteres" /></div><div className="form-row"><label>Confirmar contraseña</label><input type="password" value={perfilPasswordConfirm} onChange={e => setPerfilPasswordConfirm(e.target.value)} placeholder="Repite la contraseña" /></div></div>
-                <div className="profile-tip">🔐 Puedes cambiar tu contraseña cuando quieras. Tu sesión actual se mantiene activa.</div>
+                <div className="form-grid-2"><div className="form-row"><label>Nueva contraseña</label><input type="password" value={perfilPassword} onChange={e => setPerfilPassword(e.target.value)} placeholder="Mínimo 8 caracteres" /></div><div className="form-row"><label>Confirmar contraseña</label><input type="password" value={perfilPasswordConfirm} onChange={e => setPerfilPasswordConfirm(e.target.value)} placeholder="Repite la contraseña" /></div></div>
+                <div className="profile-tip"><FestosIcon name="LockKeyhole" size={16} /> Puedes cambiar tu contraseña cuando quieras. Tu sesión actual se mantiene activa.</div>
                 <div className="modal-actions"><button className="btn-primary" disabled={guardandoPerfil}>{guardandoPerfil ? 'Guardando...' : 'Guardar perfil'}</button><button type="button" className="btn-secondary" onClick={() => setPerfilModalAbierto(false)}>Cancelar</button></div>
               </form>
             </div>
@@ -1195,7 +1500,7 @@ function App() {
           {pagoEditando && (
             <div className="modal-overlay">
               <form onSubmit={guardarEdicionConArchivo} className="glass-card modal-card">
-                <h3 className="section-title">✏️ Editar Registro y Comprobante</h3>
+                <h3 className="section-title"><FestosIcon name="Pencil" size={21} /> Editar Registro y Comprobante</h3>
 
                 <div className="form-row">
                   <label>Proveedor</label>
@@ -1213,7 +1518,7 @@ function App() {
                 </div>
 
                 <div className="form-row">
-                  <label>Comprobante Actual: {pagoEditando.url_archivo ? '✅ Subido' : '❌ Sin comprobante'}</label>
+                  <label>Comprobante Actual: {pagoEditando.url_archivo ? 'Subido' : 'Sin comprobante'}</label>
                   <input type="file" onChange={(e) => setArchivoNuevo(e.target.files[0])} />
                 </div>
 
@@ -1226,22 +1531,51 @@ function App() {
           )}
 
           {/* VISTA: INICIO */}
+          {vista === 'operaciones' && (
+            <OperationsCenter usuario={usuarioLogueado} permisos={misPermisos} onNavigate={irAVista} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
+          )}
+
+          {(vista === 'analisis' || vista === 'analisis_ventas') && (
+            <ExecutiveDashboard tipo={vista === 'analisis_ventas' ? 'ventas' : 'proyectos'} usuario={usuarioLogueado} onOpenAI={() => setVista('asistente')} onOpenProjects={abrirProyectosFiltrados} />
+          )}
+
           {vista === 'dashboard' && (
             <div className="inicio-page">
               <section className="welcome-home-card">
                 <div className="welcome-home-logo">
-                  <img src="/festoslogo-Photoroom.png" alt="FESTOS" />
+                  <img src={`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`} alt="FESTOS" />
                 </div>
                 <div className="welcome-home-content">
                   <span className="welcome-home-eyebrow">FESTOS GESTIÓN EMPRESARIAL</span>
                   <h1>Bienvenido, {perfilNombre || usuarioLogueado}</h1>
                   <p>Una plataforma centralizada para gestionar las operaciones, el control administrativo y la información comercial de FESTOS desde un solo lugar.</p>
                   <div className="welcome-benefits">
-                    <div><strong>📊 Control</strong><span>Visualiza pagos, pendientes y movimientos.</span></div>
-                    <div><strong>👥 Gestión</strong><span>Administra clientes, proveedores y proyectos.</span></div>
-                    <div><strong>📑 Cotizaciones</strong><span>Organiza el proceso comercial y sus estados.</span></div>
-                    <div><strong>🕵️ Trazabilidad</strong><span>Consulta auditoría, permisos y actividad.</span></div>
+                    <div><strong><FestosIcon name="LayoutDashboard" size={18} /> Control</strong><span>Visualiza pagos, pendientes y movimientos.</span></div>
+                    <div><strong><FestosIcon name="Users" size={18} /> Gestión</strong><span>Administra clientes, proveedores y proyectos.</span></div>
+                    <div><strong><FestosIcon name="FileText" size={18} /> Cotizaciones</strong><span>Organiza el proceso comercial y sus estados.</span></div>
+                    <div><strong><FestosIcon name="History" size={18} /> Trazabilidad</strong><span>Consulta auditoría, permisos y actividad.</span></div>
                   </div>
+                </div>
+              </section>
+
+              <section className="inicio-manual-card">
+                <div className="inicio-manual-icon" aria-hidden="true"><FestosIcon name="BookOpen" size={28} /></div>
+                <div className="inicio-manual-content">
+                  <span className="inicio-section-kicker">DOCUMENTACIÓN FESTOS</span>
+                  <h2>Manual de Usuario</h2>
+                  <p>Consulta la guía oficial de FESTOS Gestión Empresarial para conocer el funcionamiento de cada módulo, los flujos de trabajo y las principales operaciones del sistema.</p>
+                  <div className="inicio-manual-meta">
+                    <span>V21 · Septiembre 2026</span>
+                    <span>Incluye todos los módulos excepto Subir Pago</span>
+                  </div>
+                </div>
+                <div className="inicio-manual-actions">
+                  <a className="inicio-manual-btn primary" href={`${import.meta.env.BASE_URL}Manual_Usuario_FESTOS_V21.pdf`} target="_blank" rel="noopener noreferrer">
+                    <FestosIcon name="ExternalLink" size={16} /> Abrir manual
+                  </a>
+                  <a className="inicio-manual-btn secondary" href={`${import.meta.env.BASE_URL}Manual_Usuario_FESTOS_V21.pdf`} download="Manual_Usuario_FESTOS_V21.pdf">
+                    <FestosIcon name="Download" size={16} /> Descargar PDF
+                  </a>
                 </div>
               </section>
 
@@ -1252,7 +1586,7 @@ function App() {
                     <h2>Equipo FESTOS</h2>
                     <p>Personas y responsabilidades que forman parte de la operación de FESTOS.</p>
                   </div>
-                  <div className="company-summary-badge">🏢 ESTRUCTURA INTERNA</div>
+                  <div className="company-summary-badge"><FestosIcon name="Building2" size={16} /> ESTRUCTURA INTERNA</div>
                 </div>
 
                 <div className="org-flow" aria-label="Estructura del equipo FESTOS">
@@ -1294,9 +1628,9 @@ function App() {
                   <h2>¿Qué es Control Festos?</h2>
                   <p>Es el centro de gestión de FESTOS: reúne en un solo lugar la operación comercial, administrativa y de proyectos para trabajar con información organizada y trazable.</p>
                   <div className="inicio-about-points">
-                    <span>✓ Información centralizada</span>
-                    <span>✓ Procesos conectados</span>
-                    <span>✓ Trazabilidad de actividad</span>
+                    <span><FestosIcon name="Check" size={15} /> Información centralizada</span>
+                    <span><FestosIcon name="Check" size={15} /> Procesos conectados</span>
+                    <span><FestosIcon name="Check" size={15} /> Trazabilidad de actividad</span>
                   </div>
                 </article>
 
@@ -1321,12 +1655,12 @@ function App() {
                   </div>
                 </div>
                 <div className="inicio-modules-grid">
-                  <div className="inicio-module-item"><span>💳</span><div><strong>Pagos</strong><small>Control de facturas, comprobantes y estados.</small></div></div>
-                  <div className="inicio-module-item"><span>👥</span><div><strong>Clientes</strong><small>Directorio comercial y contactos.</small></div></div>
-                  <div className="inicio-module-item"><span>🚚</span><div><strong>Proveedores</strong><small>Servicios, categorías y condiciones de pago.</small></div></div>
-                  <div className="inicio-module-item"><span>📑</span><div><strong>Cotizaciones</strong><small>El proceso comercial desde borrador hasta aprobación.</small></div></div>
-                  <div className="inicio-module-item"><span>📁</span><div><strong>Proyectos</strong><small>Seguimiento de trabajos y ejecución.</small></div></div>
-                  <div className="inicio-module-item"><span>🕵️</span><div><strong>Auditoría</strong><small>Registro de actividad y trazabilidad.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="CreditCard" size={21} /></span><div><strong>Pagos</strong><small>Control de facturas, comprobantes y estados.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="Users" size={21} /></span><div><strong>Clientes</strong><small>Directorio comercial y contactos.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="Truck" size={21} /></span><div><strong>Proveedores</strong><small>Servicios, categorías y condiciones de pago.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="FileText" size={21} /></span><div><strong>Cotizaciones</strong><small>El proceso comercial desde borrador hasta aprobación.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="FolderKanban" size={21} /></span><div><strong>Proyectos</strong><small>Seguimiento de trabajos y ejecución.</small></div></div>
+                  <div className="inicio-module-item"><span><FestosIcon name="History" size={21} /></span><div><strong>Auditoría</strong><small>Registro de actividad y trazabilidad.</small></div></div>
                 </div>
               </section>
 
@@ -1368,7 +1702,7 @@ function App() {
           {/* VISTA: SUBIR PAGO */}
           {vista === 'subir' && (
             <form onSubmit={handleSubmit} className="glass-card form-card">
-              <h3 className="section-title">📤 Subir Nueva Factura / Pago</h3>
+              <h3 className="section-title"> Subir Nueva Factura / Pago</h3>
 
               <div className="form-grid-2">
                 <div className="form-row">
@@ -1404,7 +1738,7 @@ function App() {
                 </label>
                 <p className="calc-total">Total calculado: <strong>S/. {precioFinalCalculado}</strong></p>
                 {valorBase * (aplicarIgv ? 1.18 : 1) >= UMBRAL_APROBACION && (
-                  <p className="dual-control-hint">🔐 Este monto requerirá aprobación de un segundo miembro del equipo.</p>
+                  <p className="dual-control-hint"><FestosIcon name="LockKeyhole" size={16} /> Este monto requerirá aprobación de un segundo miembro del equipo.</p>
                 )}
               </div>
 
@@ -1429,7 +1763,7 @@ function App() {
             <div>
               {pagosEnAprobacionList.length > 0 && (
                 <div style={{ marginBottom: '28px' }}>
-                  <h3 className="section-title">🔐 Pendientes de Aprobación ({pagosEnAprobacionList.length})</h3>
+                  <h3 className="section-title"><FestosIcon name="LockKeyhole" size={21} /> Pendientes de Aprobación ({pagosEnAprobacionList.length})</h3>
                   <div className="record-list">
                     {pagosEnAprobacionList.map(p => {
                       const solicitante = p.solicitado_por || p.registrado_por;
@@ -1452,7 +1786,7 @@ function App() {
                               title={puedeAprobar ? 'Aprobar y marcar como pagado' : 'No puedes aprobar tu propia solicitud'}
                               className="btn-approve"
                             >
-                              {puedeAprobar ? 'Aprobar y Pagar ✅' : 'Requiere otro miembro 🔒'}
+                              <>{puedeAprobar ? <><FestosIcon name="CheckCircle2" size={16} /> Aprobar y Pagar</> : <><FestosIcon name="LockKeyhole" size={16} /> Requiere otro miembro</>}</>
                             </button>
                             <button onClick={() => cambiarEstado(p.id, 'Por Pagar')} className="btn-muted">Cancelar solicitud</button>
                           </div>
@@ -1463,7 +1797,7 @@ function App() {
                 </div>
               )}
 
-              <h3 className="section-title">⏳ Pagos Pendientes ({pagosPendientesList.length})</h3>
+              <h3 className="section-title"><FestosIcon name="Clock3" size={21} /> Pagos Pendientes ({pagosPendientesList.length})</h3>
               {pagosPendientesList.length === 0 ? (
                 <p className="glass-card empty-card">No hay pagos pendientes por realizar.</p>
               ) : (
@@ -1484,8 +1818,8 @@ function App() {
                           <span className="missing-file">Sin archivo</span>
                         )}
                         <button onClick={() => setPagoEditando(p)} className="btn-edit">Editar</button>
-                        <button onClick={() => cambiarEstado(p.id, 'Pagado')} className="btn-pay">Marcar Pagado ✅</button>
-                        <button onClick={() => eliminarPago(p.id, p.codigo_unico)} className="btn-delete">🗑️</button>
+                        <button onClick={() => cambiarEstado(p.id, 'Pagado')} className="btn-pay"><FestosIcon name="CheckCircle2" size={16} /> Marcar Pagado</button>
+                        <button onClick={() => eliminarPago(p.id, p.codigo_unico)} className="btn-delete"><FestosIcon name="Trash2" size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -1498,8 +1832,8 @@ function App() {
           {vista === 'historial' && (
             <div>
               <div className="section-header">
-                <h3 className="section-title" style={{ margin: 0 }}>📂 Historial de Pagos Realizados</h3>
-                <button onClick={exportarAExcel} className="btn-export">📥 Exportar a Excel (CSV)</button>
+                <h3 className="section-title" style={{ margin: 0 }}><FestosIcon name="History" size={21} /> Historial de Pagos Realizados</h3>
+                <button onClick={exportarAExcel} className="btn-export"> Exportar a Excel (CSV)</button>
               </div>
 
               <div className="glass-card filter-card">
@@ -1554,10 +1888,10 @@ function App() {
                         {p.url_archivo ? (
                           <a href={p.url_archivo} target="_blank" rel="noopener noreferrer" className="link-pill">Ver Comprobante</a>
                         ) : (
-                          <button onClick={() => setPagoEditando(p)} className="btn-upload">Subir Factura 📎</button>
+                          <button onClick={() => setPagoEditando(p)} className="btn-upload"><FestosIcon name="Upload" size={16} /> Subir Factura</button>
                         )}
                         <button onClick={() => cambiarEstado(p.id, 'Por Pagar')} className="btn-muted">Pasar a Pendiente</button>
-                        <button onClick={() => eliminarPago(p.id, p.codigo_unico)} className="btn-delete">🗑️</button>
+                        <button onClick={() => eliminarPago(p.id, p.codigo_unico)} className="btn-delete"><FestosIcon name="Trash2" size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -1569,7 +1903,7 @@ function App() {
           {/* VISTA: AUDITORÍA (Idea 5 — timeline de trazabilidad) */}
           {vista === 'auditoria' && (
             <div className="glass-card form-card">
-              <h3 className="section-title">🕵️ Centro de Auditoría</h3>
+              <h3 className="section-title"><FestosIcon name="History" size={21} /> Centro de Auditoría</h3>
               <p className="panel-note" style={{ marginBottom: '20px' }}>
                 Huella digital de cada acción del equipo — quién creó, editó, solicitó, aprobó o eliminó un registro, con marca de tiempo exacta.
               </p>
@@ -1580,7 +1914,7 @@ function App() {
                 <div className="audit-timeline">
                   {auditoria.map(entry => (
                     <div key={entry.id} className="audit-item">
-                      <div className="audit-marker">{iconoPorAccion(entry.accion)}</div>
+                      <div className="audit-marker"><FestosIcon name={iconoPorAccion(entry.accion)} size={16} /></div>
                       <div className="audit-body">
                         <div className="audit-head">
                           <strong>{entry.accion}</strong>
@@ -1601,7 +1935,7 @@ function App() {
             <Clientes
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
-              puedeGestionar={!!misPermisos.gestionar_clientes}
+              puedeGestionar={puedeRegistrarCliente}
             />
           )}
 
@@ -1617,6 +1951,11 @@ function App() {
           {/* VISTA: PROYECTOS */}
           {vista === 'proyectos' && misPermisos.ver_proyectos && (
             <Proyectos
+              filtroDesdeDashboard={proyectosDesdeDashboard}
+              solicitudNuevo={nuevoProyectoSolicitado}
+              voiceCommand={voiceCommand?.kind === 'project' ? voiceCommand : null}
+              onVoiceFeedback={feedbackVoz}
+              onConsumirNuevo={() => setNuevoProyectoSolicitado(false)}
               usuario={usuarioLogueado}
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
@@ -1627,6 +1966,11 @@ function App() {
           {/* VISTA: COTIZACIONES */}
           {vista === 'cotizaciones' && misPermisos.ver_cotizaciones && (
             <Cotizaciones
+              puedeCrearCliente={puedeRegistrarCliente}
+              solicitudNuevo={nuevaCotizacionSolicitada}
+              voiceCommand={voiceCommand?.kind === 'quote' ? voiceCommand : null}
+              onVoiceFeedback={feedbackVoz}
+              onConsumirNuevo={() => setNuevaCotizacionSolicitada(false)}
               usuario={usuarioLogueado}
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
@@ -1647,7 +1991,7 @@ function App() {
           {/* VISTA: ASISTENTE IA */}
           {vista === 'asistente' && (
             <div className="glass-card form-card">
-              <h3 className="section-title">🤖 Asistente IA de Búsqueda Inteligente</h3>
+              <h3 className="section-title"><FestosIcon name="Bot" size={21} /> Asistente IA de Búsqueda Inteligente</h3>
               <p className="panel-note" style={{ marginBottom: '16px' }}>Escribe palabras clave separadas por espacio (ej. proveedor, proyecto, estado, montos, etiquetas) para buscar instantáneamente en todos los registros.</p>
 
               <input
@@ -1691,7 +2035,7 @@ function App() {
       <div className="toast-container">
         {toasts.map(t => (
           <div key={t.id} className="toast">
-            <span>{iconoPorTipo(t.tipo)}</span>
+            <span><FestosIcon name={iconoPorTipo(t.tipo)} size={16} /></span>
             <span>{t.mensaje}</span>
           </div>
         ))}

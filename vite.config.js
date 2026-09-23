@@ -4,4 +4,6 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Relative production asset paths so Electron can load dist/index.html with file://.
+  base: './',
 })

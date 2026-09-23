@@ -1,0 +1,4 @@
+Este directorio se completa SOLO en el equipo que crea el instalador:
+npm install
+npm run voice:prepare
+Los archivos del modelo NO están presentes en el ZIP de código V29.6.
