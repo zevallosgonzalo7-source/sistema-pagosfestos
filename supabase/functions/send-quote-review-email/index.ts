@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const { data: quote, error: quoteError } = await admin
       .from('cotizaciones')
-      .select('id, codigo, proyecto_nombre, total, estado, clientes(nombre, ruc)')
+      .select('id, codigo, proyecto_nombre, subtotal, total, estado, clientes(nombre, ruc)')
       .eq('id', quoteId)
       .maybeSingle()
 
@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
     const clienteNombre = escapeHtml(cliente?.nombre || 'Cliente sin nombre')
     const clienteRuc = escapeHtml(cliente?.ruc || '—')
     const total = Number(quote.total || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const valorVenta = Number(quote.subtotal || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     const subject = tipo === 'aprobada' ? `Cotización ${quote.codigo} aprobada` : `Cotización ${quote.codigo} requiere revisión`
     const detailUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/?cotizacion=${encodeURIComponent(quote.id)}` : ''
 
@@ -112,7 +113,8 @@ Deno.serve(async (req) => {
         <p style="margin:0 0 10px"><strong>Cliente:</strong> ${clienteNombre}</p>
         <p style="margin:0 0 10px"><strong>RUC / documento:</strong> ${clienteRuc}</p>
         <p style="margin:0 0 10px"><strong>Proyecto:</strong> ${proyecto}</p>
-        <p style="margin:0"><strong>Precio total:</strong> S/. ${total}</p>
+        <p style="margin:0"><strong>Valor venta:</strong> S/. ${valorVenta}</p>
+        <p style="margin:0"><strong>Importe con IGV:</strong> S/. ${total}</p>
       </div>
       ${detailUrl ? `<a href="${detailUrl}" style="display:inline-block;background:#224248;color:#fff;text-decoration:none;padding:13px 20px;border-radius:9px;font-weight:700">VER COTIZACIÓN</a>` : ''}
       <p style="font-size:12px;line-height:1.5;color:#718084;margin:26px 0 0">Este es un mensaje automático del Sistema de Gestión FESTOS.</p>
