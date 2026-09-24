@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { interpretVoiceCommand } from './voice/commands';
 import { answerDashboardQuestion, classifyDashboardQuestion } from './voice/metrics';
 import { answerSmallTalk } from './voice/smallTalk';
@@ -350,7 +350,7 @@ function GlobalSearchPalette({ open, onClose, onNavigate, permisos }) {
       </div>
       <div className="command-meta"><span>BÚSQUEDA GLOBAL FESTOS</span><small>Ctrl + K</small></div>
       <div className="command-quick-actions" aria-label="Accesos rápidos">
-        {[['dashboard','House','Inicio'],['analisis','LayoutDashboard','Dashboard'],['operaciones','CalendarDays','Centro de trabajo'],...(permisos.gestionar_proyectos && permisos.ver_proyectos ? [['nuevo-proyecto','Plus','Nuevo proyecto']] : []),...(permisos.gestionar_cotizaciones && permisos.ver_cotizaciones ? [['nueva-cotizacion','Plus','Nueva cotización']] : [])].filter(x => !q || x[2].toLowerCase().includes(q)).map(([id,icon,label]) => <button type="button" key={id} onClick={() => { onNavigate(id); onClose(); }}><FestosIcon name={icon} size={16}/>{label}</button>)}
+        {[['analisis','LayoutDashboard','Dashboard'],['operaciones','CalendarDays','Calendario global'],...(permisos.gestionar_proyectos && permisos.ver_proyectos ? [['nuevo-proyecto','Plus','Nuevo proyecto']] : []),...(permisos.gestionar_cotizaciones && permisos.ver_cotizaciones ? [['nueva-cotizacion','Plus','Nueva cotización']] : [])].filter(x => !q || x[2].toLowerCase().includes(q)).map(([id,icon,label]) => <button type="button" key={id} onClick={() => { onNavigate(id); onClose(); }}><FestosIcon name={icon} size={16}/>{label}</button>)}
       </div>
       <div className="command-results">
         {loading ? <div className="command-loading"><i/><i/><i/><i/></div> : filtered.length ? filtered.map(item =>
@@ -724,7 +724,7 @@ function App() {
     ? { ...PERMISOS_VACIOS, ...(perfilServidor.permisos || {}), rol_label: perfilServidor.rol_label || 'Usuario' }
     : PERMISOS_VACIOS;
 
-  const [vista, setVista] = useState('dashboard');
+  const [vista, setVista] = useState('analisis');
   const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
   const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
   const [voiceCommand, setVoiceCommand] = useState(null);
@@ -812,7 +812,7 @@ function App() {
       roles: misPermisos.gestionar_roles,
     };
     if (vista in requiereVer && !requiereVer[vista]) {
-      setVista('dashboard');
+      setVista('analisis');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, usuarioLogueado, perfilServidor]);
@@ -1197,9 +1197,8 @@ function App() {
   };
 
   const itemsNav = [
-    { id: 'dashboard', icono: 'House', label: 'Inicio' },
     { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard' },
-    { id: 'operaciones', icono: 'CalendarDays', label: 'Centro de trabajo' },
+    { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global' },
     // Módulos temporalmente ocultos del menú lateral.
     // Su lógica permanece intacta para poder reactivarlos más adelante:
     // Subir Pago · Por Pagar · Historial · Auditoría · Asistente IA
@@ -1209,6 +1208,48 @@ function App() {
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
     ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: 'ShieldCheck', label: 'Roles y Permisos' }] : []),
   ];
+
+
+  const accesosBase = useMemo(() => ([
+    { id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones', actionLabel: misPermisos.gestionar_cotizaciones ? 'Nuevo' : 'Abrir', actionId: misPermisos.gestionar_cotizaciones ? 'nueva-cotizacion' : 'cotizaciones', tone: 'cotizaciones', visible: misPermisos.ver_cotizaciones, activeIds: ['cotizaciones'], obligatorio: true },
+    { id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos', actionLabel: misPermisos.gestionar_proyectos ? 'Nuevo' : 'Abrir', actionId: misPermisos.gestionar_proyectos ? 'nuevo-proyecto' : 'proyectos', tone: 'proyectos', visible: misPermisos.ver_proyectos, activeIds: ['proyectos'], obligatorio: true },
+    { id: 'clientes', icono: 'Users', label: 'Clientes', actionLabel: misPermisos.gestionar_clientes ? 'Gestionar' : 'Ver', tone: 'clientes', visible: misPermisos.ver_clientes, activeIds: ['clientes'], obligatorio: true },
+    { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard', actionLabel: 'Proyectos', tone: 'dashboard', activeIds: ['analisis'] },
+    // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.
+    { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global', actionLabel: 'Agenda', tone: 'operaciones', activeIds: ['operaciones'] },
+    { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
+    { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V31.pdf', tone: 'manual' },
+    { id: 'roles', icono: 'ShieldCheck', label: 'Roles y permisos', actionLabel: 'Abrir', tone: 'roles', visible: misPermisos.gestionar_roles, activeIds: ['roles'] },
+  ].filter(item => item.visible !== false)), [misPermisos]);
+
+  const [favoritosSidebar, setFavoritosSidebar] = useState([]);
+  useEffect(() => {
+    try {
+      const key = `festos_sidebar_favoritos_${String(usuarioLogueado || 'usuario').toLowerCase()}`;
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      setFavoritosSidebar(Array.isArray(saved) ? saved : []);
+    } catch { setFavoritosSidebar([]); }
+  }, [usuarioLogueado]);
+
+  const alternarFavoritoSidebar = (itemId) => {
+    const item = accesosBase.find(x => x.id === itemId);
+    if (!item || item.obligatorio) return;
+    setFavoritosSidebar(prev => {
+      const next = prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId];
+      try {
+        const key = `festos_sidebar_favoritos_${String(usuarioLogueado || 'usuario').toLowerCase()}`;
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const accesosInicio = useMemo(() => {
+    const fijos = accesosBase.filter(item => item.obligatorio);
+    const favoritos = accesosBase.filter(item => !item.obligatorio && favoritosSidebar.includes(item.id));
+    const resto = accesosBase.filter(item => !item.obligatorio && !favoritosSidebar.includes(item.id));
+    return [...fijos, ...favoritos, ...resto];
+  }, [accesosBase, favoritosSidebar]);
 
   const irAVista = (id) => {
     // Una entrada manual a Proyectos no conserva filtros de un salto anterior desde Dashboard.
@@ -1257,7 +1298,7 @@ function App() {
     }
     if (parsed.action === 'navigate') {
       const allowed = {
-        dashboard: true, analisis: true, analisis_ventas: true, operaciones: true,
+        dashboard: true, analisis: true, analisis_ventas: false, operaciones: true,
         clientes: misPermisos.ver_clientes, proveedores: misPermisos.ver_proveedores,
         proyectos: misPermisos.ver_proyectos, cotizaciones: misPermisos.ver_cotizaciones,
         roles: misPermisos.gestionar_roles, perfil: true, notificaciones: true,
@@ -1266,7 +1307,7 @@ function App() {
       if (parsed.target === 'perfil') { setPerfilModalAbierto(true); return feedbackVoz('He abierto tu perfil.'); }
       if (parsed.target === 'notificaciones') { setPanelNotifAbierto(true); return feedbackVoz('He abierto tus notificaciones.'); }
       irAVista(parsed.target);
-      return feedbackVoz(`He abierto ${parsed.target === 'dashboard' ? 'Inicio' : parsed.target === 'analisis' ? 'Dashboard proyectos' : parsed.target === 'analisis_ventas' ? 'Dashboard ventas' : parsed.target === 'operaciones' ? 'Centro de trabajo' : parsed.target}.`);
+      return feedbackVoz(`He abierto ${parsed.target === 'dashboard' ? 'Dashboard' : parsed.target === 'analisis' ? 'Dashboard proyectos' : parsed.target === 'analisis_ventas' ? 'Dashboard ventas' : parsed.target === 'operaciones' ? 'Calendario global' : parsed.target}.`);
     }
     if (parsed.action === 'draft') {
       const permission = parsed.kind === 'quote'
@@ -1378,27 +1419,36 @@ function App() {
           <img src={`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`} alt="Festos" />
         </div>
 
-        <nav className="sidebar-nav">
-          {itemsNav.map(item => item.id === 'analisis' ? (
-            <div className="sidebar-dashboard-group" key="analisis">
-              <button type="button" className={`sidebar-item sidebar-dashboard-toggle ${['analisis','analisis_ventas'].includes(vista) ? 'active' : ''}`} aria-expanded={dashboardMenuOpen} aria-controls="festos-dashboard-submenu" onClick={() => setDashboardMenuOpen(open => !open)}>
-                <span className="sidebar-item-icon"><FestosIcon name="LayoutDashboard" size={20} /></span>
-                <span>Dashboard</span>
-                <span className={`sidebar-chevron ${dashboardMenuOpen ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span>
-              </button>
-              {dashboardMenuOpen && <div id="festos-dashboard-submenu" className="sidebar-submenu">
-                <button type="button" className={`sidebar-item sidebar-subitem ${vista === 'analisis' ? 'active' : ''}`} onClick={() => irAVista('analisis')}><FestosIcon name="FolderKanban" size={17} /> Proyectos</button>
-                <button type="button" className={`sidebar-item sidebar-subitem ${vista === 'analisis_ventas' ? 'active' : ''}`} onClick={() => irAVista('analisis_ventas')}><FestosIcon name="ChartNoAxesColumnIncreasing" size={17} /> Ventas</button>
-              </div>}
+        <div className="sidebar-scroll-area">
+          <section className="sidebar-launcher-panel">
+            <div className="sidebar-launcher-heading">
+              <span>MÓDULOS FESTOS</span>
+              <strong>Accesos del sistema</strong>
             </div>
-          ) : (
-            <button key={item.id} className={`sidebar-item ${vista === item.id ? 'active' : ''}`} onClick={() => irAVista(item.id)}>
-              <span className="sidebar-item-icon"><FestosIcon name={item.icono} size={20} /></span>
-              {item.label}
-              {!!item.badge && <span className="sidebar-item-badge">{item.badge}</span>}
-            </button>
-          ))}
-        </nav>
+            <div className="sidebar-launcher-grid">
+              {accesosInicio.map((item) => {
+                const active = Array.isArray(item.activeIds) ? item.activeIds.includes(vista) : vista === (item.actionId || item.id);
+                const favorito = favoritosSidebar.includes(item.id);
+                const card = <>
+                  <span className={`sidebar-launcher-icon tone-${item.tone}`}><FestosIcon name={item.icono} size={20} /></span>
+                  <span className="sidebar-launcher-copy">
+                    <strong>{item.label}</strong>
+                    <small>{item.obligatorio ? 'Fijo' : item.actionLabel}</small>
+                  </span>
+                </>;
+
+                return <div key={`launcher-${item.id}`} className={`sidebar-launcher-wrap ${active ? 'active' : ''}`}>
+                  {item.actionHref
+                    ? <a className={`sidebar-launcher-card ${active ? 'active' : ''}`} href={item.actionHref} target="_blank" rel="noreferrer">{card}</a>
+                    : <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => irAVista(item.actionId || item.id)}>{card}</button>}
+                  {item.obligatorio
+                    ? <span className="sidebar-favorite-fixed" title="Acceso fijo"><FestosIcon name="StarFilled" size={14} /></span>
+                    : <button type="button" className={`sidebar-favorite-btn ${favorito ? 'is-favorite' : ''}`} title={favorito ? 'Quitar de favoritos' : 'Agregar a favoritos'} aria-label={favorito ? `Quitar ${item.label} de favoritos` : `Agregar ${item.label} a favoritos`} onClick={() => alternarFavoritoSidebar(item.id)}><FestosIcon name={favorito ? 'StarFilled' : 'Star'} size={15} /></button>}
+                </div>;
+              })}
+            </div>
+          </section>
+        </div>
 
         <div className="sidebar-footer">Sesión: {usuarioLogueado}</div>
       </aside>
@@ -1537,166 +1587,6 @@ function App() {
 
           {(vista === 'analisis' || vista === 'analisis_ventas') && (
             <ExecutiveDashboard tipo={vista === 'analisis_ventas' ? 'ventas' : 'proyectos'} usuario={usuarioLogueado} onOpenAI={() => setVista('asistente')} onOpenProjects={abrirProyectosFiltrados} />
-          )}
-
-          {vista === 'dashboard' && (
-            <div className="inicio-page">
-              <section className="welcome-home-card">
-                <div className="welcome-home-logo">
-                  <img src={`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`} alt="FESTOS" />
-                </div>
-                <div className="welcome-home-content">
-                  <span className="welcome-home-eyebrow">FESTOS GESTIÓN EMPRESARIAL</span>
-                  <h1>Bienvenido, {perfilNombre || usuarioLogueado}</h1>
-                  <p>Una plataforma centralizada para gestionar las operaciones, el control administrativo y la información comercial de FESTOS desde un solo lugar.</p>
-                  <div className="welcome-benefits">
-                    <div><strong><FestosIcon name="LayoutDashboard" size={18} /> Control</strong><span>Visualiza pagos, pendientes y movimientos.</span></div>
-                    <div><strong><FestosIcon name="Users" size={18} /> Gestión</strong><span>Administra clientes, proveedores y proyectos.</span></div>
-                    <div><strong><FestosIcon name="FileText" size={18} /> Cotizaciones</strong><span>Organiza el proceso comercial y sus estados.</span></div>
-                    <div><strong><FestosIcon name="History" size={18} /> Trazabilidad</strong><span>Consulta auditoría, permisos y actividad.</span></div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="inicio-manual-card">
-                <div className="inicio-manual-icon" aria-hidden="true"><FestosIcon name="BookOpen" size={28} /></div>
-                <div className="inicio-manual-content">
-                  <span className="inicio-section-kicker">DOCUMENTACIÓN FESTOS</span>
-                  <h2>Manual de Usuario</h2>
-                  <p>Consulta la guía oficial de FESTOS Gestión Empresarial para conocer el funcionamiento de cada módulo, los flujos de trabajo y las principales operaciones del sistema.</p>
-                  <div className="inicio-manual-meta">
-                    <span>V21 · Septiembre 2026</span>
-                    <span>Incluye todos los módulos excepto Subir Pago</span>
-                  </div>
-                </div>
-                <div className="inicio-manual-actions">
-                  <a className="inicio-manual-btn primary" href={`${import.meta.env.BASE_URL}Manual_Usuario_FESTOS_V21.pdf`} target="_blank" rel="noopener noreferrer">
-                    <FestosIcon name="ExternalLink" size={16} /> Abrir manual
-                  </a>
-                  <a className="inicio-manual-btn secondary" href={`${import.meta.env.BASE_URL}Manual_Usuario_FESTOS_V21.pdf`} download="Manual_Usuario_FESTOS_V21.pdf">
-                    <FestosIcon name="Download" size={16} /> Descargar PDF
-                  </a>
-                </div>
-              </section>
-
-              <section className="company-summary-card">
-                <div className="company-summary-heading">
-                  <div>
-                    <span className="welcome-home-eyebrow">NUESTRA ORGANIZACIÓN</span>
-                    <h2>Equipo FESTOS</h2>
-                    <p>Personas y responsabilidades que forman parte de la operación de FESTOS.</p>
-                  </div>
-                  <div className="company-summary-badge"><FestosIcon name="Building2" size={16} /> ESTRUCTURA INTERNA</div>
-                </div>
-
-                <div className="org-flow" aria-label="Estructura del equipo FESTOS">
-                  <div className="org-node org-node-main">
-                    <div className="org-avatar">{obtenerFotoPerfilUsuario('gonzalo') ? <img src={obtenerFotoPerfilUsuario('gonzalo')} alt="Gonzalo" /> : 'G'}</div>
-                    <div className="org-node-name">GONZALO</div>
-                    <div className="org-node-role">HEAD ADMIN</div>
-                    <span className="org-node-caption">Dirección y administración</span>
-                  </div>
-
-                  <div className="org-flow-line" aria-hidden="true"><span></span><span></span><span></span></div>
-
-                  <div className="org-team-grid">
-                    <div className="org-node">
-                      <div className="org-avatar">{obtenerFotoPerfilUsuario('jesus') ? <img src={obtenerFotoPerfilUsuario('jesus')} alt="Jesus" /> : 'J'}</div>
-                      <div className="org-node-name">JESUS</div>
-                      <div className="org-node-role">ADMIN</div>
-                      <span className="org-node-caption">Administración</span>
-                    </div>
-                    <div className="org-node">
-                      <div className="org-avatar">{obtenerFotoPerfilUsuario('mar') ? <img src={obtenerFotoPerfilUsuario('mar')} alt="Mar" /> : 'M'}</div>
-                      <div className="org-node-name">MAR</div>
-                      <div className="org-node-role">OPERADORA COMERCIAL</div>
-                      <span className="org-node-caption">Operaciones comerciales</span>
-                    </div>
-                    <div className="org-node">
-                      <div className="org-avatar">{obtenerFotoPerfilUsuario('rodrigo') ? <img src={obtenerFotoPerfilUsuario('rodrigo')} alt="Rodrigo" /> : 'R'}</div>
-                      <div className="org-node-name">RODRIGO</div>
-                      <div className="org-node-role">DESARROLLADOR SOFTWARE</div>
-                      <span className="org-node-caption">Tecnología y software</span>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="inicio-info-grid">
-                <article className="inicio-info-card inicio-about-card">
-                  <span className="inicio-section-kicker">CONTROL FESTOS</span>
-                  <h2>¿Qué es Control Festos?</h2>
-                  <p>Es el centro de gestión de FESTOS: reúne en un solo lugar la operación comercial, administrativa y de proyectos para trabajar con información organizada y trazable.</p>
-                  <div className="inicio-about-points">
-                    <span><FestosIcon name="Check" size={15} /> Información centralizada</span>
-                    <span><FestosIcon name="Check" size={15} /> Procesos conectados</span>
-                    <span><FestosIcon name="Check" size={15} /> Trazabilidad de actividad</span>
-                  </div>
-                </article>
-
-                <article className="inicio-info-card">
-                  <span className="inicio-section-kicker">PROPÓSITO</span>
-                  <h2>Una sola plataforma</h2>
-                  <p>La idea es que cada área pueda consultar y actualizar la información que necesita sin perder el contexto del proceso.</p>
-                  <div className="inicio-mini-stat-row">
-                    <div><strong>01</strong><span>Orden</span></div>
-                    <div><strong>02</strong><span>Control</span></div>
-                    <div><strong>03</strong><span>Trazabilidad</span></div>
-                  </div>
-                </article>
-              </section>
-
-              <section className="inicio-modules-card">
-                <div className="inicio-section-heading">
-                  <div>
-                    <span className="inicio-section-kicker">CENTRO DE OPERACIONES</span>
-                    <h2>Áreas del sistema</h2>
-                    <p>Los principales módulos que forman parte de Control Festos.</p>
-                  </div>
-                </div>
-                <div className="inicio-modules-grid">
-                  <div className="inicio-module-item"><span><FestosIcon name="CreditCard" size={21} /></span><div><strong>Pagos</strong><small>Control de facturas, comprobantes y estados.</small></div></div>
-                  <div className="inicio-module-item"><span><FestosIcon name="Users" size={21} /></span><div><strong>Clientes</strong><small>Directorio comercial y contactos.</small></div></div>
-                  <div className="inicio-module-item"><span><FestosIcon name="Truck" size={21} /></span><div><strong>Proveedores</strong><small>Servicios, categorías y condiciones de pago.</small></div></div>
-                  <div className="inicio-module-item"><span><FestosIcon name="FileText" size={21} /></span><div><strong>Cotizaciones</strong><small>El proceso comercial desde borrador hasta aprobación.</small></div></div>
-                  <div className="inicio-module-item"><span><FestosIcon name="FolderKanban" size={21} /></span><div><strong>Proyectos</strong><small>Seguimiento de trabajos y ejecución.</small></div></div>
-                  <div className="inicio-module-item"><span><FestosIcon name="History" size={21} /></span><div><strong>Auditoría</strong><small>Registro de actividad y trazabilidad.</small></div></div>
-                </div>
-              </section>
-
-              <section className="inicio-benefits-card">
-                <div className="inicio-section-heading">
-                  <div>
-                    <span className="inicio-section-kicker">VALOR PARA FESTOS</span>
-                    <h2>¿Qué nos permite?</h2>
-                  </div>
-                </div>
-                <div className="inicio-benefits-grid">
-                  <div><span>01</span><strong>Más orden</strong><p>La información se mantiene organizada por proceso y área.</p></div>
-                  <div><span>02</span><strong>Mejor seguimiento</strong><p>Los responsables pueden identificar estados y pendientes.</p></div>
-                  <div><span>03</span><strong>Menos duplicidad</strong><p>Clientes, cotizaciones y proyectos se conectan dentro del sistema.</p></div>
-                  <div><span>04</span><strong>Mayor trazabilidad</strong><p>Las acciones relevantes quedan registradas para consulta.</p></div>
-                </div>
-              </section>
-
-              <section className="inicio-flow-card">
-                <div className="inicio-section-heading">
-                  <div>
-                    <span className="inicio-section-kicker">FLUJO FESTOS</span>
-                    <h2>Del cliente a la operación</h2>
-                    <p>El recorrido principal de una oportunidad dentro de Control Festos.</p>
-                  </div>
-                </div>
-                <div className="inicio-process-flow" aria-label="Flujo principal de Control Festos">
-                  {['CLIENTE','COTIZACIÓN','APROBACIÓN','PROYECTO','OPERACIÓN','FACTURACIÓN'].map((paso, index) => (
-                    <React.Fragment key={paso}>
-                      <div className={`inicio-process-step ${index === 2 ? 'highlight' : ''}`}><span>{String(index + 1).padStart(2, '0')}</span><strong>{paso}</strong></div>
-                      {index < 5 && <div className="inicio-process-arrow" aria-hidden="true">→</div>}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </section>
-            </div>
           )}
 
           {/* VISTA: SUBIR PAGO */}

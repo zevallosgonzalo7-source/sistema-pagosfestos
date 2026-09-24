@@ -61,6 +61,8 @@ export function FestosIcon({ name, size = 18, strokeWidth = 1.9, className = '',
     MessageSquare: <><path d="M4 4h16v14H8l-4 3Z"/><path d="M8 9h8M8 13h5"/></>,
     Send: <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
     CircleHelp: <><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-.9.8-1.8 1.2-1.8 2.8M12 17h.01"/></>,
+    Star: <path d="m12 2.8 2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.38l-5.7 2.99 1.09-6.36-4.62-4.5 6.38-.93Z"/>,
+    StarFilled: <path d="m12 2.8 2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.38l-5.7 2.99 1.09-6.36-4.62-4.5 6.38-.93Z" fill="currentColor"/>,
   };
   return <svg {...common}>{paths[name] || paths.CircleHelp}</svg>;
 }

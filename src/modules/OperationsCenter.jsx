@@ -2,124 +2,175 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { FestosIcon } from '../FestosIcon';
 
-const STATES = ['EN PROCESO', 'FINALIZADO', 'FACTURADO'];
-const money = value => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
-const stateOf = value => STATES.includes(String(value || '').toUpperCase()) ? String(value).toUpperCase() : 'EN PROCESO';
-const day = value => value ? String(value).slice(0, 10) : '';
-const currentDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const readPrefs = key => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } };
+const COLORS = [
+  { id: 'petrol', label: 'Petróleo', hex: '#224248' },
+  { id: 'blue', label: 'Azul', hex: '#3b82f6' },
+  { id: 'green', label: 'Verde', hex: '#22a579' },
+  { id: 'purple', label: 'Morado', hex: '#8b5cf6' },
+  { id: 'amber', label: 'Ámbar', hex: '#d59a31' },
+  { id: 'rose', label: 'Rosa', hex: '#e85b79' },
+];
+const TYPES = ['ACTIVIDAD', 'ENTREGA', 'REUNIÓN', 'RECORDATORIO', 'NOTA'];
+const pad = value => String(value).padStart(2, '0');
+const dateKey = value => { if (!value) return ''; const d = new Date(value); if (Number.isNaN(d.getTime())) return String(value).slice(0,10); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const toLocalInput = value => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 16);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const toIso = value => value ? new Date(value).toISOString() : null;
+const prettyDate = value => value ? new Date(value).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+const monthName = date => date.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+const colorHex = id => COLORS.find(c => c.id === id)?.hex || '#224248';
+const emptyForm = () => ({ titulo: '', descripcion: '', tipo: 'ACTIVIDAD', color: 'petrol', proyecto_id: '', asignado_a: '', fecha_inicio: '', fecha_fin: '' });
 
 export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAudit }) {
-  const key = `festos_operaciones_preferencias_${String(usuario).toLowerCase()}`;
-  const [prefs, setPrefs] = useState(() => readPrefs(key));
-  const [tab, setTab] = useState('resumen');
-  const [items, setItems] = useState({ projects: [], quotes: [], clients: [], providers: [] });
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState('');
-  const [detailId, setDetailId] = useState(null);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [dateDraft, setDateDraft] = useState({ entrega: '' });
-  const [dateError, setDateError] = useState('');
-  const [refreshId, setRefreshId] = useState(0);
-  const [online, setOnline] = useState(() => navigator.onLine);
-  const selected = items.projects.find(p => p.id === detailId);
-  const canEdit = Boolean(permisos.ver_proyectos && permisos.gestionar_proyectos);
-  const canSeeProjects = Boolean(permisos.ver_proyectos);
-  const hasDates = items.projects.some(p => Object.prototype.hasOwnProperty.call(p, 'fecha_entrega'));
+  const [activities, setActivities] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [team, setTeam] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [filterType, setFilterType] = useState('TODOS');
+  const [filterAssignee, setFilterAssignee] = useState('TODOS');
 
-  useEffect(() => {
-    const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
-  }, []);
-  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(prefs)); } catch { /* preferencias opcionales */ } }, [key, prefs]);
-  useEffect(() => {
-    let active = true;
-    setBusy(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
-    const requests = [
-      permisos.ver_proyectos ? supabase.from('proyectos').select('*, clientes(nombre)').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
-      permisos.ver_cotizaciones ? supabase.from('cotizaciones').select('id,project_id,proyecto_nombre,codigo,estado,subtotal,created_at,created_by').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
-      permisos.ver_clientes ? supabase.from('clientes').select('id,nombre,estado').limit(1000) : Promise.resolve({ data: [] }),
-      permisos.ver_proveedores ? supabase.from('proveedores').select('id,nombre,estado,categoria').limit(1000) : Promise.resolve({ data: [] }),
-    ];
-    Promise.all(requests).then(result => {
-      if (!active) return;
-      const firstError = result.find(x => x.error);
-      if (firstError) throw firstError.error;
-      setItems({ projects: result[0].data || [], quotes: result[1].data || [], clients: result[2].data || [], providers: result[3].data || [] });
-    }).catch(err => { if (active) setError(err.message || 'No fue posible cargar el centro de trabajo.'); })
-      .finally(() => { if (active) setBusy(false); });
-    return () => { active = false; };
-  }, [refreshId, permisos.ver_proyectos, permisos.ver_cotizaciones, permisos.ver_clientes, permisos.ver_proveedores]);
+    try {
+      const [a, p, u] = await Promise.all([
+        supabase.from('calendario_actividades').select('*, proyectos(id,codigo,nombre)').order('fecha_inicio', { ascending: true }),
+        permisos.ver_proyectos ? supabase.from('proyectos').select('id,codigo,nombre,estado').order('nombre') : Promise.resolve({ data: [], error: null }),
+        supabase.from('profiles').select('usuario,nombre,rol_label,activo').eq('activo', true).order('nombre'),
+      ]);
+      if (a.error) throw a.error;
+      if (p.error) throw p.error;
+      setActivities(a.data || []);
+      setProjects(p.data || []);
+      const fallback = ['GONZALO','JESUS','MAR','RODRIGO'].map(x => ({ usuario:x, nombre:x }));
+      setTeam(u.error || !(u.data || []).length ? fallback : u.data);
+    } catch (err) {
+      setError(err?.message || 'No se pudo cargar el calendario global. Ejecuta primero el SQL de esta versión.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
   useEffect(() => {
-    if (!permisos.ver_proyectos) return;
-    const channel = supabase.channel(`festos-center-${String(usuario)}-${Date.now()}`).on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, () => setRefreshId(n => n + 1)).subscribe();
+    const channel = supabase.channel(`festos-calendar-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendario_actividades' }, () => load(true))
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [permisos.ver_proyectos, usuario]);
+  }, []);
 
-  const query = String(prefs.search || '').trim().toLowerCase();
-  const personal = Boolean(prefs.onlyMine);
-  const filtered = useMemo(() => items.projects.filter(p => {
-    if (personal && String(p.ejecutivo || p.created_by || '').toLowerCase().trim() !== String(usuario).toLowerCase().trim()) return false;
-    if (prefs.state && prefs.state !== 'TODOS' && stateOf(p.estado) !== prefs.state) return false;
-    if (prefs.lob && prefs.lob !== 'TODOS' && String(p.lob || '') !== prefs.lob) return false;
-    if (query && !`${p.codigo || ''} ${p.nombre || ''} ${p.clientes?.nombre || ''} ${p.ejecutivo || ''}`.toLowerCase().includes(query)) return false;
+  const visibleActivities = useMemo(() => activities.filter(a => {
+    if (filterType !== 'TODOS' && a.tipo !== filterType) return false;
+    if (filterAssignee !== 'TODOS' && String(a.asignado_a || '').toUpperCase() !== filterAssignee) return false;
     return true;
-  }), [items.projects, personal, usuario, prefs.state, prefs.lob, query]);
-  const lobOptions = [...new Set(items.projects.map(p => p.lob).filter(Boolean))].sort();
-  const valueOf = p => { const direct = Number(p.valor_base ?? p.valor_venta); if (Number.isFinite(direct) && direct > 0) return direct; return Number(items.quotes.find(q => q.project_id === p.id)?.subtotal) || 0; };
-  const counts = STATES.map(s => ({ label: s, count: filtered.filter(p => stateOf(p.estado) === s).length }));
-  const activeQuotes = items.quotes.filter(q => /revisi/i.test(String(q.estado || '')) && (!personal || String(q.created_by || '').toLowerCase() === String(usuario).toLowerCase()));
-  const upcoming = filtered.filter(p => p.fecha_entrega && stateOf(p.estado) === 'EN PROCESO' && day(p.fecha_entrega) >= currentDay())
-    .sort((a, b) => day(a.fecha_entrega).localeCompare(day(b.fecha_entrega)));
-  const late = filtered.filter(p => p.fecha_entrega && stateOf(p.estado) === 'EN PROCESO' && day(p.fecha_entrega) < currentDay());
-  const nextSeven = new Date(); nextSeven.setDate(nextSeven.getDate() + 7);
-  const withinWeek = upcoming.filter(p => day(p.fecha_entrega) <= `${nextSeven.getFullYear()}-${String(nextSeven.getMonth()+1).padStart(2,'0')}-${String(nextSeven.getDate()).padStart(2,'0')}`);
-  const quoteFor = p => items.quotes.find(q => q.project_id === p.id) || items.quotes.find(q => q.proyecto_nombre && q.proyecto_nombre.trim().toLowerCase() === String(p.nombre || '').trim().toLowerCase());
+  }), [activities, filterType, filterAssignee]);
 
-  const changeStatus = async (project, next) => {
-    if (!canEdit || !online || saving || stateOf(project.estado) === next) return;
-    setSaving(project.id); setError('');
-    const { data, error: err } = await supabase.from('proyectos').update({ estado: next }).eq('id', project.id).select('id').maybeSingle();
-    if (err || !data) { setError(err?.message || 'No se pudo confirmar el cambio. Verifica tus permisos en Supabase.'); }
-    else { onNotify(`Proyecto actualizado: ${project.codigo || project.nombre} · ${next}`, 'edicion'); onAudit('Edición', `${project.codigo || project.nombre} · Estado: ${next}`); setRefreshId(n => n + 1); }
-    setSaving('');
-  };
-  const openDetails = p => { setDetailId(p.id); setDateDraft({ entrega: day(p.fecha_entrega) }); setDateError(''); };
-  const saveDates = async () => {
-    if (!selected || !hasDates || !canEdit || !online || saving) return;
-    if (selected.fecha_pedido && dateDraft.entrega && day(selected.fecha_pedido) > dateDraft.entrega) { setDateError('La entrega no puede ser anterior a la fecha de pedido.'); return; }
-    setSaving(selected.id); setDateError('');
-    const { data, error: err } = await supabase.from('proyectos').update({ fecha_entrega: dateDraft.entrega || null }).eq('id', selected.id).select('id').maybeSingle();
-    if (err || !data) setDateError(err?.message || 'No se pudo confirmar el cambio.');
-    else { onNotify(`Fecha de entrega actualizada: ${selected.codigo || selected.nombre}`, 'edicion'); onAudit('Edición', `${selected.codigo || selected.nombre} · Fecha de entrega actualizada`); setRefreshId(n => n + 1); }
-    setSaving('');
-  };
   const month = new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1);
-  const calendarStart = new Date(month.getFullYear(), month.getMonth(), 1);
-  const emptyCells = (calendarStart.getDay() + 6) % 7;
-  const monthDays = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const calendarRows = Array.from({ length: emptyCells + monthDays }, (_, i) => i < emptyCells ? null : i - emptyCells + 1);
+  const days = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
+  const emptyBefore = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
+  const cells = Array.from({ length: Math.ceil((emptyBefore + days) / 7) * 7 }, (_, i) => {
+    const day = i - emptyBefore + 1;
+    return day >= 1 && day <= days ? day : null;
+  });
+  const monthPrefix = `${month.getFullYear()}-${pad(month.getMonth()+1)}`;
+  const today = dateKey(new Date().toISOString());
+  const activitiesForDay = day => visibleActivities.filter(a => dateKey(a.fecha_inicio) === `${monthPrefix}-${pad(day)}`);
+  const monthActivities = visibleActivities.filter(a => dateKey(a.fecha_inicio).startsWith(monthPrefix));
+  const nextActivities = visibleActivities.filter(a => dateKey(a.fecha_inicio) >= today).slice().sort((a,b) => String(a.fecha_inicio).localeCompare(String(b.fecha_inicio))).slice(0, 7);
 
-  return <div className="ops-root">
-    <header className="ops-header"><div><span className="ops-eyebrow">FESTOS · CENTRO OPERATIVO</span><h1>Tu espacio de trabajo</h1><p>Proyectos, equipo y fechas en un solo lugar. Los importes se muestran sin IGV.</p></div><div className="ops-header-actions"><button type="button" className="btn-muted" onClick={() => setRefreshId(n => n + 1)} disabled={busy}><FestosIcon name="RefreshCw" size={17}/> Actualizar</button><button type="button" className="btn-primary" onClick={() => onNavigate('proyectos')} disabled={!canSeeProjects}><FestosIcon name="FolderKanban" size={18}/> Abrir proyectos</button></div></header>
-    <nav className="ops-tabs" aria-label="Vistas del centro operativo">{[['resumen','LayoutDashboard','Mi espacio'],['kanban','FolderKanban','Tablero Kanban'],['lista','ClipboardList','Lista compacta'],['calendario','CalendarDays','Calendario'],['documentos','FileText','Documentos'],['actividad','History','Actividad']].map(([id,icon,label]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><FestosIcon name={icon} size={17}/>{label}</button>)}</nav>
-    {error && <div className="ops-error" role="alert"><FestosIcon name="AlertTriangle" size={18}/>{error}</div>}
-    {!online && <div className="ops-error" role="status">Sin conexión a Internet. Los cambios se deshabilitan hasta recuperar la conexión.</div>}
-    <section className="ops-toolbar" aria-label="Filtros del centro operativo"><label><FestosIcon name="Search" size={17}/><input value={prefs.search || ''} onChange={e => setPrefs(p => ({...p,search:e.target.value}))} placeholder="Buscar proyectos, clientes, códigos…" /></label><select aria-label="Filtrar por estado" value={prefs.state || 'TODOS'} onChange={e => setPrefs(p => ({...p,state:e.target.value}))}><option value="TODOS">Todos los estados</option>{STATES.map(s => <option key={s}>{s}</option>)}</select><select aria-label="Filtrar por categoría" value={prefs.lob || 'TODOS'} onChange={e => setPrefs(p => ({...p,lob:e.target.value}))}><option value="TODOS">Todas las categorías</option>{lobOptions.map(x => <option key={x}>{x}</option>)}</select><label className="ops-own-filter"><input type="checkbox" checked={personal} onChange={e => setPrefs(p => ({...p,onlyMine:e.target.checked}))}/> Solo mis proyectos</label><button type="button" className="btn-muted" onClick={() => setPrefs({})}>Limpiar</button></section>
-    <p className="ops-prefs-hint">Tus filtros se guardan únicamente en este dispositivo, para tu usuario.</p>
-    {busy ? <div className="ops-skeleton" aria-label="Cargando datos"><i/><i/><i/><i/></div> : <>
-      {tab === 'resumen' && <><section className="ops-metrics"><article><small>PROYECTOS FILTRADOS</small><strong>{filtered.length}</strong><span>{counts[0].count} en proceso</span></article><article><small>VALOR DE PROYECTOS</small><strong>{money(filtered.reduce((a,p) => a + valueOf(p), 0))}</strong><span>Valor registrado sin IGV</span></article><article><small>COTIZACIONES EN REVISIÓN</small><strong>{permisos.ver_cotizaciones ? activeQuotes.length : '—'}</strong><span>{permisos.ver_cotizaciones ? 'Pendientes de revisión' : 'Sin permiso de visualización'}</span></article><article><small>ENTREGAS PRÓXIMAS</small><strong>{hasDates ? withinWeek.length : '—'}</strong><span>{hasDates ? `${late.length} vencidas · próximos 7 días` : 'Fechas de entrega aún no configuradas'}</span></article></section><div className="ops-two-cols"><section className="ops-panel"><div className="ops-panel-head"><div><span>MI OPERACIÓN</span><h2>Proyectos recientes</h2></div><button type="button" className="ops-link" onClick={() => setTab('kanban')}>Ver tablero</button></div>{filtered.slice(0,7).map(p => <button type="button" className="ops-project-row" onClick={() => openDetails(p)} key={p.id}><span><strong>{p.nombre}</strong><small>{p.codigo || 'Sin código'} · {p.clientes?.nombre || 'Cliente sin registro'}</small></span><span className={`ops-chip ${stateOf(p.estado).toLowerCase().replaceAll(' ','-')}`}>{stateOf(p.estado)}</span></button>)}{!filtered.length && <p className="ops-empty">No hay proyectos para los filtros elegidos.</p>}</section><section className="ops-panel"><div className="ops-panel-head"><div><span>SEGUIMIENTO</span><h2>Próximas entregas</h2></div><button type="button" className="ops-link" onClick={() => setTab('calendario')}>Ver calendario</button></div>{!hasDates ? <p className="ops-empty">Para mostrar alertas reales, ejecuta la migración opcional de fechas y registra fechas de entrega en los proyectos. No se deducen vencimientos a partir de la fecha de registro.</p> : <>{late.slice(0,3).map(p => <button key={p.id} className="ops-project-row" type="button" onClick={() => openDetails(p)}><span><strong>{p.nombre}</strong><small>Entrega vencida: {day(p.fecha_entrega)}</small></span><span className="ops-chip late">VENCIDO</span></button>)}{upcoming.slice(0,5).map(p => <button key={p.id} className="ops-project-row" type="button" onClick={() => openDetails(p)}><span><strong>{p.nombre}</strong><small>Entrega: {day(p.fecha_entrega)}</small></span><span className="ops-chip">PRÓXIMO</span></button>)}{!late.length && !upcoming.length && <p className="ops-empty">Sin entregas pendientes registradas.</p>}</>}</section></div><section className="ops-quick"><div><span>ACCESOS RÁPIDOS</span><h2>Continuar trabajando</h2></div>{[['clientes','Users','Clientes'],['proveedores','Truck','Proveedores'],['cotizaciones','FileText','Cotizaciones'],['analisis','LayoutDashboard','Dashboard proyectos']].filter(([view]) => view === 'analisis' || permisos[`ver_${view}`]).map(([view,icon,label]) => <button type="button" key={view} onClick={() => onNavigate(view)}><FestosIcon name={icon} size={19}/>{label}<FestosIcon name="ArrowRight" size={15}/></button>)}</section></>}
-      {tab === 'lista' && <section className="ops-panel ops-list-view"><div className="ops-panel-head"><div><span>VISTA PERSONALIZABLE</span><h2>Lista compacta de proyectos</h2></div><select value={prefs.sort || 'reciente'} aria-label="Orden de proyectos" onChange={e => setPrefs(p => ({ ...p, sort:e.target.value }))}><option value="reciente">Fecha de pedido más reciente</option><option value="nombre">Nombre A-Z</option><option value="valor">Mayor valor</option></select></div><div className="ops-table-scroll"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Ejecutivo comercial</th><th>Estado</th><th>Valor sin IGV</th><th></th></tr></thead><tbody>{[...filtered].sort((a,b) => (prefs.sort === 'valor' ? valueOf(b)-valueOf(a) : prefs.sort === 'nombre' ? String(a.nombre).localeCompare(String(b.nombre),'es') : new Date(b.fecha_pedido || b.created_at)-new Date(a.fecha_pedido || a.created_at))).map(p => <tr key={p.id}><td><strong>{p.nombre}</strong><small>{p.codigo || 'Sin código'}</small></td><td>{p.clientes?.nombre || '—'}</td><td>{p.ejecutivo || '—'}</td><td><span className={`ops-chip ${stateOf(p.estado).toLowerCase().replaceAll(' ','-')}`}>{stateOf(p.estado)}</span></td><td className="ops-cell-money">{money(valueOf(p))}</td><td><button type="button" className="ops-link" onClick={() => openDetails(p)} aria-label={`Ver ${p.nombre}`}><FestosIcon name="Eye" size={18}/></button></td></tr>)}</tbody></table>{!filtered.length && <p className="ops-empty">No hay proyectos con los filtros seleccionados.</p>}</div></section>}
-      {tab === 'kanban' && <section className="ops-board" aria-label="Tablero de proyectos">{STATES.map(s => <div className="ops-column" key={s}><header><strong>{s}</strong><span>{counts.find(x => x.label === s)?.count || 0}</span></header><div className="ops-column-body">{filtered.filter(p => stateOf(p.estado) === s).map(p => <article key={p.id} className="ops-kanban-card"><button type="button" className="ops-card-detail" onClick={() => openDetails(p)}><small>{p.codigo || 'PROYECTO'}</small><strong>{p.nombre}</strong><span>{p.clientes?.nombre || 'Cliente no registrado'}</span><b>{money(valueOf(p))}</b></button><div className="ops-card-actions"><span>{p.ejecutivo || 'Sin ejecutivo comercial'}</span>{canEdit && <select value={s} disabled={saving === p.id || !online} aria-label={`Cambiar estado de ${p.nombre}`} onChange={e => changeStatus(p,e.target.value)}>{STATES.map(next => <option key={next}>{next}</option>)}</select>}</div></article>)}{!filtered.some(p => stateOf(p.estado) === s) && <p className="ops-empty">Sin proyectos</p>}</div></div>)}</section>}
-      {tab === 'calendario' && <section className="ops-panel ops-calendar-wrap"><div className="ops-panel-head"><div><span>CALENDARIO OPERATIVO</span><h2>{new Intl.DateTimeFormat('es-PE',{month:'long',year:'numeric'}).format(month)}</h2></div><div className="ops-calendar-controls"><button type="button" onClick={() => setMonthOffset(v => v - 1)} aria-label="Mes anterior">‹</button><button type="button" onClick={() => setMonthOffset(0)}>Hoy</button><button type="button" onClick={() => setMonthOffset(v => v + 1)} aria-label="Mes siguiente">›</button></div></div><p className="ops-prefs-hint">{hasDates ? 'Entrega = fecha de entrega · Registro = fecha de creación. Se muestran solo datos registrados.' : 'Las fechas indicadas corresponden al registro del proyecto, no a una entrega. Para habilitar entregas, ejecuta la migración de fechas.'}</p><div className="ops-calendar">{['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d => <strong className="ops-calendar-weekday" key={d}>{d}</strong>)}{calendarRows.map((d,i) => { const key = d ? `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}` : ''; const events = d ? filtered.filter(p => day(p.fecha_entrega) === key || day(p.fecha_pedido || p.created_at) === key).slice(0,4) : []; return <div className={`ops-calendar-day ${d ? '' : 'empty'}`} key={i}>{d && <><b>{d}</b>{events.map(p => <button type="button" key={p.id} className={day(p.fecha_entrega) === key ? 'due' : ''} onClick={() => openDetails(p)} title={`${p.nombre} · ${day(p.fecha_entrega) === key ? 'Entrega' : 'Pedido'}`}>{day(p.fecha_entrega) === key ? 'Entrega' : 'Pedido'} · {p.nombre}</button>)}</>}</div>; })}</div></section>}
-      {tab === 'documentos' && <section className="ops-panel ops-feature"><div className="ops-feature-icon"><FestosIcon name="LockKeyhole" size={29}/></div><h2>Archivos por proyecto</h2><p>Preparamos el espacio para órdenes de compra, artes y entregables, pero aún no está habilitada la carga de documentos. Antes de activarla hay que implementar autenticación verificable por Supabase y políticas privadas de Storage por usuario/proyecto.</p><div className="ops-feature-footer"><span className="ops-chip">PENDIENTE DE CONFIGURACIÓN SEGURA</span><span>No se han creado buckets públicos ni se ha modificado la base de datos.</span></div></section>}
-      {tab === 'actividad' && <section className="ops-panel"><div className="ops-panel-head"><div><span>REGISTROS EXISTENTES</span><h2>Actividad verificable</h2></div></div><p className="ops-prefs-hint">Se muestran fechas de creación registradas y estados actuales; esto no es todavía un historial compartido de cada edición.</p>{[...filtered.map(p => ({ id:`p-${p.id}`,name:p.nombre,detail:`Proyecto ${p.codigo || ''} · ${stateOf(p.estado)}`,date:p.created_at,ref:p })),...(permisos.ver_cotizaciones?items.quotes.map(q => ({id:`q-${q.id}`,name:q.proyecto_nombre || q.codigo,detail:`Cotización ${q.codigo || ''} · ${q.estado || 'Sin estado'}`,date:q.created_at})):[])].filter(x => x.date).sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,30).map(x => <div className="ops-activity-row" key={x.id}><span className="ops-activity-dot"/><div><strong>{x.name}</strong><small>{x.detail}</small></div><time>{new Date(x.date).toLocaleString('es-PE')}</time>{x.ref && <button type="button" onClick={() => openDetails(x.ref)} aria-label="Ver proyecto"><FestosIcon name="Eye" size={17}/></button>}</div>)}{!filtered.length && <p className="ops-empty">Sin registros para mostrar.</p>}</section>}
-    </>}
-    {selected && <div className="ops-drawer-backdrop" role="presentation" onMouseDown={() => setDetailId(null)}><aside className="ops-drawer" role="dialog" aria-modal="true" aria-label={`Detalle de ${selected.nombre}`} onMouseDown={e => e.stopPropagation()}><div className="ops-drawer-head"><span>FICHA DEL PROYECTO</span><button type="button" aria-label="Cerrar detalle" onClick={() => setDetailId(null)}>×</button></div><small>{selected.codigo || 'SIN CÓDIGO'}</small><h2>{selected.nombre}</h2><p>{selected.descripcion || 'Sin descripción registrada.'}</p><div className="ops-drawer-data"><div><span>Cliente</span><strong>{selected.clientes?.nombre || '—'}</strong></div><div><span>Ejecutivo comercial</span><strong>{selected.ejecutivo || '—'}</strong></div><div><span>Estado</span><strong>{stateOf(selected.estado)}</strong></div><div><span>Categoría</span><strong>{selected.lob || '—'}</strong></div><div><span>Valor sin IGV</span><strong>{money(valueOf(selected))}</strong></div><div><span>Cotización vinculada</span><strong>{quoteFor(selected)?.codigo || 'Sin vínculo registrado'}</strong></div><div><span>Fecha de pedido</span><strong>{selected.fecha_pedido ? new Date(`${selected.fecha_pedido}T12:00:00`).toLocaleDateString('es-PE') : (selected.created_at ? new Date(selected.created_at).toLocaleDateString('es-PE') : '—')}</strong></div></div><div className="ops-dates-editor"><h3>Fecha de entrega</h3>{!hasDates ? <p>Para registrar la fecha de entrega, ejecuta el SQL de migración opcional incluido en el ZIP. Hasta entonces no se generan alertas de vencimiento.</p> : <><label>Fecha de entrega<input type="date" value={dateDraft.entrega} disabled={!canEdit || !!saving} onChange={e => setDateDraft(p => ({...p,entrega:e.target.value}))}/></label>{dateError && <p role="alert" className="ops-error">{dateError}</p>}{canEdit && <button type="button" className="btn-primary" onClick={saveDates} disabled={!online || !!saving}>{saving ? 'Guardando...' : 'Guardar fecha de entrega'}</button>}</>}</div><div className="ops-drawer-bottom"><button className="btn-muted" type="button" onClick={() => setDetailId(null)}>Cerrar</button><button type="button" className="btn-primary" onClick={() => { setDetailId(null); onNavigate('proyectos'); }}>Ir a proyectos</button></div></aside></div>}
+  const openNew = (day = null) => {
+    const base = day ? `${monthPrefix}-${pad(day)}T09:00` : `${today}T09:00`;
+    setEditing(null);
+    setForm({ ...emptyForm(), fecha_inicio: base, fecha_fin: base, asignado_a: String(usuario || '').toUpperCase() });
+    setSelected(null);
+    setModalOpen(true);
+  };
+  const openEdit = activity => {
+    setEditing(activity);
+    setForm({ titulo: activity.titulo || '', descripcion: activity.descripcion || '', tipo: activity.tipo || 'ACTIVIDAD', color: activity.color || 'petrol', proyecto_id: activity.proyecto_id || '', asignado_a: activity.asignado_a || '', fecha_inicio: toLocalInput(activity.fecha_inicio), fecha_fin: toLocalInput(activity.fecha_fin || activity.fecha_inicio) });
+    setSelected(null);
+    setModalOpen(true);
+  };
+  const save = async e => {
+    e.preventDefault();
+    if (!form.titulo.trim() || !form.fecha_inicio) return;
+    setSaving(true); setError('');
+    const payload = {
+      titulo: form.titulo.trim(), descripcion: form.descripcion.trim() || null, tipo: form.tipo,
+      color: form.color, proyecto_id: form.proyecto_id || null, asignado_a: form.asignado_a || null,
+      fecha_inicio: toIso(form.fecha_inicio), fecha_fin: toIso(form.fecha_fin || form.fecha_inicio),
+      updated_by: String(usuario || '').toUpperCase(),
+    };
+    let result;
+    if (editing) result = await supabase.from('calendario_actividades').update(payload).eq('id', editing.id).select('id').maybeSingle();
+    else result = await supabase.from('calendario_actividades').insert([{ ...payload, created_by: String(usuario || '').toUpperCase() }]).select('id').maybeSingle();
+    if (result.error || !result.data) setError(result.error?.message || 'No se pudo guardar la actividad.');
+    else {
+      onNotify?.(`${editing ? 'Actividad actualizada' : 'Nueva actividad'}: ${payload.titulo}`, editing ? 'edicion' : 'nuevo');
+      onAudit?.(editing ? 'Edición' : 'Creación', `Calendario global · ${payload.titulo}`);
+      setModalOpen(false); setEditing(null); setForm(emptyForm()); await load(true);
+    }
+    setSaving(false);
+  };
+  const remove = async activity => {
+    if (!window.confirm(`¿Eliminar “${activity.titulo}”?`)) return;
+    const { error: err } = await supabase.from('calendario_actividades').delete().eq('id', activity.id);
+    if (err) setError(err.message);
+    else { onAudit?.('Eliminación', `Calendario global · ${activity.titulo}`); setSelected(null); await load(true); }
+  };
+
+  return <div className="global-calendar-page">
+    <header className="global-calendar-hero">
+      <div><span>FESTOS · AGENDA COMPARTIDA</span><h1>Calendario global</h1><p>Entregas, reuniones, notas y actividades del equipo en un solo calendario visible para todos.</p></div>
+      <div className="global-calendar-actions"><button className="btn-muted" type="button" onClick={() => setMonthOffset(0)}>Hoy</button><button className="btn-primary" type="button" onClick={() => openNew()}><FestosIcon name="Plus" size={17}/> Agregar actividad</button></div>
+    </header>
+
+    {error && <div className="ops-error"><FestosIcon name="AlertTriangle" size={17}/>{error}</div>}
+    <section className="global-calendar-toolbar">
+      <div className="global-calendar-month-nav"><button type="button" onClick={() => setMonthOffset(v => v-1)}><FestosIcon name="ArrowLeft" size={17}/></button><strong>{monthName(month)}</strong><button type="button" onClick={() => setMonthOffset(v => v+1)}><FestosIcon name="ArrowRight" size={17}/></button></div>
+      <div className="global-calendar-filters"><select value={filterType} onChange={e => setFilterType(e.target.value)}><option value="TODOS">Todos los tipos</option>{TYPES.map(x => <option key={x}>{x}</option>)}</select><select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}><option value="TODOS">Todo el equipo</option>{team.map(x => <option key={x.usuario} value={String(x.usuario).toUpperCase()}>{x.nombre || x.usuario}</option>)}</select></div>
+    </section>
+
+    <div className="global-calendar-layout">
+      <section className="global-calendar-card">
+        <div className="global-calendar-weekdays">{['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(x => <span key={x}>{x}</span>)}</div>
+        <div className="global-calendar-grid">
+          {cells.map((day, idx) => day ? <button type="button" key={idx} className={`global-calendar-day ${`${monthPrefix}-${pad(day)}` === today ? 'is-today' : ''}`} onDoubleClick={() => openNew(day)} onClick={() => { const first = activitiesForDay(day)[0]; if (first) setSelected(first); }}>
+            <span className="global-calendar-day-number">{day}</span>
+            <div className="global-calendar-events">{activitiesForDay(day).slice(0,3).map(a => <span key={a.id} style={{ '--event-color': colorHex(a.color) }} onClick={e => { e.stopPropagation(); setSelected(a); }}><b>{new Date(a.fecha_inicio).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</b> {a.titulo}</span>)}{activitiesForDay(day).length > 3 && <small>+{activitiesForDay(day).length-3} más</small>}</div>
+          </button> : <div key={idx} className="global-calendar-day is-empty" />)}
+        </div>
+      </section>
+
+      <aside className="global-calendar-side">
+        <article className="global-calendar-summary"><span>ESTE MES</span><strong>{monthActivities.length}</strong><small>actividades registradas</small></article>
+        <article className="global-calendar-agenda"><div className="global-calendar-side-head"><div><span>PRÓXIMAMENTE</span><h2>Agenda del equipo</h2></div></div>{nextActivities.length ? nextActivities.map(a => <button type="button" key={a.id} className="global-agenda-item" onClick={() => setSelected(a)}><i style={{ background: colorHex(a.color) }} /><div><strong>{a.titulo}</strong><span>{prettyDate(a.fecha_inicio)}</span><small>{a.asignado_a ? `Asignado a ${a.asignado_a}` : 'Sin responsable'}{a.proyectos?.nombre ? ` · ${a.proyectos.nombre}` : ''}</small></div></button>) : <p className="empty-hint">No hay actividades próximas con estos filtros.</p>}</article>
+      </aside>
+    </div>
+
+    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><article className="glass-card modal-card calendar-detail-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><div><span className="calendar-type-pill" style={{ '--event-color': colorHex(selected.color) }}>{selected.tipo}</span><h4 className="panel-title">{selected.titulo}</h4></div><button className="modal-close-btn" onClick={() => setSelected(null)}>×</button></div><div className="calendar-detail-grid"><div><span>Fecha y hora</span><strong>{prettyDate(selected.fecha_inicio)}</strong></div><div><span>Asignado a</span><strong>{selected.asignado_a || 'Sin responsable'}</strong></div><div><span>Proyecto</span><strong>{selected.proyectos?.codigo ? `${selected.proyectos.codigo} · ` : ''}{selected.proyectos?.nombre || 'Sin proyecto'}</strong></div><div><span>Creado por</span><strong>{selected.created_by || '—'}</strong></div></div>{selected.descripcion && <p className="calendar-detail-notes">{selected.descripcion}</p>}<div className="modal-actions"><button type="button" className="btn-primary" onClick={() => openEdit(selected)}><FestosIcon name="Pencil" size={16}/> Editar</button><button type="button" className="btn-secondary" onClick={() => remove(selected)}><FestosIcon name="Trash2" size={16}/> Eliminar</button>{permisos.ver_proyectos && selected.proyecto_id && <button type="button" className="btn-muted" onClick={() => onNavigate('proyectos')}><FestosIcon name="FolderKanban" size={16}/> Abrir proyectos</button>}</div></article></div>}
+
+    {modalOpen && <div className="modal-overlay" onClick={() => !saving && setModalOpen(false)}><form className="glass-card modal-card calendar-editor-modal" onSubmit={save} onClick={e => e.stopPropagation()}><div className="modal-head"><div><h4 className="panel-title"><FestosIcon name="CalendarDays" size={18}/> {editing ? 'Editar actividad' : 'Agregar actividad'}</h4><p className="panel-note">Crea una nota, entrega, reunión o recordatorio para todo el equipo.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalOpen(false)}>×</button></div>
+      <div className="form-row"><label>Título *</label><input value={form.titulo} onChange={e => setForm({...form,titulo:e.target.value})} placeholder="Ej. Entrega de módulos Xiaomi" required /></div>
+      <div className="form-grid-2"><div className="form-row"><label>Tipo</label><select value={form.tipo} onChange={e => setForm({...form,tipo:e.target.value})}>{TYPES.map(x => <option key={x}>{x}</option>)}</select></div><div className="form-row"><label>Asignar a</label><select value={form.asignado_a} onChange={e => setForm({...form,asignado_a:e.target.value})}><option value="">Sin responsable</option>{team.map(x => <option key={x.usuario} value={String(x.usuario).toUpperCase()}>{x.nombre || x.usuario}</option>)}</select></div></div>
+      <div className="form-row"><label>Proyecto relacionado</label><select value={form.proyecto_id} onChange={e => setForm({...form,proyecto_id:e.target.value})}><option value="">Sin proyecto</option>{projects.map(p => <option key={p.id} value={p.id}>{p.codigo ? `${p.codigo} · ` : ''}{p.nombre}</option>)}</select></div>
+      <div className="form-grid-2"><div className="form-row"><label>Fecha y hora *</label><input type="datetime-local" value={form.fecha_inicio} onChange={e => setForm({...form,fecha_inicio:e.target.value})} required /></div><div className="form-row"><label>Finaliza</label><input type="datetime-local" value={form.fecha_fin} min={form.fecha_inicio || undefined} onChange={e => setForm({...form,fecha_fin:e.target.value})} /></div></div>
+      <div className="form-row"><label>Color</label><div className="calendar-color-picker">{COLORS.map(c => <button key={c.id} type="button" className={form.color === c.id ? 'active' : ''} style={{ '--swatch': c.hex }} onClick={() => setForm({...form,color:c.id})}><i />{c.label}</button>)}</div></div>
+      <div className="form-row"><label>Notas</label><textarea rows="4" value={form.descripcion} onChange={e => setForm({...form,descripcion:e.target.value})} placeholder="Detalles, dirección, indicaciones o información relevante..." /></div>
+      <div className="modal-actions"><button className="btn-primary" disabled={saving}>{saving ? 'Guardando...' : editing ? 'Guardar cambios' : 'Crear actividad'}</button><button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button></div>
+    </form></div>}
+
+    {loading && <div className="calendar-loading">Cargando calendario global…</div>}
   </div>;
 }

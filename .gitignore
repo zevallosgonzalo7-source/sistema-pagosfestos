@@ -29,3 +29,9 @@ public/voice-assets/onnx/
 public/voice-assets/ready.json
 
 /release/
+
+/node_modules/
+
+/dist-electron/
+
+/out/

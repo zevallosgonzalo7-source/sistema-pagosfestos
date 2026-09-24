@@ -195,7 +195,7 @@ function SalesDashboardPrototype() {
   );
 }
 
-export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo = 'proyectos' }) {
+export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo = 'proyectos', usuario = '' }) {
   const dashboardActivo = tipo === 'ventas' ? 'ventas' : 'proyectos';
   const [data, setData] = useState({ quotes: [], projects: [], clients: [] });
   const [loading, setLoading] = useState(true);
@@ -435,11 +435,16 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
 
   return (
     <div className="ed-page">
+      {dashboardActivo === 'proyectos' && <section className="ed-welcome-compact">
+        <div className="ed-welcome-mark">{String(usuario || 'F').slice(0,1).toUpperCase()}</div>
+        <div className="ed-welcome-copy"><span>FESTOS GESTIÓN EMPRESARIAL</span><h2>Bienvenido, {usuario || 'equipo FESTOS'}</h2><p>Tu centro de control reúne valor de proyectos, utilidad, entregas, ejecutivos y actividad comercial sin ocupar espacio innecesario.</p></div>
+        <div className="ed-welcome-shortcuts"><button type="button" onClick={() => onOpenProjects({})}><FestosIcon name="FolderKanban" size={16}/> Proyectos</button><span><FestosIcon name="FileText" size={16}/> Cotizaciones conectadas</span><span><FestosIcon name="CalendarDays" size={16}/> Calendario global</span></div>
+      </section>}
       <div className="ed-hero ed-general-hero">
         <div>
           <span className="ed-kicker">FESTOS · CONTROL Y VISIBILIDAD</span>
           <h1>{dashboardActivo === 'ventas' ? 'Dashboard ventas' : 'Dashboard proyectos'}</h1>
-          <p>Indicadores de proyectos, cotizaciones y clientes, según la fecha de pedido comercial. Dashboard ventas permanece sin datos conectados.</p>
+          <p>Indicadores de proyectos, cotizaciones y clientes, según la fecha de pedido comercial.</p>
         </div>
         <div className="ed-hero-actions">
           
