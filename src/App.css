@@ -4536,3 +4536,37 @@ a > .festos-icon,
   .quote-detail-item{grid-template-columns:30px minmax(0,1fr)}
   .quote-detail-item>div:nth-child(3),.quote-detail-item>div:nth-child(4),.quote-detail-item>div:nth-child(5){grid-column:2;display:inline-flex;flex-direction:row;justify-content:space-between;align-items:center;border-top:1px solid rgba(13,148,136,.06);padding-top:6px}
 }
+
+/* V29.32.3 · Cotizaciones: filtros compactos en desplegables */
+.quote-list-shell .quote-status-filter {
+  flex: 0 0 185px;
+  min-width: 170px;
+}
+.quote-list-shell .quote-filter-row > .business-payment-filter {
+  max-width: 230px;
+}
+@media (max-width: 700px) {
+  .quote-list-shell .quote-filter-row > .business-payment-filter,
+  .quote-list-shell .quote-status-filter {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+}
+
+/* V29.32.3 · Cotizaciones: filtros compactos en desplegables */
+.quote-list-shell .quote-status-filter {
+  flex: 0 0 185px;
+  min-width: 170px;
+}
+.quote-list-shell .quote-filter-row > .business-payment-filter {
+  max-width: 230px;
+}
+@media (max-width: 700px) {
+  .quote-list-shell .quote-filter-row > .business-payment-filter,
+  .quote-list-shell .quote-status-filter {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+}

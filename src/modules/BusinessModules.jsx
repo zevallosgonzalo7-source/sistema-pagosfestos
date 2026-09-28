@@ -804,15 +804,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
   const editarItem = itemId => { setItemsEditando(prev => new Set([...prev, itemId])); setItemsColapsados(prev => { const next = new Set(prev); next.delete(itemId); return next; }); };
   const nuevoItemInicial = () => { const item = newItem(); setForm(prev => ({ ...prev, items: [item] })); setItemsEditando(new Set([item.id])); setItemsColapsados(new Set()); };
   const removeItem = itemId => {
-    setForm(prev => {
-      if (prev.items.length === 1) {
-        const item = newItem();
-        setItemsEditando(new Set([item.id]));
-        setItemsColapsados(new Set());
-        return { ...prev, items: [item] };
-      }
-      return { ...prev, items: prev.items.filter(i => i.id !== itemId) };
-    });
+    setForm(prev => ({ ...prev, items: prev.items.filter(i => i.id !== itemId) }));
     setItemsEditando(prev => { const next = new Set(prev); next.delete(itemId); return next; });
     setItemsColapsados(prev => { const next = new Set(prev); next.delete(itemId); return next; });
   };
@@ -1074,93 +1066,211 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
   const descargarExcel = async q => {
     setMenuAbierto(null);
     try {
-      const { data: items, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden');
+      const ExcelJSModule = await import('exceljs/dist/exceljs.min.js');
+      const ExcelJS = ExcelJSModule.default || ExcelJSModule;
+
+      // Siempre leer los ítems directamente desde Supabase para que el Excel
+      // refleje exactamente lo guardado en la cotización.
+      const { data: items, error } = await supabase
+        .from('cotizacion_items')
+        .select('*')
+        .eq('quote_id', q.id)
+        .order('orden', { ascending: true });
       if (error) throw error;
+
+      const itemList = Array.isArray(items) ? items : [];
+      if (itemList.length === 0) {
+        alert('Esta cotización no tiene ítems guardados para exportar. Abre “Ver detalle” para comprobarlos antes de generar el Excel.');
+        return;
+      }
+
       const proyecto = q.proyectos || {};
+      const projectName = q.proyecto_nombre || proyecto.nombre || '';
       const updated = q.updated_at ? new Date(q.updated_at).toLocaleString('es-PE') : '';
       const createdBy = q.created_by || '';
       const updatedBy = q.updated_by || createdBy;
-      const mode = q.modo || ((items || [])[0]?.modo) || 'detallado';
-      const alcance = q.descripcion || '';
-      const projectName = q.proyecto_nombre || proyecto.nombre || '';
-      const itemList = items || [];
+      const mode = q.modo || itemList[0]?.modo || 'detallado';
       const excelCosto = itemList.reduce((sum, it) => sum + num(it.costo), 0);
-      const excelUtilidad = num(q.subtotal) - excelCosto;
-      const excelMargen = num(q.subtotal) > 0 ? excelUtilidad / num(q.subtotal) : 0;
+      const excelValorVenta = itemList.reduce((sum, it) => sum + num(it.valor_total), 0);
+      const excelUtilidad = excelValorVenta - excelCosto;
+      const excelMargen = excelValorVenta > 0 ? excelUtilidad / excelValorVenta : 0;
+      const excelPrecioVenta = num(q.total) || excelValorVenta * (1 + IGV_RATE);
 
-      let logoBytes = null;
-      try {
-        const logoResponse = await fetch(`${import.meta.env.BASE_URL}festoslogo-header.png`);
-        if (logoResponse.ok) logoBytes = new Uint8Array(await logoResponse.arrayBuffer());
-      } catch (logoError) {
-        console.warn('No se pudo incrustar el logo FESTOS en el Excel.', logoError);
-      }
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'FESTOS Gestión Empresarial';
+      wb.company = 'MARKETING POWER SAC';
+      wb.created = new Date();
+      wb.calcProperties.fullCalcOnLoad = true;
+      wb.calcProperties.forceFullCalc = true;
 
-      const rows = [];
-      const pushRow = (r, height = 20, cells = []) => rows.push(`<row r="${r}" ht="${height}" customHeight="1">${cells.join('')}</row>`);
-
-      pushRow(1, 26, [quoteXlsxCell(1, 1, 'MARKETING POWER SAC', 1), quoteXlsxCell(1, 3, q.codigo || 'COTIZACIÓN FESTOS', 2)]);
-      pushRow(2, 26, []);
-      pushRow(3, 20, [quoteXlsxCell(3, 1, 'DATOS DE COTIZACIÓN', 3)]);
-      pushRow(4, 20, [quoteXlsxCell(4, 1, 'Última actualización', 4), quoteXlsxCell(4, 3, updated, 4)]);
-      pushRow(5, 20, [quoteXlsxCell(5, 1, 'Creado por', 4), quoteXlsxCell(5, 3, createdBy, 4)]);
-      pushRow(6, 20, [quoteXlsxCell(6, 1, 'Actualizado por', 4), quoteXlsxCell(6, 3, updatedBy, 4)]);
-      pushRow(7, 10, []);
-      pushRow(8, 20, [quoteXlsxCell(8, 1, 'PROYECTO', 3)]);
-      pushRow(9, 20, [quoteXlsxCell(9, 1, 'Nombre de proyecto', 4), quoteXlsxCell(9, 3, projectName, 4)]);
-      pushRow(10, 20, [quoteXlsxCell(10, 1, 'Categoría', 4), quoteXlsxCell(10, 3, q.lob || '', 4)]);
-      pushRow(11, 32, [quoteXlsxCell(11, 1, 'Descripción / alcance', 4), quoteXlsxCell(11, 3, alcance, 4)]);
-      pushRow(12, 20, [quoteXlsxCell(12, 1, 'Modo', 4), quoteXlsxCell(12, 3, mode, 4)]);
-      pushRow(13, 10, []);
-      pushRow(14, 20, [quoteXlsxCell(14, 1, 'PROFORMA', 3)]);
-      pushRow(15, 22, [quoteXlsxCell(15, 1, 'Valor venta', 4), quoteXlsxCell(15, 3, num(q.subtotal), 6, true)]);
-      pushRow(16, 22, [quoteXlsxCell(16, 1, 'Precio venta', 4), quoteXlsxCell(16, 3, num(q.total), 6, true)]);
-      pushRow(17, 20, [quoteXlsxCell(17, 1, 'Costo', 4), quoteXlsxCell(17, 3, excelCosto, 5, true)]);
-      pushRow(18, 20, [quoteXlsxCell(18, 1, 'Utilidad', 4), quoteXlsxCell(18, 3, excelUtilidad, 5, true)]);
-      pushRow(19, 22, [quoteXlsxCell(19, 1, 'Margen global (%)', 4), quoteXlsxCell(19, 3, excelMargen, 7, true)]);
-      pushRow(20, 10, []);
-      pushRow(21, 10, []);
-      pushRow(22, 24, [
-        quoteXlsxCell(22, 1, 'N°', 8), quoteXlsxCell(22, 2, 'Descripción', 8), quoteXlsxCell(22, 3, 'Cantidad', 8),
-        quoteXlsxCell(22, 4, 'Valor unitario', 8), quoteXlsxCell(22, 5, 'Valor venta', 8), quoteXlsxCell(22, 6, 'Costo unitario', 8),
-        quoteXlsxCell(22, 7, 'Costo total', 8), quoteXlsxCell(22, 8, 'Margen (%)', 8)
-      ]);
-
-      itemList.forEach((it, idx) => {
-        const r = 23 + idx;
-        const qty = num(it.cantidad);
-        const costoUnit = num(it.costo_unitario ?? (qty ? num(it.costo) / qty : 0));
-        pushRow(r, 21, [
-          quoteXlsxCell(r, 1, idx + 1, 9, true),
-          quoteXlsxCell(r, 2, it.descripcion || '', 4),
-          quoteXlsxCell(r, 3, qty, 9, true),
-          quoteXlsxCell(r, 4, num(it.valor_unitario), 5, true),
-          quoteXlsxCell(r, 5, num(it.valor_total), 5, true),
-          quoteXlsxCell(r, 6, costoUnit, 5, true),
-          quoteXlsxCell(r, 7, num(it.costo), 5, true),
-          quoteXlsxCell(r, 8, num(it.margen) / 100, 10, true)
-        ]);
+      // La referencia V29.29 no congela 22 filas. Congelarlas hacía que los
+      // ítems quedaran fuera del área visible al abrir el archivo.
+      const ws = wb.addWorksheet('Cotización', {
+        views: [{ showGridLines: false }],
+        pageSetup: {
+          orientation: 'landscape',
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 }
+        }
       });
 
-      const lastRow = Math.max(22, 22 + itemList.length);
-      const merges = [
-        'A1:B2', 'C1:F2', 'G1:H2',
-        'A3:H3', 'A4:B4', 'C4:H4', 'A5:B5', 'C5:H5', 'A6:B6', 'C6:H6',
-        'A8:H8', 'A9:B9', 'C9:H9', 'A10:B10', 'C10:H10', 'A11:B11', 'C11:H11', 'A12:B12', 'C12:H12',
-        'A14:H14', 'A15:B15', 'C15:D15', 'A16:B16', 'C16:D16', 'A17:B17', 'C17:D17', 'A18:B18', 'C18:D18', 'A19:B19', 'C19:D19'
+      ws.columns = [
+        { width: 7 }, { width: 48 }, { width: 13 }, { width: 16 },
+        { width: 16 }, { width: 16 }, { width: 16 }, { width: 14 }
       ];
-      const mergeXml = merges.map(ref => `<mergeCell ref="${ref}"/>`).join('');
-      const drawingXml = logoBytes ? '<drawing r:id="rId1"/>' : '';
-      const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0" showGridLines="1"><pane ySplit="22" topLeftCell="A23" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="7" customWidth="1"/><col min="2" max="2" width="48" customWidth="1"/><col min="3" max="3" width="13" customWidth="1"/><col min="4" max="7" width="16" customWidth="1"/><col min="8" max="8" width="14" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${mergeXml}</mergeCells>${drawingXml}<pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 
-      const blob = await createXlsxBlob(quoteTemplateFiles(sheetXml, logoBytes));
+      const dark = 'FF111111';
+      const lime = 'FFE7EB48';
+      const gray = 'FFD9D9D9';
+      const white = 'FFFFFFFF';
+      const moneyFmt = '"S/ "#,##0.00';
+      const pctFmt = '0.00%';
+      const border = {
+        top: { style: 'thin', color: { argb: gray } },
+        left: { style: 'thin', color: { argb: gray } },
+        bottom: { style: 'thin', color: { argb: gray } },
+        right: { style: 'thin', color: { argb: gray } }
+      };
+
+      const section = (row, title) => {
+        ws.mergeCells(`A${row}:H${row}`);
+        const c = ws.getCell(`A${row}`);
+        c.value = title;
+        c.font = { bold: true, color: { argb: dark }, size: 11 };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: gray } };
+        c.alignment = { vertical: 'middle' };
+        ws.getRow(row).height = 20;
+      };
+
+      const labelValue = (row, label, value, opts = {}) => {
+        ws.mergeCells(`A${row}:B${row}`);
+        ws.mergeCells(`C${row}:D${row}`);
+        const labelCell = ws.getCell(`A${row}`);
+        const valueCell = ws.getCell(`C${row}`);
+        labelCell.value = label;
+        valueCell.value = value;
+        labelCell.font = { bold: !!opts.bold, color: { argb: dark } };
+        valueCell.font = { bold: !!opts.highlight, color: { argb: dark } };
+        labelCell.alignment = { vertical: 'middle', wrapText: true };
+        valueCell.alignment = { vertical: 'middle', wrapText: true, horizontal: opts.numeric ? 'right' : 'left' };
+        ['A','B','C','D'].forEach(col => { ws.getCell(`${col}${row}`).border = border; });
+        if (opts.numeric) valueCell.numFmt = opts.percent ? pctFmt : moneyFmt;
+        if (opts.highlight) valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
+        ws.getRow(row).height = opts.height || 20;
+      };
+
+      // Cabecera idéntica en estructura a la referencia V29.29.
+      ws.mergeCells('A1:B2');
+      ws.mergeCells('C1:F2');
+      ws.mergeCells('G1:H2');
+      ws.getCell('A1').value = 'MARKETING POWER SAC';
+      ws.getCell('C1').value = q.codigo || 'COTIZACIÓN FESTOS';
+      ws.getCell('G1').value = 'FESTOS';
+      ['A1','C1','G1'].forEach(addr => {
+        const c = ws.getCell(addr);
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
+        c.font = { bold: true, size: 16, color: { argb: dark } };
+        c.alignment = { vertical: 'middle', horizontal: addr === 'C1' ? 'center' : (addr === 'G1' ? 'center' : 'left') };
+      });
+      ws.getRow(1).height = 24;
+      ws.getRow(2).height = 24;
+
+      section(3, 'DATOS DE COTIZACIÓN');
+      labelValue(4, 'Última actualización', updated);
+      labelValue(5, 'Creado por', createdBy);
+      labelValue(6, 'Actualizado por', updatedBy);
+
+      section(8, 'PROYECTO');
+      labelValue(9, 'Nombre de proyecto', projectName);
+      labelValue(10, 'Categoría', q.lob || '');
+      labelValue(11, 'Descripción / alcance', q.descripcion || '', { height: 32 });
+      labelValue(12, 'Modo', mode);
+
+      section(14, 'PROFORMA');
+      labelValue(15, 'Valor venta', excelValorVenta, { numeric: true, highlight: true });
+      labelValue(16, 'Precio venta', excelPrecioVenta, { numeric: true, highlight: true });
+      labelValue(17, 'Costo', excelCosto, { numeric: true });
+      labelValue(18, 'Utilidad', excelUtilidad, { numeric: true });
+      labelValue(19, 'Margen global (%)', excelMargen, { numeric: true, percent: true, highlight: true });
+
+      // Tabla de ítems basada en la plantilla de referencia V29.29.
+      const headers = ['N°', 'Descripción', 'Cantidad', 'Valor unitario', 'Valor venta', 'Costo unitario', 'Costo total', 'Margen (%)'];
+      headers.forEach((h, i) => {
+        const c = ws.getCell(22, i + 1);
+        c.value = h;
+        c.font = { bold: true, color: { argb: white } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        c.border = border;
+      });
+      ws.getRow(22).height = 24;
+
+      itemList.forEach((it, idx) => {
+        const row = 23 + idx;
+        const qty = num(it.cantidad) || 1;
+        const valorUnit = num(it.valor_unitario) || (qty ? num(it.valor_total) / qty : 0);
+        const valorVenta = num(it.valor_total) || qty * valorUnit;
+        const costoTotal = num(it.costo);
+        const costoUnit = num(it.costo_unitario) || (qty ? costoTotal / qty : 0);
+        const margen = valorVenta > 0 ? (valorVenta - costoTotal) / valorVenta : 0;
+        const vals = [idx + 1, it.descripcion || '', qty, valorUnit, valorVenta, costoUnit, costoTotal, margen];
+        vals.forEach((v, colIdx) => {
+          const c = ws.getCell(row, colIdx + 1);
+          c.value = v;
+          c.border = border;
+          c.alignment = {
+            vertical: 'middle',
+            wrapText: colIdx === 1,
+            horizontal: colIdx === 1 ? 'left' : (colIdx === 0 ? 'center' : 'right')
+          };
+          if ([3, 4, 5, 6].includes(colIdx)) c.numFmt = moneyFmt;
+          if (colIdx === 7) c.numFmt = pctFmt;
+        });
+        ws.getRow(row).height = Math.max(21, (String(it.descripcion || '').length > 55 ? 34 : 21));
+      });
+
+      // Totales finales para comprobar visualmente que todos los ítems sí fueron exportados.
+      const totalRow = 23 + itemList.length;
+      ws.mergeCells(`A${totalRow}:D${totalRow}`);
+      ws.getCell(`A${totalRow}`).value = `TOTAL (${itemList.length} ${itemList.length === 1 ? 'ÍTEM' : 'ÍTEMS'})`;
+      ws.getCell(`A${totalRow}`).font = { bold: true, color: { argb: white } };
+      ws.getCell(`A${totalRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: dark } };
+      ws.getCell(`A${totalRow}`).alignment = { horizontal: 'right', vertical: 'middle' };
+      ws.getCell(`E${totalRow}`).value = excelValorVenta;
+      ws.getCell(`G${totalRow}`).value = excelCosto;
+      ws.getCell(`H${totalRow}`).value = excelMargen;
+      ['E','G','H'].forEach(col => {
+        const c = ws.getCell(`${col}${totalRow}`);
+        c.font = { bold: true, color: { argb: white } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: dark } };
+        c.alignment = { horizontal: 'right', vertical: 'middle' };
+        c.border = border;
+      });
+      ws.getCell(`E${totalRow}`).numFmt = moneyFmt;
+      ws.getCell(`G${totalRow}`).numFmt = moneyFmt;
+      ws.getCell(`H${totalRow}`).numFmt = pctFmt;
+      ws.getRow(totalRow).height = 22;
+
+      // Evitar funciones que han dado incompatibilidad en Excel de Windows:
+      // sin imagen binaria incrustada, sin autofiltro y sin panel congelado.
+      ws.pageSetup.printArea = `A1:H${totalRow}`;
+      ws.headerFooter.oddFooter = '&LGenerado desde FESTOS&C&C&R&P / &N';
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${q.codigo || 'cotizacion'}-Festos.xlsx`;
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      onNotify(`Excel generado: ${q.codigo}`, 'nuevo');
-      onAudit('Exportación', `${q.codigo} · Excel descargado con formato corporativo`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      onNotify(`Excel generado: ${q.codigo} · ${itemList.length} ítems`, 'nuevo');
+      onAudit('Exportación', `${q.codigo} · Excel descargado con ${itemList.length} ítems`);
     } catch (error) {
       console.error(error);
       alert(`No se pudo generar el Excel. ${error?.message || ''}`);
@@ -1195,11 +1305,11 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
       <div className="form-row quote-value-field"><label>Valor unitario</label><input disabled={!itemsEditando.has(item.id)} type="number" min="0" step="0.01" value={item.valor_unitario} onChange={e => updateItem(item.id, { valor_unitario: e.target.value })} /></div>
     </div>
     <div className="quote-item-totals-pro quote-item-results-pro">
-      <div><span>Valor venta</span><strong>{money(valorTotal)}</strong><small>Valor unitario × Cantidad</small></div>
-      <div className="quote-item-margin-result"><span>Utilidad</span><strong>{money(margenBrutoItem)}</strong><small>Valor venta − costo</small></div>
-      <div className={`quote-item-margin-result quote-item-margin-percent ${margenPctItem < 0 ? 'negative' : ''}`}><span>Margen</span><strong>{margenPctItem.toFixed(0)}%</strong><small>Utilidad ÷ Valor venta</small></div>
+      <div><span>Valor venta del ítem</span><strong>{money(valorTotal)}</strong><small>Valor unitario × Cantidad</small></div>
+      <div className="quote-item-margin-result"><span>Margen bruto</span><strong>{money(margenBrutoItem)}</strong><small>Valor total − costo</small></div>
+      <div className={`quote-item-margin-result quote-item-margin-percent ${margenPctItem < 0 ? 'negative' : ''}`}><span>% Margen</span><strong>{margenPctItem.toFixed(0)}%</strong><small>Margen bruto ÷ Valor total</small></div>
     </div></>}
   </div>;
-})}</div><div className="quote-mode-global"><div><strong>Modo de valorización de la cotización</strong><span>En Directo puedes ajustar el valor de venta total sin modificar los datos de los ítems.</span></div><div className="quote-mode-switch"><button type="button" className={form.modo === 'detallado' ? 'active' : ''} onClick={() => cambiarModo('detallado')}>Detallado</button><button type="button" className={form.modo === 'directo' ? 'active' : ''} onClick={() => cambiarModo('directo')}>Directo</button></div></div><div className="quote-summary"><div><span>Valor venta</span>{form.modo === 'directo' ? <input className="quote-direct-value" type="number" min="0" step="0.01" value={valorVentaDirecto} onChange={e => setValorVentaDirecto(e.target.value)} /> : <strong>{money(subtotal)}</strong>}</div><div><span>Precio venta</span><strong>{money(total)}</strong></div><div><span>Costo</span><strong>{money(costo)}</strong></div><div><span>Utilidad</span><strong>{money(ganancia)}</strong></div><div><span>Margen global</span><strong>{margen.toFixed(2)}%</strong></div></div><div className="modal-actions quote-actions"><button className="btn-secondary" onClick={() => guardar('Borrador')} disabled={cargando}>Guardar borrador</button><button className="btn-muted" onClick={() => guardar('En Revisión')} disabled={cargando}>Enviar a revisión</button>{puedeAprobar && <button className="btn-primary" onClick={() => guardar('Aprobado')} disabled={cargando}>Aprobar cotización</button>}</div></div></div>;
-  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>{borradorRecuperable && <div className="quote-local-draft-banner"><div><FestosIcon name="FileText" size={19}/><span><strong>Cotización sin guardar recuperable</strong><small>Se guardó una copia temporal en este dispositivo · {new Date(borradorRecuperable.savedAt).toLocaleString('es-PE')}</small></span></div><div><button type="button" className="btn-primary" onClick={recuperarBorradorLocal}>Continuar</button><button type="button" className="btn-muted" onClick={descartarBorradorLocal}>Descartar</button></div></div>}<div className="section-header"><div><h3 className="section-title"><FestosIcon name="FileText" size={21} /> Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}><FestosIcon name="Plus" size={16} /> Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><select className="business-payment-filter" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{ejecutivosCotizacion.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select><div className="quote-filters">{[['todas','Todas'],['Aprobado','Aprobadas'],['En Revisión','En Revisión'],['Borrador','Borradores']].map(([v,l]) => <button key={v} type="button" className={filtro === v ? 'active' : ''} onClick={() => setFiltro(v)}>{l}</button>)}</div><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEjecutivo('TODOS'); setFiltro('todas'); }}>Limpiar filtros</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; const costoDetalle = items.reduce((sum, i) => sum + num(i.costo), 0); const utilidadDetalle = num(q.subtotal) - costoDetalle; const margenDetalle = num(q.subtotal) > 0 ? (utilidadDetalle / num(q.subtotal)) * 100 : 0; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin categoría'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Valor venta</span><strong>{money(q.subtotal)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}><FestosIcon name="MoreVertical" size={18} /></button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}><FestosIcon name="Pencil" size={16} /> <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}><FestosIcon name="Clock3" size={16} /> <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}><FestosIcon name="CheckCircle2" size={16} /> <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}><FestosIcon name="FileDown" size={16} /> <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}><FestosIcon name="Sheet" size={16} /> <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Categoría</span><strong>{q.lob || '—'}</strong></div><div><span>Ejecutivo comercial</span><strong>{q.ejecutivo || (String(q.created_by || '').trim().toUpperCase() === 'MAR' ? 'MAR' : 'GONZALO')}</strong></div><div className="quote-detail-value-sale"><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>Precio venta</span><strong>{money(q.total)}</strong></div><div><span>Costo</span><strong>{money(costoDetalle)}</strong></div><div><span>Utilidad</span><strong>{money(utilidadDetalle)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{margenDetalle.toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Valor venta</span><strong>{money(i.valor_total)}</strong></div><div><span>Utilidad</span><strong>{money(num(i.valor_total) - num(i.costo))}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
+})}</div><div className="quote-mode-global"><div><strong>Modo de valorización de la cotización</strong><span>En Directo puedes ajustar el valor de venta total sin modificar los datos de los ítems.</span></div><div className="quote-mode-switch"><button type="button" className={form.modo === 'detallado' ? 'active' : ''} onClick={() => cambiarModo('detallado')}>Detallado</button><button type="button" className={form.modo === 'directo' ? 'active' : ''} onClick={() => cambiarModo('directo')}>Directo</button></div></div><div className="quote-summary"><div><span>Valor venta</span>{form.modo === 'directo' ? <input className="quote-direct-value" type="number" min="0" step="0.01" value={valorVentaDirecto} onChange={e => setValorVentaDirecto(e.target.value)} /> : <strong>{money(subtotal)}</strong>}</div><div><span>IGV</span><strong>{money(igv)}</strong></div><div><span>Importe con IGV</span><strong>{money(total)}</strong></div><div><span>Costo total</span><strong>{money(costo)}</strong></div><div><span>Utilidad</span><strong>{money(ganancia)}</strong></div><div><span>Margen global</span><strong>{margen.toFixed(2)}%</strong></div></div><div className="modal-actions quote-actions"><button className="btn-secondary" onClick={() => guardar('Borrador')} disabled={cargando}>Guardar borrador</button><button className="btn-muted" onClick={() => guardar('En Revisión')} disabled={cargando}>Enviar a revisión</button>{puedeAprobar && <button className="btn-primary" onClick={() => guardar('Aprobado')} disabled={cargando}>Aprobar cotización</button>}</div></div></div>;
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>{borradorRecuperable && <div className="quote-local-draft-banner"><div><FestosIcon name="FileText" size={19}/><span><strong>Cotización sin guardar recuperable</strong><small>Se guardó una copia temporal en este dispositivo · {new Date(borradorRecuperable.savedAt).toLocaleString('es-PE')}</small></span></div><div><button type="button" className="btn-primary" onClick={recuperarBorradorLocal}>Continuar</button><button type="button" className="btn-muted" onClick={descartarBorradorLocal}>Descartar</button></div></div>}<div className="section-header"><div><h3 className="section-title"><FestosIcon name="FileText" size={21} /> Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}><FestosIcon name="Plus" size={16} /> Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><select className="business-payment-filter" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{ejecutivosCotizacion.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select><select className="business-payment-filter quote-status-filter" value={filtro} onChange={e => setFiltro(e.target.value)}><option value="todas">Estado: Todos</option><option value="Aprobado">Estado: Aprobadas</option><option value="En Revisión">Estado: En Revisión</option><option value="Borrador">Estado: Borradores</option></select><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEjecutivo('TODOS'); setFiltro('todas'); }}>Limpiar filtros</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; const costoDetalle = items.reduce((sum, i) => sum + num(i.costo), 0); const utilidadDetalle = num(q.subtotal) - costoDetalle; const margenDetalle = num(q.subtotal) > 0 ? (utilidadDetalle / num(q.subtotal)) * 100 : 0; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin categoría'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Valor venta</span><strong>{money(q.subtotal)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}><FestosIcon name="MoreVertical" size={18} /></button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}><FestosIcon name="Pencil" size={16} /> <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}><FestosIcon name="Clock3" size={16} /> <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}><FestosIcon name="CheckCircle2" size={16} /> <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}><FestosIcon name="FileDown" size={16} /> <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}><FestosIcon name="Sheet" size={16} /> <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Categoría</span><strong>{q.lob || '—'}</strong></div><div><span>Ejecutivo comercial</span><strong>{q.ejecutivo || (String(q.created_by || '').trim().toUpperCase() === 'MAR' ? 'MAR' : 'GONZALO')}</strong></div><div className="quote-detail-value-sale"><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>Precio venta</span><strong>{money(q.total)}</strong></div><div><span>Costo</span><strong>{money(costoDetalle)}</strong></div><div><span>Utilidad</span><strong>{money(utilidadDetalle)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{margenDetalle.toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Valor venta</span><strong>{money(i.valor_total)}</strong></div><div><span>Utilidad</span><strong>{money(num(i.valor_total) - num(i.costo))}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
 }
