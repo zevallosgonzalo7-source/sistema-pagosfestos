@@ -4521,3 +4521,18 @@ a > .festos-icon,
 
 @media(max-width:1050px){.global-calendar-layout{grid-template-columns:1fr}.global-calendar-side{display:grid;grid-template-columns:220px 1fr}.global-calendar-day{min-height:110px}.ed-welcome-compact{grid-template-columns:auto 1fr}.ed-welcome-shortcuts{grid-column:1/-1;justify-content:flex-start}}
 @media(max-width:720px){.global-calendar-hero{align-items:flex-start;flex-direction:column;padding:18px}.global-calendar-actions{width:100%}.global-calendar-actions button{flex:1}.global-calendar-toolbar{align-items:stretch;flex-direction:column}.global-calendar-month-nav{justify-content:space-between}.global-calendar-filters{display:grid;grid-template-columns:1fr 1fr}.global-calendar-layout{display:block}.global-calendar-side{display:flex;margin-top:12px}.global-calendar-card{overflow-x:auto}.global-calendar-weekdays,.global-calendar-grid{min-width:690px}.global-calendar-day{min-height:106px}.ed-welcome-compact{grid-template-columns:auto 1fr;padding:14px;border-radius:18px}.ed-welcome-mark{width:46px;height:46px;border-radius:14px}.ed-welcome-shortcuts{display:grid;grid-template-columns:1fr 1fr;width:100%}.ed-welcome-shortcuts span:last-child{grid-column:1/-1}.calendar-detail-grid{grid-template-columns:1fr}.calendar-editor-modal,.calendar-detail-modal{max-height:88vh;overflow:auto}}
+
+/* V29.32 — detalle de cotización: Valor venta destacado y 3 métricas por ítem */
+.quote-detail-value-sale{
+  background:linear-gradient(135deg,rgba(232,255,132,.42),rgba(232,255,132,.16))!important;
+  border-color:rgba(132,154,28,.38)!important;
+  box-shadow:0 7px 20px rgba(83,101,10,.08);
+}
+.quote-detail-value-sale span{color:#61700d!important;font-weight:800}
+.quote-detail-value-sale strong{color:#243006!important;font-size:14px!important}
+.quote-detail-item{grid-template-columns:34px minmax(180px,1fr) 125px 110px 95px}
+@media(max-width:900px){.quote-detail-item{grid-template-columns:32px minmax(150px,1fr) 105px 100px 80px}}
+@media(max-width:700px){
+  .quote-detail-item{grid-template-columns:30px minmax(0,1fr)}
+  .quote-detail-item>div:nth-child(3),.quote-detail-item>div:nth-child(4),.quote-detail-item>div:nth-child(5){grid-column:2;display:inline-flex;flex-direction:row;justify-content:space-between;align-items:center;border-top:1px solid rgba(13,148,136,.06);padding-top:6px}
+}

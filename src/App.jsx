@@ -1211,8 +1211,8 @@ function App() {
 
 
   const accesosBase = useMemo(() => ([
-    { id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones', actionLabel: misPermisos.gestionar_cotizaciones ? 'Nuevo' : 'Abrir', actionId: misPermisos.gestionar_cotizaciones ? 'nueva-cotizacion' : 'cotizaciones', tone: 'cotizaciones', visible: misPermisos.ver_cotizaciones, activeIds: ['cotizaciones'], obligatorio: true },
-    { id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos', actionLabel: misPermisos.gestionar_proyectos ? 'Nuevo' : 'Abrir', actionId: misPermisos.gestionar_proyectos ? 'nuevo-proyecto' : 'proyectos', tone: 'proyectos', visible: misPermisos.ver_proyectos, activeIds: ['proyectos'], obligatorio: true },
+    { id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones', actionLabel: 'Abrir', actionId: 'cotizaciones', tone: 'cotizaciones', visible: misPermisos.ver_cotizaciones, activeIds: ['cotizaciones'], obligatorio: true },
+    { id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos', actionLabel: 'Abrir', actionId: 'proyectos', tone: 'proyectos', visible: misPermisos.ver_proyectos, activeIds: ['proyectos'], obligatorio: true },
     { id: 'clientes', icono: 'Users', label: 'Clientes', actionLabel: misPermisos.gestionar_clientes ? 'Gestionar' : 'Ver', tone: 'clientes', visible: misPermisos.ver_clientes, activeIds: ['clientes'], obligatorio: true },
     { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard', actionLabel: 'Proyectos', tone: 'dashboard', activeIds: ['analisis'] },
     // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.

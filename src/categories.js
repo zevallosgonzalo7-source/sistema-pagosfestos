@@ -8,8 +8,7 @@ export const CATEGORIAS_FESTOS = [
   "Impresos comerciales",
   "Proyecto integral",
   "Espacios y estructuras",
-  "Material POP",
-  "Desarrollos especiales"
+  "Material POP"
 ];
 export const categoriaAnterior = value => !!value && !CATEGORIAS_FESTOS.includes(value);
 
