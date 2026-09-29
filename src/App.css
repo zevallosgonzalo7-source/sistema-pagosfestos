@@ -20,8 +20,8 @@
   --line: #dde8e9;
   --radius-md: 14px;
   --radius-lg: 20px;
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Space Grotesk', var(--font-sans);
+  --font-sans: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Sora', var(--font-sans);
 }
 
 /* ---------- RESET ESTRICTO (elimina líneas blancas / overflow) ---------- */
@@ -4568,5 +4568,147 @@ a > .festos-icon,
     width: 100%;
     max-width: none;
     flex: 1 1 auto;
+  }
+}
+
+
+/* ============================================================
+   FESTOS V29.33 · PREMIUM POLISH
+   Solo acabado visual: sin cambios de lógica, estructura ni flujos.
+   ============================================================ */
+:root{
+  --premium-shadow-xs:0 2px 10px rgba(31,58,64,.045);
+  --premium-shadow-sm:0 8px 24px rgba(31,58,64,.065);
+  --premium-shadow-md:0 16px 40px rgba(31,58,64,.085);
+  --premium-border:rgba(34,66,72,.105);
+  --premium-surface:rgba(255,255,255,.96);
+  --premium-focus:0 0 0 3px rgba(13,148,136,.12);
+}
+
+body{
+  font-family:var(--font-sans)!important;
+  font-feature-settings:"kern" 1,"liga" 1,"calt" 1;
+  text-rendering:optimizeLegibility;
+  letter-spacing:-.006em;
+}
+
+h1,h2,h3,.login-title,.ed-welcome-copy h2,.global-calendar-hero h1{
+  font-family:var(--font-display)!important;
+  letter-spacing:-.032em;
+}
+
+/* Acabado de superficies sin alterar medidas ni distribución */
+.glass-card,.form-card,.filter-card,.ed-card,.ed-filter-card,.business-pro-card,
+.company-summary-card,.empty-card,.global-calendar-toolbar,.global-calendar-card,
+.global-calendar-side>article{
+  border-color:var(--premium-border)!important;
+  box-shadow:var(--premium-shadow-sm)!important;
+}
+
+.glass-card:hover,.ed-card:hover,.business-pro-card:hover{
+  border-color:rgba(34,66,72,.15)!important;
+  box-shadow:var(--premium-shadow-md)!important;
+}
+
+/* Controles: mismo layout, tacto más refinado */
+button,a,input,select,textarea{
+  -webkit-tap-highlight-color:transparent;
+}
+input,select,textarea{
+  transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease!important;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:rgba(13,148,136,.48)!important;
+  box-shadow:var(--premium-focus)!important;
+  outline:none!important;
+}
+
+.btn-primary,.btn-secondary,.btn-muted,.btn-filter-clear,.btn-export,.btn-edit,.btn-delete,
+.btn-approve,.btn-pay,.btn-upload,.icon-btn{
+  box-shadow:0 7px 18px rgba(31,58,64,.08);
+  letter-spacing:-.01em;
+}
+.btn-primary:hover,.btn-secondary:hover,.btn-muted:hover,.btn-filter-clear:hover,.btn-export:hover,
+.btn-edit:hover,.btn-delete:hover,.btn-approve:hover,.btn-pay:hover,.btn-upload:hover{
+  box-shadow:0 11px 24px rgba(31,58,64,.12);
+}
+
+/* Topbar con profundidad muy sutil */
+.topbar{
+  border-bottom-color:rgba(34,66,72,.08)!important;
+  box-shadow:0 8px 26px rgba(31,58,64,.04)!important;
+  backdrop-filter:saturate(130%) blur(10px);
+  -webkit-backdrop-filter:saturate(130%) blur(10px);
+}
+
+/* Launcher: conserva colores, geometría y posiciones */
+.sidebar-launcher-card{
+  border-color:rgba(34,66,72,.095)!important;
+  box-shadow:0 10px 26px rgba(31,58,64,.065)!important;
+}
+.sidebar-launcher-card:hover{
+  box-shadow:0 16px 34px rgba(31,58,64,.105)!important;
+}
+.sidebar-launcher-copy strong{
+  font-family:var(--font-display)!important;
+  letter-spacing:-.025em!important;
+}
+.sidebar-launcher-copy small,.sidebar-footer,.sidebar-launcher-heading span{
+  letter-spacing:-.005em;
+}
+
+/* Logo más compacto y realmente centrado: pedido visual del sidebar */
+.sidebar-brand{
+  min-height:86px!important;
+  height:86px!important;
+  margin:12px 14px 10px!important;
+  padding:8px 18px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  border-radius:21px!important;
+  box-shadow:0 10px 25px rgba(31,58,64,.065)!important;
+}
+.sidebar-brand img{
+  width:auto!important;
+  max-width:84%!important;
+  height:62px!important;
+  max-height:62px!important;
+  margin:0 auto!important;
+  object-fit:contain!important;
+  transform:none!important;
+  filter:drop-shadow(0 6px 13px rgba(20,45,50,.10))!important;
+}
+.sidebar-brand::after{
+  left:31%!important;
+  right:31%!important;
+  opacity:.58!important;
+}
+
+/* Scrollbar más discreto */
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(67,91,96,.22);border-radius:999px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(67,91,96,.34);background-clip:padding-box}
+
+/* Selección y accesibilidad visual */
+:focus-visible{
+  outline:2px solid rgba(13,148,136,.46);
+  outline-offset:2px;
+}
+::selection{background:rgba(13,148,136,.18);color:#16383e}
+
+@media(max-width:700px){
+  .sidebar-brand{
+    min-height:76px!important;
+    height:76px!important;
+    margin:10px 14px 9px!important;
+    padding:7px 16px!important;
+  }
+  .sidebar-brand img{
+    height:54px!important;
+    max-height:54px!important;
+    max-width:80%!important;
   }
 }

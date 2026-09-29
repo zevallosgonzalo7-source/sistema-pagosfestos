@@ -743,7 +743,13 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
     const unsubClientes = suscribirTabla('clientes', () => cargarDatos());
     const unsubProyectos = suscribirTabla('proyectos', () => cargarDatos());
     const unsubCotizaciones = suscribirTabla('cotizaciones', () => cargarDatos());
-    return () => { unsubClientes(); unsubProyectos(); unsubCotizaciones(); };
+    // Los ítems pueden cambiar al editar una cotización. Invalida y cierra cualquier
+    // detalle abierto para que nunca se vean filas eliminadas o cálculos antiguos.
+    const unsubCotizacionItems = suscribirTabla('cotizacion_items', () => {
+      setDetalleItems({});
+      setDetalleAbierto(null);
+    });
+    return () => { unsubClientes(); unsubProyectos(); unsubCotizaciones(); unsubCotizacionItems(); };
   }, []);
   const proyectosDisponibles = form.client_id ? proyectos.filter(p => p.client_id === form.client_id && p.estado !== 'Finalizado') : [];
   const itemTotal = item => num(item.cantidad) * num(item.valor_unitario);
@@ -809,7 +815,82 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
     setItemsColapsados(prev => { const next = new Set(prev); next.delete(itemId); return next; });
   };
   const cambiarModo = modo => { if (modo === 'directo') setValorVentaDirecto(subtotalItems); setForm(prev => ({ ...prev, modo })); };
-  const guardar = async (estado = 'Borrador') => { if (estado === 'Aprobado' && !puedeAprobar) return alert('No tienes permiso para aprobar cotizaciones.'); if (!form.client_id) return alert('Selecciona un cliente.'); if (!form.proyecto_nombre.trim()) return alert('Escribe el nombre del proyecto. La cotización no puede guardarse sin proyecto.'); if (!form.lob) return alert('Selecciona la categoría general de la cotización.'); if (!form.items.some(i => i.descripcion.trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.'); setCargando(true); try { const codigo = editando?.codigo || `COT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`; const payload = { client_id: form.client_id, project_id: editando?.project_id || null, proyecto_nombre: form.proyecto_nombre.trim(), lob: form.lob, ejecutivo: form.ejecutivo || ejecutivoDefault, codigo, descripcion: form.descripcion.trim() || null, estado, aplicar_igv: true, igv_rate: IGV_RATE, subtotal, descuento: 0, igv, total, costo_estimado: costo, ganancia_estimada: ganancia, margen, updated_by: usuario }; let quoteId = editando?.id; let error; if (editando) { ({ error } = await supabase.from('cotizaciones').update(payload).eq('id', editando.id)); if (!error) { const del = await supabase.from('cotizacion_items').delete().eq('quote_id', editando.id); if (del.error) throw del.error; } } else { quoteId = id(); ({ error } = await supabase.from('cotizaciones').insert([{ ...payload, id: quoteId, created_by: usuario }])); } if (error) throw error; const itemsPayload = form.items.filter(i => i.descripcion.trim()).map((i, index) => ({ id: id(), quote_id: quoteId, orden: index + 1, descripcion: i.descripcion.trim(), categoria: null, modo: form.modo, cantidad: num(i.cantidad), valor_unitario: num(i.valor_unitario), valor_total: itemTotal(i), costo: num(i.costo_unitario ?? i.costo) * num(i.cantidad), margen: itemTotal(i) > 0 ? ((itemTotal(i) - (num(i.costo_unitario ?? i.costo) * num(i.cantidad))) / itemTotal(i)) * 100 : 0 })); const itemsResult = await supabase.from('cotizacion_items').insert(itemsPayload); if (itemsResult.error) throw itemsResult.error;
+  const guardar = async (estado = 'Borrador') => {
+    if (estado === 'Aprobado' && !puedeAprobar) return alert('No tienes permiso para aprobar cotizaciones.');
+    if (!form.client_id) return alert('Selecciona un cliente.');
+    if (!form.proyecto_nombre.trim()) return alert('Escribe el nombre del proyecto. La cotización no puede guardarse sin proyecto.');
+    if (!form.lob) return alert('Selecciona la categoría general de la cotización.');
+    if (!form.items.some(i => i.descripcion.trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.');
+
+    setCargando(true);
+    try {
+      const codigo = editando?.codigo || `COT-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      const payload = {
+        client_id: form.client_id,
+        project_id: editando?.project_id || null,
+        proyecto_nombre: form.proyecto_nombre.trim(),
+        lob: form.lob,
+        ejecutivo: form.ejecutivo || ejecutivoDefault,
+        codigo,
+        descripcion: form.descripcion.trim() || null,
+        estado,
+        aplicar_igv: true,
+        igv_rate: IGV_RATE,
+        subtotal,
+        descuento: 0,
+        igv,
+        total,
+        costo_estimado: costo,
+        ganancia_estimada: ganancia,
+        margen,
+        updated_by: usuario
+      };
+
+      let quoteId = editando?.id;
+      const itemsPayload = form.items
+        .filter(i => i.descripcion.trim())
+        .map((i, index) => ({
+          orden: index + 1,
+          descripcion: i.descripcion.trim(),
+          categoria: null,
+          modo: form.modo,
+          cantidad: num(i.cantidad),
+          valor_unitario: num(i.valor_unitario),
+          valor_total: itemTotal(i),
+          costo: num(i.costo_unitario ?? i.costo) * num(i.cantidad),
+          margen: itemTotal(i) > 0
+            ? ((itemTotal(i) - (num(i.costo_unitario ?? i.costo) * num(i.cantidad))) / itemTotal(i)) * 100
+            : 0
+        }));
+
+      if (editando) {
+        // V29.33.2: la edición completa (cabecera + reemplazo de ítems) se hace
+        // en UNA sola transacción de PostgreSQL. Así un ítem eliminado no puede
+        // quedarse "fantasma" mientras la cabecera ya muestra otros totales.
+        const { data: syncResult, error: syncError } = await supabase.rpc('actualizar_cotizacion_con_items', {
+          p_quote_id: editando.id,
+          p_payload: payload,
+          p_items: itemsPayload
+        });
+        if (syncError) throw syncError;
+        const savedCount = Number(syncResult?.item_count ?? syncResult?.[0]?.item_count ?? itemsPayload.length);
+        if (savedCount !== itemsPayload.length) {
+          throw new Error(`La cotización guardó ${savedCount} ítems, pero se esperaban ${itemsPayload.length}.`);
+        }
+      } else {
+        quoteId = id();
+        const { error: quoteError } = await supabase.from('cotizaciones').insert([{ ...payload, id: quoteId, created_by: usuario }]);
+        if (quoteError) throw quoteError;
+        const rows = itemsPayload.map(item => ({ ...item, id: id(), quote_id: quoteId }));
+        const { error: itemsError } = await supabase.from('cotizacion_items').insert(rows);
+        if (itemsError) throw itemsError;
+      }
+
+      // Limpieza total de caché visual. El siguiente "Ver detalle" siempre sale de Supabase.
+      setDetalleItems({});
+      setDetalleAbierto(null);
+      setMenuAbierto(null);
+
       if (estado === 'Aprobado') {
         const { error: approvalError } = await supabase.rpc('aprobar_cotizacion', { p_cotizacion_id: quoteId });
         if (approvalError) throw approvalError;
@@ -822,7 +903,17 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
         if (estado === 'En Revisión') await registrarAvisoEmail(quoteId, codigo, 'en_revision');
         onAudit(editando ? 'Edición' : 'Creación', `${codigo} · Estado: ${estado}`);
       }
-      await cargarDatos(); if (!editando) descartarBorradorLocal(); reset(); } catch (err) { console.error(err); alert(`No se pudo guardar la cotización. ${err?.message || 'Verifica las tablas y políticas de Supabase.'}`); } finally { setCargando(false); } };
+
+      await cargarDatos();
+      if (!editando) descartarBorradorLocal();
+      reset();
+    } catch (err) {
+      console.error(err);
+      alert(`No se pudo guardar la cotización. ${err?.message || 'Verifica la función SQL de actualización y las políticas de Supabase.'}`);
+    } finally {
+      setCargando(false);
+    }
+  };
   const editar = async q => { const { data: items, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden'); if (error) return alert('No se pudieron cargar los ítems.'); const modo = items?.[0]?.modo || 'detallado'; setEditando(q); setItemsEditando(new Set((items || []).map(i => i.id))); setItemsColapsados(new Set()); setValorVentaDirecto(num(q.subtotal)); setForm({ client_id: q.client_id, proyecto_nombre: q.proyecto_nombre || q.proyectos?.nombre || '', project_id: q.project_id || '', lob: q.lob || '', descripcion: q.descripcion || '', ejecutivo: q.ejecutivo || (String(q.created_by || '').trim().toUpperCase() === 'MAR' ? 'MAR' : 'GONZALO'), aplicar_igv: true, descuento: 0, modo, items: (items || []).map(i => ({ id: i.id || id(), descripcion: i.descripcion || '', cantidad: i.cantidad ?? 1, valor_unitario: i.valor_unitario ?? '', valor_total: i.valor_total ?? '', costo: i.costo ?? '', costo_unitario: i.costo_unitario ?? (num(i.cantidad) > 0 ? num(i.costo) / num(i.cantidad) : 0) })) .concat((items || []).length ? [] : [newItem()]) }); setVista('form'); };
   const cambiarEstado = async (q, estado) => {
     if (estado === 'Aprobado' && !puedeAprobar) { alert('No tienes permiso para aprobar cotizaciones.'); return; }
@@ -847,7 +938,16 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
     finally { setCargando(false); }
   };
   const eliminarCotizacion = async q => { setMenuAbierto(null); const ok = window.confirm(`¿Eliminar la cotización ${q.codigo}?\n\nSe eliminarán también todos sus ítems. Esta acción no se puede deshacer.`); if (!ok) return; setCargando(true); try { const { error } = await supabase.from('cotizaciones').delete().eq('id', q.id); if (error) throw error; setDetalleItems(prev => { const next = { ...prev }; delete next[q.id]; return next; }); if (detalleAbierto === q.id) setDetalleAbierto(null); onNotify(`Cotización eliminada: ${q.codigo}`, 'edicion'); onAudit('Eliminación', `${q.codigo} · Cotización eliminada`); await cargarDatos(); } catch (err) { console.error(err); alert(`No se pudo eliminar la cotización. ${err?.message || ''}`); } finally { setCargando(false); } };
-  const toggleDetalle = async q => { setMenuAbierto(null); if (detalleAbierto === q.id) { setDetalleAbierto(null); return; } setDetalleAbierto(q.id); if (!detalleItems[q.id]) { const { data, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden'); if (error) return alert(`No se pudieron cargar los detalles. ${error.message}`); setDetalleItems(prev => ({ ...prev, [q.id]: data || [] })); } };
+  const toggleDetalle = async q => {
+    setMenuAbierto(null);
+    if (detalleAbierto === q.id) { setDetalleAbierto(null); return; }
+    // Siempre trae los ítems actuales. Antes se reutilizaba una copia en memoria y,
+    // después de editar, el Valor venta podía verse actualizado pero el Costo no.
+    const { data, error } = await supabase.from('cotizacion_items').select('*').eq('quote_id', q.id).order('orden');
+    if (error) return alert(`No se pudieron cargar los detalles. ${error.message}`);
+    setDetalleItems(prev => ({ ...prev, [q.id]: data || [] }));
+    setDetalleAbierto(q.id);
+  };
   const descargarPDF = async (q) => {
     try {
       const { data: items, error } = await supabase
