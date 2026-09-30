@@ -3,6 +3,8 @@ import { supabase } from '../supabaseClient';
 import { FestosIcon } from '../FestosIcon';
 import { CATEGORIAS_FESTOS, CATEGORIA_PENDIENTE, categoriaActual, categoriaDelProyecto } from '../categories';
 import { dateKey, dashboardDate, dashboardPeriodBounds, isInDashboardRange, localDateKey } from '../dashboardPeriod';
+import { nombreCompletoUsuario } from '../teamDirectory';
+import { exportarListadoFiltradoExcel } from './BusinessModules';
 
 const money = value => `S/. ${Number(value || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const num = value => Number(value || 0);
@@ -51,7 +53,7 @@ function MiniBars({ items, moneyValues = true, empty = 'Sin datos para mostrar',
         return (
           <div className={`ed-bar-row ${onPick ? 'ed-bar-clickable' : ''}`} key={`${item.label}-${index}`} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(item.label) : undefined} onKeyDown={onPick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(item.label); } } : undefined} title={onPick ? `Ver proyectos: ${item.label}` : undefined}>
             <div className="ed-bar-head">
-              <span title={item.label}>{item.label}</span>
+              <span title={nombreCompletoUsuario(item.label, item.label)}>{nombreCompletoUsuario(item.label, item.label)}</span>
               <strong>{item.count !== undefined ? `${item.count} ${item.count === 1 ? 'proyecto' : 'proyectos'} · ` : ''}{moneyValues ? money(value) : value.toLocaleString('es-PE')}</strong>
             </div>
             <div className="ed-bar-track"><span style={{ width: `${value > 0 ? Math.max(3, (value / max) * 100) : 0}%` }} /></div>
@@ -72,12 +74,12 @@ function ExecutiveDonut({ items, onPick }) {
   const colors = { GONZALO: '#4675dd', MAR: '#26a578' };
   const fallback = ['#d19b49', '#9268bd', '#dc8076', '#5c9ca7'];
   return <div className="ed-executive-donut-wrap" aria-label="Participación porcentual del valor de proyectos por ejecutivo comercial">
-    <svg className="ed-executive-donut" viewBox="0 0 140 140" role="group" aria-label={positive.map(item => `${item.label}: ${(num(item.value) / total * 100).toFixed(1)} por ciento`).join(', ')}>
+    <svg className="ed-executive-donut" viewBox="0 0 140 140" role="group" aria-label={positive.map(item => `${nombreCompletoUsuario(item.label, item.label)}: ${(num(item.value) / total * 100).toFixed(1)} por ciento`).join(', ')}>
       <circle cx="70" cy="70" r={radius} fill="none" stroke="#e9f0ef" strokeWidth="19" />
       {positive.map((item, index) => {
         const arc = (num(item.value) / total) * circumference;
         const color = colors[String(item.label).toUpperCase()] || fallback[index % fallback.length];
-        const circle = <circle key={item.label} className={onPick ? 'ed-donut-clickable' : ''} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(item.label) : undefined} onKeyDown={onPick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(item.label); } } : undefined} cx="70" cy="70" r={radius} fill="none" stroke={color} strokeWidth="19" strokeDasharray={`${arc} ${circumference - arc}`} strokeDashoffset={-offset} transform="rotate(-90 70 70)" strokeLinecap="butt"><title>{item.label}: {(num(item.value) / total * 100).toFixed(1)}% · {money(item.value)}</title></circle>;
+        const circle = <circle key={item.label} className={onPick ? 'ed-donut-clickable' : ''} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(item.label) : undefined} onKeyDown={onPick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(item.label); } } : undefined} cx="70" cy="70" r={radius} fill="none" stroke={color} strokeWidth="19" strokeDasharray={`${arc} ${circumference - arc}`} strokeDashoffset={-offset} transform="rotate(-90 70 70)" strokeLinecap="butt"><title>{nombreCompletoUsuario(item.label, item.label)}: {(num(item.value) / total * 100).toFixed(1)}% · {money(item.value)}</title></circle>;
         offset += arc;
         return circle;
       })}
@@ -87,9 +89,9 @@ function ExecutiveDonut({ items, onPick }) {
     <div className="ed-executive-legend">
       {positive.map((item, index) => {
         const color = colors[String(item.label).toUpperCase()] || fallback[index % fallback.length];
-        return <div className={`ed-executive-legend-row ${onPick ? 'ed-bar-clickable' : ''}`} key={item.label} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(item.label) : undefined} onKeyDown={onPick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(item.label); } } : undefined} title={onPick ? `Ver proyectos de ${item.label}` : undefined}>
+        return <div className={`ed-executive-legend-row ${onPick ? 'ed-bar-clickable' : ''}`} key={item.label} role={onPick ? 'button' : undefined} tabIndex={onPick ? 0 : undefined} onClick={onPick ? () => onPick(item.label) : undefined} onKeyDown={onPick ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(item.label); } } : undefined} title={onPick ? `Ver proyectos de ${nombreCompletoUsuario(item.label, item.label)}` : undefined}>
           <span className="ed-exec-color" style={{ backgroundColor: color }} />
-          <div className="ed-exec-description"><strong>{item.label}</strong><small>{money(item.value)} · Valor sin IGV</small></div>
+          <div className="ed-exec-description"><strong>{nombreCompletoUsuario(item.label, item.label)}</strong><small>{money(item.value)} · Valor sin IGV</small></div>
           <b>{(num(item.value) / total * 100).toFixed(1)}%</b>
         </div>;
       })}
@@ -433,11 +435,58 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
     setFiltroLob('TODOS');
   };
 
+  const exportarDashboard = async () => {
+    try {
+      const periodoLabel = periodo === 'month' ? `${['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes - 1]} ${anio}`
+        : periodo === 'quarter' ? `Trimestre ${trimestre} · ${anio}`
+        : periodo === 'year' ? `Año ${anio}`
+        : periodo === 'all' ? 'Todo el historial'
+        : `${limites.desde || 'Sin fecha inicial'} → ${limites.hasta || 'Sin fecha final'}`;
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Dashboard Proyectos',
+        nombreArchivo: `FESTOS_DASHBOARD_PROYECTOS_${new Date().toISOString().slice(0, 10)}`,
+        filas: projects,
+        columnas: [
+          { header: 'Código', width: 20, value: p => p.codigo || '' },
+          { header: 'Fecha de pedido', width: 18, value: p => { const f = dateKey(projectDate(p)); return f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-PE') : ''; } },
+          { header: 'Proyecto', width: 40, value: p => p.nombre || '' },
+          { header: 'Cliente', width: 34, value: p => p.clientes?.nombre || data.clients.find(c => c.id === p.client_id)?.nombre || '' },
+          { header: 'Categoría', width: 30, value: p => categoriaDelProyecto(p) },
+          { header: 'Ejecutivo comercial', width: 25, value: p => nombreCompletoUsuario(p.ejecutivo || p.created_by || '', 'SIN REGISTRO') },
+          { header: 'Estado', width: 18, value: p => String(p.estado || '') },
+          { header: 'Valor venta', width: 18, type: 'money', value: p => projectValue(p) },
+          { header: 'Costo estimado', width: 18, type: 'money', value: p => projectCost(p) },
+          { header: 'Utilidad proyectada', width: 20, type: 'money', value: p => projectProfit(p) },
+          { header: 'Margen %', width: 14, align: 'right', value: p => projectValue(p) > 0 ? `${((projectProfit(p) / projectValue(p)) * 100).toFixed(1)}%` : '0.0%' }
+        ],
+        filtros: [
+          { label: 'Período', value: periodoLabel },
+          { label: 'Ejecutivo comercial', value: filtroEjecutivo, display: filtroEjecutivo === 'TODOS' ? 'Todos' : nombreCompletoUsuario(filtroEjecutivo, filtroEjecutivo) },
+          { label: 'Categoría', value: filtroLob }
+        ],
+        resumen: {
+          titulo: 'RESUMEN DEL DASHBOARD FILTRADO',
+          items: [
+            { label: 'Total de proyectos', value: projects.length },
+            { label: 'Valor de proyectos', value: valorProyectos, type: 'money' },
+            { label: 'Costo estimado', value: costoProyectos, type: 'money' },
+            { label: 'Utilidad proyectada', value: utilidadProyectos, type: 'money' },
+            { label: 'Margen proyectado', value: `${margenProyectos.toFixed(1)}%` }
+          ]
+        }
+      });
+      if (!ok) return;
+    } catch (error) {
+      console.error(error);
+      alert(`No se pudo generar el Excel del Dashboard. ${error?.message || ''}`);
+    }
+  };
+
   return (
     <div className="ed-page">
       {dashboardActivo === 'proyectos' && <section className="ed-welcome-compact">
         <div className="ed-welcome-mark">{String(usuario || 'F').slice(0,1).toUpperCase()}</div>
-        <div className="ed-welcome-copy"><span>FESTOS GESTIÓN EMPRESARIAL</span><h2>Bienvenido, {usuario || 'equipo FESTOS'}</h2><p>Tu centro de control reúne valor de proyectos, utilidad, entregas, ejecutivos y actividad comercial sin ocupar espacio innecesario.</p></div>
+        <div className="ed-welcome-copy"><span>FESTOS GESTIÓN EMPRESARIAL</span><h2>Bienvenido, {nombreCompletoUsuario(usuario, 'equipo FESTOS')}</h2><p>Tu centro de control reúne valor de proyectos, utilidad, entregas, ejecutivos y actividad comercial sin ocupar espacio innecesario.</p></div>
         <div className="ed-welcome-shortcuts"><button type="button" onClick={() => onOpenProjects({})}><FestosIcon name="FolderKanban" size={16}/> Proyectos</button><span><FestosIcon name="FileText" size={16}/> Cotizaciones conectadas</span><span><FestosIcon name="CalendarDays" size={16}/> Calendario global</span></div>
       </section>}
       <div className="ed-hero ed-general-hero">
@@ -448,7 +497,7 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
         </div>
         <div className="ed-hero-actions">
           
-          {dashboardActivo === 'proyectos' && <button className="ed-refresh" type="button" onClick={cargar}><FestosIcon name="RefreshCw" size={16} /> Actualizar</button>}
+          {dashboardActivo === 'proyectos' && <><button className="ed-dashboard-export" type="button" onClick={exportarDashboard}><FestosIcon name="Sheet" size={16} /> Exportar Excel</button><button className="ed-refresh" type="button" onClick={cargar}><FestosIcon name="RefreshCw" size={16} /> Actualizar</button></>}
         </div>
       </div>
 
@@ -469,7 +518,7 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
                   {periodo === 'month' && <select aria-label="Mes" value={mes} onChange={e => setMes(Number(e.target.value))}>{['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((nombre, i) => <option key={nombre} value={i+1}>{nombre}</option>)}</select>}
                   {periodo === 'quarter' && <select aria-label="Trimestre" value={trimestre} onChange={e => setTrimestre(Number(e.target.value))}>{[1,2,3,4].map(q => <option key={q} value={q}>Trimestre {q}</option>)}</select>}
                   {periodo === 'custom' && <><label className="ed-date-control">Desde <input aria-label="Desde" type="date" max={hasta || undefined} value={desde} onChange={e => setDesde(e.target.value)} /></label><label className="ed-date-control">Hasta <input aria-label="Hasta" type="date" min={desde || undefined} value={hasta} onChange={e => setHasta(e.target.value)} /></label></>}
-                  <select aria-label="Ejecutivo comercial" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Todos los ejecutivos comerciales</option>{ejecutivos.map(x => <option key={x} value={x}>{x}</option>)}</select>
+                  <select aria-label="Ejecutivo comercial" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Todos los ejecutivos comerciales</option>{ejecutivos.map(x => <option key={x} value={x}>{nombreCompletoUsuario(x, x)}</option>)}</select>
                   <select aria-label="Categoría de proyecto" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">Todas las categorías</option>{categoriasFiltro.map(x => <option key={x} value={x}>{x}</option>)}</select>
                   <button type="button" onClick={limpiar}>Limpiar filtros</button>
                 </div>

@@ -4712,3 +4712,305 @@ input:focus,select:focus,textarea:focus{
     max-width:80%!important;
   }
 }
+
+/* ============================================================
+   FESTOS V29.33.3 · COTIZACIONES — FILTROS CON ESPACIADO TIPO PROYECTOS
+   Cambio exclusivamente visual. No modifica lógica ni comportamiento.
+   ============================================================ */
+.quote-list-shell{
+  padding:18px 18px 20px;
+}
+
+.quote-list-shell .toolbar-search-row{
+  margin-bottom:18px;
+}
+
+.quote-list-shell .toolbar-search-row .search-input{
+  min-height:52px;
+  border-radius:14px;
+  padding-inline:16px;
+}
+
+.quote-list-shell .quote-filter-row{
+  display:grid;
+  grid-template-columns:minmax(330px,1.35fr) minmax(220px,.9fr) minmax(180px,.78fr) auto;
+  align-items:end;
+  gap:14px;
+  padding-top:2px;
+}
+
+.quote-list-shell .quote-filter-row .date-filter-group{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(145px,1fr));
+  gap:10px;
+  width:100%;
+  min-width:0;
+}
+
+.quote-list-shell .quote-filter-row .date-filter-group label{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+  min-width:0;
+  font-size:11px;
+  font-weight:800;
+  color:#66797d;
+  white-space:normal;
+}
+
+.quote-list-shell .quote-filter-row .date-filter-group input,
+.quote-list-shell .quote-filter-row > .business-payment-filter,
+.quote-list-shell .quote-filter-row > .quote-status-filter,
+.quote-list-shell .quote-filter-row > .btn-filter-clear{
+  min-height:48px;
+  border-radius:12px;
+}
+
+.quote-list-shell .quote-filter-row .date-filter-group input{
+  width:100%;
+  min-width:0;
+  padding-inline:12px;
+}
+
+.quote-list-shell .quote-filter-row > .business-payment-filter,
+.quote-list-shell .quote-filter-row > .quote-status-filter{
+  width:100%;
+  min-width:0;
+  max-width:none;
+  padding-inline:13px 36px;
+  font-size:13px;
+}
+
+.quote-list-shell .quote-filter-row > .btn-filter-clear{
+  margin-left:0;
+  padding:0 16px;
+  white-space:nowrap;
+  align-self:end;
+}
+
+@media (max-width:1180px) and (min-width:701px){
+  .quote-list-shell .quote-filter-row{
+    grid-template-columns:minmax(300px,1.25fr) minmax(200px,1fr) minmax(180px,.85fr);
+  }
+  .quote-list-shell .quote-filter-row > .btn-filter-clear{
+    grid-column:3;
+    width:100%;
+  }
+}
+
+@media (max-width:900px) and (min-width:701px){
+  .quote-list-shell .quote-filter-row{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .quote-list-shell .quote-filter-row .date-filter-group{
+    grid-column:1 / -1;
+  }
+  .quote-list-shell .quote-filter-row > .btn-filter-clear{
+    grid-column:auto;
+    width:100%;
+  }
+}
+
+@media (max-width:700px){
+  .quote-list-shell{
+    padding:14px;
+  }
+  .quote-list-shell .toolbar-search-row{
+    margin-bottom:14px;
+  }
+  .quote-list-shell .quote-filter-row{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+    width:100%;
+  }
+  .quote-list-shell .quote-filter-row .date-filter-group{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:9px;
+    width:100%!important;
+  }
+  .quote-list-shell .quote-filter-row > .business-payment-filter,
+  .quote-list-shell .quote-filter-row > .quote-status-filter,
+  .quote-list-shell .quote-filter-row > .btn-filter-clear{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+}
+
+@media (max-width:460px){
+  .quote-list-shell .quote-filter-row .date-filter-group{
+    grid-template-columns:1fr!important;
+  }
+}
+
+/* FESTOS V29.33.5 · Ajustes visuales de filtros y exportadores */
+.project-filter-subtotal-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+.project-filter-subtotal-row .project-export-btn{
+  flex:0 0 auto;
+  min-height:46px;
+  padding:10px 18px;
+  white-space:nowrap;
+}
+
+.quote-list-shell .quote-filter-row{
+  grid-template-columns:minmax(300px,1.25fr) minmax(260px,1fr) minmax(190px,.78fr) minmax(112px,auto);
+  gap:12px;
+}
+.quote-list-shell .quote-filter-row > .business-payment-filter{
+  min-width:260px;
+}
+.quote-filter-actions-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding-top:14px;
+  margin-top:14px;
+  border-top:1px solid rgba(34,66,72,.10);
+}
+.quote-filter-actions-row > span{
+  color:#6c7e82;
+  font-size:.86rem;
+  font-weight:700;
+}
+.quote-filter-actions-row .btn-export{
+  min-height:46px;
+  padding:10px 18px;
+  white-space:nowrap;
+}
+
+.ed-hero-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.ed-dashboard-export{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:42px;
+  padding:9px 15px;
+  border:0;
+  border-radius:12px;
+  background:#20c866;
+  color:#fff;
+  font:inherit;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(32,200,102,.18);
+  transition:transform .17s ease, box-shadow .17s ease, filter .17s ease;
+}
+.ed-dashboard-export:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 24px rgba(32,200,102,.23);
+  filter:saturate(1.05);
+}
+
+@media (max-width:1180px) and (min-width:701px){
+  .quote-list-shell .quote-filter-row{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .quote-list-shell .quote-filter-row .date-filter-group{
+    grid-column:1 / -1;
+  }
+  .quote-list-shell .quote-filter-row > .business-payment-filter{
+    min-width:0;
+  }
+}
+
+@media (max-width:700px){
+  .project-filter-subtotal-row,
+  .quote-filter-actions-row{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .project-filter-subtotal-row .project-export-btn,
+  .quote-filter-actions-row .btn-export{
+    width:100%;
+  }
+  .quote-list-shell .quote-filter-row > .business-payment-filter{
+    min-width:0;
+  }
+  .ed-hero-actions{
+    width:100%;
+  }
+  .ed-dashboard-export,
+  .ed-hero-actions .ed-refresh{
+    flex:1 1 150px;
+  }
+}
+
+/* ========================================================================
+   FESTOS V29.33.6 · CALENDARIO COMPARTIDO + ESTADOS DE COTIZACIÓN
+   ======================================================================== */
+
+/* Aviso breve de agenda al iniciar sesión */
+.agenda-login-toast{
+  position:fixed;
+  right:24px;
+  top:88px;
+  z-index:2400;
+  width:min(390px,calc(100vw - 28px));
+  padding:16px;
+  border:1px solid rgba(34,66,72,.14);
+  border-radius:20px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 24px 60px rgba(20,49,54,.20);
+  backdrop-filter:blur(18px);
+  animation:agendaToastIn .24s ease both;
+}
+@keyframes agendaToastIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+.agenda-login-toast-head{display:grid;grid-template-columns:42px minmax(0,1fr) 28px;align-items:center;gap:10px}
+.agenda-login-toast-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#224248,#2f6168);color:#fff;box-shadow:0 10px 22px rgba(34,66,72,.20)}
+.agenda-login-toast-head>div{display:flex;flex-direction:column;gap:2px;min-width:0}.agenda-login-toast-head strong{color:#24464c;font-size:14px}.agenda-login-toast-head small{color:#7a8b8e;font-size:10px;font-weight:750}
+.agenda-login-toast-head>button{width:28px;height:28px;border:0;border-radius:9px;background:#f1f5f4;color:#61777b;font-size:20px;line-height:1;cursor:pointer}
+.agenda-login-toast-list{display:flex;flex-direction:column;gap:8px;margin:13px 0 12px}.agenda-login-toast-list>div{display:grid;grid-template-columns:5px minmax(0,1fr);gap:9px;padding:8px 9px;border-radius:11px;background:#f6f9f8}.agenda-login-toast-list i{width:5px;height:100%;min-height:34px;border-radius:99px}.agenda-login-toast-list span{display:flex;flex-direction:column;gap:2px;min-width:0}.agenda-login-toast-list strong{font-size:11px;color:#294c52;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-login-toast-list small{font-size:9px;color:#76888b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-login-open{width:100%;min-height:38px;border:0;border-radius:11px;background:#224248;color:#fff;font-weight:850;cursor:pointer}
+@media(max-width:700px){.agenda-login-toast{right:14px;top:74px}}
+
+/* Las actividades terminadas se identifican automáticamente por fecha_fin. */
+.global-calendar-events>span.is-finished{
+  --event-color:#8b9698!important;
+  background:#eef1f1!important;
+  color:#748083!important;
+  border-left-color:#8b9698!important;
+  text-decoration:none;
+  opacity:.78;
+}
+.global-calendar-events>span.is-finished b{color:#6e797b!important}
+.calendar-detail-pills{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px}.calendar-detail-pills .calendar-type-pill{margin-bottom:0}.calendar-status-pill{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:950;letter-spacing:.06em}.calendar-status-pill.is-active{background:#e5f5eb;color:#26764c}.calendar-status-pill.is-finished{background:#edf0f0;color:#68777a}
+
+/* Cotizaciones: color de la tarjeta completa según estado.
+   Borrador = gris · En Revisión = naranja · Aprobado = verde */
+.quote-record-pro.quote-status-borrador{
+  background:linear-gradient(145deg,#f2f4f4,#e9eeee)!important;
+  border-color:#d5dddd!important;
+}
+.quote-record-pro.quote-status-revision{
+  background:linear-gradient(145deg,#fff0dc,#ffe5c2)!important;
+  border-color:#efc27d!important;
+}
+.quote-record-pro.quote-status-aprobado{
+  background:linear-gradient(145deg,#e6f6eb,#d8f0e1)!important;
+  border-color:#a9d5b9!important;
+}
+.quote-record-pro.quote-status-borrador:hover{border-color:#bec9c9!important}
+.quote-record-pro.quote-status-revision:hover{border-color:#e4ad55!important}
+.quote-record-pro.quote-status-aprobado:hover{border-color:#87c19c!important}
+.quote-record-pro.quote-status-borrador .quote-record-status .code-tag{background:#e0e5e5!important;color:#5d6b6e!important;border-color:#cbd3d3!important}
+.quote-record-pro.quote-status-revision .quote-record-status .code-tag{background:#ffe0ad!important;color:#965b08!important;border-color:#efc272!important}
+.quote-record-pro.quote-status-aprobado .quote-record-status .code-tag{background:#d4eddd!important;color:#1e7045!important;border-color:#add7bd!important}
+
+.app-shell[data-theme='dark'] .agenda-login-toast{background:rgba(21,43,47,.97);border-color:rgba(220,239,237,.10)}
+.app-shell[data-theme='dark'] .agenda-login-toast-head strong,.app-shell[data-theme='dark'] .agenda-login-toast-list strong{color:#edf7f6}.app-shell[data-theme='dark'] .agenda-login-toast-head small,.app-shell[data-theme='dark'] .agenda-login-toast-list small{color:#9db0b2}.app-shell[data-theme='dark'] .agenda-login-toast-list>div{background:#1c363a}.app-shell[data-theme='dark'] .agenda-login-toast-head>button{background:#254247;color:#dbe9e7}

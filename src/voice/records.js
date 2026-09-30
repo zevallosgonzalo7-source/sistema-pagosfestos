@@ -1,3 +1,4 @@
+import { nombreCompletoUsuario } from '../teamDirectory';
 import { supabase } from '../supabaseClient';
 import { parseRecordQuestion } from './recordIntents';
 
@@ -27,7 +28,7 @@ export async function answerRecordQuestion(question, permissions) {
   const row = data[0];
   if (intent.kind === 'project') {
     const value = Number(row.valor_base) > 0 ? Number(row.valor_base) : Number(row.valor_venta || 0);
-    return `Proyecto ${slim(row.nombre)}, código ${slim(row.codigo || 'sin código')}. Estado ${slim(row.estado || 'sin estado')}. Ejecutivo comercial ${slim(row.ejecutivo || 'no asignado')}. Categoría ${slim(row.lob || 'no asignada')}. Fecha de pedido ${slim(row.fecha_pedido || 'no registrada')}. Valor sin IGV ${pen(value)}. Costo estimado ${pen(row.costo_estimado)}. Utilidad proyectada ${row.utilidad_proyectada == null ? 'no registrada' : pen(row.utilidad_proyectada)}.`;
+    return `Proyecto ${slim(row.nombre)}, código ${slim(row.codigo || 'sin código')}. Estado ${slim(row.estado || 'sin estado')}. Ejecutivo comercial ${slim(nombreCompletoUsuario(row.ejecutivo || '', 'no asignado'))}. Categoría ${slim(row.lob || 'no asignada')}. Fecha de pedido ${slim(row.fecha_pedido || 'no registrada')}. Valor sin IGV ${pen(value)}. Costo estimado ${pen(row.costo_estimado)}. Utilidad proyectada ${row.utilidad_proyectada == null ? 'no registrada' : pen(row.utilidad_proyectada)}.`;
   }
   if (intent.kind === 'quote') return `Cotización ${slim(row.codigo || 'sin código')} para ${slim(row.proyecto_nombre || 'proyecto sin nombre')}. Estado ${slim(row.estado || 'sin estado')}. Categoría ${slim(row.lob || 'no asignada')}. Subtotal sin IGV ${pen(row.subtotal)}. Total con IGV ${pen(row.total)}.`;
   if (intent.kind === 'client') return `Cliente ${slim(row.nombre)}. Documento ${slim(row.ruc || 'no registrado')}. Condición de pago ${slim(row.tipo_pago || 'no registrada')}.`;

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { jsPDF } from 'jspdf';
 import { FestosIcon } from '../FestosIcon';
 import { CATEGORIAS_FESTOS, categoriaAnterior, CATEGORIA_PENDIENTE, categoriaDelProyecto, categoriaActual } from '../categories';
+import { nombreCompletoUsuario } from '../teamDirectory';
 
 const IGV_RATE = 0.18;
 const money = (v) => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(v) || 0)}`;
@@ -211,6 +212,157 @@ const xlsxBaseFiles = (sheet1, sheet2) => [
   { name: 'xl/worksheets/sheet2.xml', content: sheet2 }
 ];
 
+
+export const exportarListadoFiltradoExcel = async ({ nombreModulo, nombreArchivo, columnas, filas, filtros = [], resumen = null }) => {
+  if (!Array.isArray(filas) || filas.length === 0) {
+    alert(`No hay ${nombreModulo.toLowerCase()} para exportar con los filtros actuales.`);
+    return false;
+  }
+
+  const ExcelJSModule = await import('exceljs/dist/exceljs.min.js');
+  const ExcelJS = ExcelJSModule.default || ExcelJSModule;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'FESTOS Gestión Empresarial';
+  wb.company = 'MARKETING POWER SAC';
+  wb.created = new Date();
+
+  const ws = wb.addWorksheet(nombreModulo, {
+    views: [{ showGridLines: false }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+  });
+
+  const dark = 'FF111111';
+  const lime = 'FFE7EB48';
+  const gray = 'FFD9D9D9';
+  const white = 'FFFFFFFF';
+  const soft = 'FFF4F4F4';
+  const moneyFmt = '"S/ "#,##0.00';
+  const border = {
+    top: { style: 'thin', color: { argb: gray } },
+    left: { style: 'thin', color: { argb: gray } },
+    bottom: { style: 'thin', color: { argb: gray } },
+    right: { style: 'thin', color: { argb: gray } }
+  };
+
+  ws.columns = columnas.map(col => ({ width: col.width || 18 }));
+  const lastCol = columnas.length;
+  const lastColLetter = xlsxColName(lastCol);
+
+  ws.mergeCells(`A1:B2`);
+  if (lastCol >= 5) ws.mergeCells(`C1:${xlsxColName(Math.max(3, lastCol - 2))}2`);
+  if (lastCol >= 3) ws.mergeCells(`${xlsxColName(Math.max(3, lastCol - 1))}1:${lastColLetter}2`);
+  ws.getCell('A1').value = 'MARKETING POWER SAC';
+  ws.getCell('C1').value = nombreModulo.toUpperCase();
+  ws.getCell(`${xlsxColName(Math.max(3, lastCol - 1))}1`).value = 'FESTOS';
+  ['A1', 'C1', `${xlsxColName(Math.max(3, lastCol - 1))}1`].forEach(addr => {
+    const c = ws.getCell(addr);
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
+    c.font = { bold: true, size: 16, color: { argb: dark } };
+    c.alignment = { vertical: 'middle', horizontal: addr === 'A1' ? 'left' : 'center' };
+  });
+  ws.getRow(1).height = 24;
+  ws.getRow(2).height = 24;
+
+  try {
+    let logoResponse = await fetch('/logo-festos.png');
+    if (!logoResponse.ok) logoResponse = await fetch('/festoslogo-header.png');
+    if (logoResponse.ok) {
+      const logoBuffer = await logoResponse.arrayBuffer();
+      const imageId = wb.addImage({ buffer: logoBuffer, extension: 'png' });
+      ws.addImage(imageId, {
+        tl: { col: Math.max(0, lastCol - 2.15), row: 0.08 },
+        ext: { width: 112, height: 42 },
+        editAs: 'oneCell'
+      });
+    }
+  } catch (logoError) {
+    console.warn('No se pudo insertar el logo de FESTOS en el Excel:', logoError);
+  }
+
+  const headerRow = 4;
+  columnas.forEach((col, index) => {
+    const cell = ws.getCell(headerRow, index + 1);
+    cell.value = col.header;
+    cell.font = { bold: true, color: { argb: white } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: dark } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = border;
+  });
+  ws.getRow(headerRow).height = 25;
+
+  filas.forEach((fila, rowIndex) => {
+    const row = headerRow + 1 + rowIndex;
+    columnas.forEach((col, colIndex) => {
+      const cell = ws.getCell(row, colIndex + 1);
+      const value = typeof col.value === 'function' ? col.value(fila) : fila[col.key];
+      cell.value = value ?? '';
+      cell.border = border;
+      cell.alignment = { vertical: 'middle', wrapText: true, shrinkToFit: false, horizontal: col.align || (col.type === 'money' ? 'right' : 'left') };
+      if (col.type === 'money' && Number.isFinite(Number(value))) cell.numFmt = moneyFmt;
+      if (rowIndex % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: soft } };
+    });
+    // Sin altura fija: Excel ajusta automáticamente filas con textos largos.
+  });
+
+  let cursor = headerRow + filas.length + 2;
+  if (resumen) {
+    ws.mergeCells(`A${cursor}:${lastColLetter}${cursor}`);
+    const title = ws.getCell(`A${cursor}`);
+    title.value = resumen.titulo || 'RESUMEN';
+    title.font = { bold: true, color: { argb: dark } };
+    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
+    cursor += 1;
+    (resumen.items || []).forEach(item => {
+      ws.getCell(`A${cursor}`).value = item.label;
+      ws.getCell(`A${cursor}`).font = { bold: true };
+      ws.getCell(`B${cursor}`).value = item.value;
+      if (item.type === 'money') ws.getCell(`B${cursor}`).numFmt = moneyFmt;
+      cursor += 1;
+    });
+    cursor += 1;
+  }
+
+  ws.mergeCells(`A${cursor}:${lastColLetter}${cursor}`);
+  const filtersTitle = ws.getCell(`A${cursor}`);
+  filtersTitle.value = 'FILTROS APLICADOS';
+  filtersTitle.font = { bold: true, color: { argb: dark } };
+  filtersTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
+  cursor += 1;
+
+  const filtrosVisibles = filtros.filter(item => item && item.value && item.value !== 'TODOS' && item.value !== 'TODAS' && item.value !== '');
+  if (filtrosVisibles.length === 0) {
+    ws.getCell(`A${cursor}`).value = 'Sin filtros adicionales';
+    ws.getCell(`B${cursor}`).value = 'Todos los registros visibles';
+    cursor += 1;
+  } else {
+    filtrosVisibles.forEach(item => {
+      ws.getCell(`A${cursor}`).value = item.label;
+      ws.getCell(`A${cursor}`).font = { bold: true };
+      ws.getCell(`B${cursor}`).value = item.display ?? item.value;
+      cursor += 1;
+    });
+  }
+
+  ws.getCell(`A${cursor}`).value = 'Registros exportados';
+  ws.getCell(`A${cursor}`).font = { bold: true };
+  ws.getCell(`B${cursor}`).value = filas.length;
+  ws.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: headerRow + filas.length, column: lastCol } };
+  ws.pageSetup.printArea = `A1:${lastColLetter}${cursor}`;
+  ws.headerFooter.oddFooter = '&LGenerado desde FESTOS&C&C&R&P / &N';
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${nombreArchivo}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return true;
+};
+
 export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
   const [clientes, setClientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -245,6 +397,34 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
         (filtroPago === 'TODAS' || String(c.tipo_pago || '').toUpperCase() === filtroPago); 
     });
   }, [clientes, busqueda, fechaDesde, fechaHasta, filtroPago]);
+
+  const exportarClientes = async () => {
+    try {
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Clientes',
+        nombreArchivo: `FESTOS_CLIENTES_${new Date().toISOString().slice(0, 10)}`,
+        filas: filtrados,
+        columnas: [
+          { header: 'Código', width: 16, value: c => c.codigo || '' },
+          { header: 'Cliente / Razón Social', width: 34, value: c => c.nombre || '' },
+          { header: 'Tipo documento', width: 16, value: c => c.tipo_documento || '' },
+          { header: 'N° DOC', width: 18, value: c => c.ruc || '' },
+          { header: 'Categoría', width: 22, value: c => c.categoria || '' },
+          { header: 'Condición de pago', width: 20, value: c => String(c.tipo_pago || '').toUpperCase() },
+          { header: 'Plazo (días)', width: 14, align: 'right', value: c => Number(c.plazo_dias) || 0 },
+          { header: 'Estado', width: 12, value: c => c.estado ? 'Activo' : 'Inactivo' },
+          { header: 'Fecha de registro', width: 18, value: c => c.created_at ? new Date(c.created_at).toLocaleDateString('es-PE') : '' }
+        ],
+        filtros: [
+          { label: 'Búsqueda', value: busqueda },
+          { label: 'Desde', value: fechaDesde },
+          { label: 'Hasta', value: fechaHasta },
+          { label: 'Condición de pago', value: filtroPago }
+        ]
+      });
+      if (ok) { onNotify(`Excel de Clientes generado · ${filtrados.length} registros`, 'nuevo'); onAudit('Exportación', `Clientes · ${filtrados.length} registros filtrados`); }
+    } catch (error) { console.error(error); alert(`No se pudo generar el Excel de Clientes. ${error?.message || ''}`); }
+  };
 
   const abrirNuevo = () => {
     setEditando(null); setForm(emptyClient); setContactos([]); setContactoForm(emptyClientContact); setMostrarContactoForm(false); setModalAbierto(true);
@@ -380,6 +560,37 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
     });
   }, [proveedores, busqueda, fechaDesde, fechaHasta, filtroPago, filtroCategoria]);
 
+  const exportarProveedores = async () => {
+    try {
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Proveedores',
+        nombreArchivo: `FESTOS_PROVEEDORES_${new Date().toISOString().slice(0, 10)}`,
+        filas: filtrados,
+        columnas: [
+          { header: 'Código', width: 16, value: p => p.codigo || '' },
+          { header: 'Razón social', width: 34, value: p => p.nombre || '' },
+          { header: 'Categoría', width: 20, value: p => p.categoria || '' },
+          { header: 'Producto / Servicio', width: 34, value: p => p.productos || '' },
+          { header: 'Teléfono', width: 18, value: p => p.telefono || '' },
+          { header: 'Contacto', width: 24, value: p => p.contacto_nombre || '' },
+          { header: 'Condición de pago', width: 20, value: p => String(p.condicion_pago || '').toUpperCase() },
+          { header: 'Plazo (días)', width: 14, align: 'right', value: p => Number(p.plazo_dias) || 0 },
+          { header: 'Estado', width: 12, value: p => p.estado ? 'Activo' : 'Inactivo' },
+          { header: 'Observaciones', width: 34, value: p => p.observaciones || '' },
+          { header: 'Fecha de registro', width: 18, value: p => p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '' }
+        ],
+        filtros: [
+          { label: 'Búsqueda', value: busqueda },
+          { label: 'Desde', value: fechaDesde },
+          { label: 'Hasta', value: fechaHasta },
+          { label: 'Categoría', value: filtroCategoria },
+          { label: 'Condición de pago', value: filtroPago }
+        ]
+      });
+      if (ok) { onNotify(`Excel de Proveedores generado · ${filtrados.length} registros`, 'nuevo'); onAudit('Exportación', `Proveedores · ${filtrados.length} registros filtrados`); }
+    } catch (error) { console.error(error); alert(`No se pudo generar el Excel de Proveedores. ${error?.message || ''}`); }
+  };
+
   const abrirNuevo = () => { setEditando(null); setForm(emptyProveedor); setContactos([]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); setModalAbierto(true); };
   const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ ...emptyProveedor, ...p, condicion_pago: String(p.condicion_pago || 'CONTADO').toUpperCase(), plazo_dias: Number(p.plazo_dias) || 0 }); setContactos([]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); setModalAbierto(true); (async () => { const { data } = await supabase.from('proveedor_contactos').select('*').eq('proveedor_id', p.id).order('created_at'); setContactos(data || []); })(); };
   const guardar = async e => {
@@ -488,7 +699,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
     setFechaDesde(filtroDesdeDashboard.desde || '');
     setFechaHasta(filtroDesdeDashboard.hasta || '');
     setFiltroEstado(filtroDesdeDashboard.estado || 'TODOS');
-    setFiltroCargador(filtroDesdeDashboard.ejecutivo || 'TODOS');
+    setFiltroCargador(String(filtroDesdeDashboard.ejecutivo || 'TODOS').trim().toUpperCase());
     setFiltroLob(filtroDesdeDashboard.categoria || 'TODOS');
     setFiltroEntrega(filtroDesdeDashboard.entrega || 'TODOS');
     setFiltrosMovilAbiertos(true); // El usuario ve los filtros aplicados desde el Dashboard.
@@ -534,7 +745,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
     if (propio > 0) return propio;
     return num(quoteForProject(p)?.subtotal);
   };
-  const ejecutivoProyecto = p => String(p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || '').trim() || 'Sin registro';
+  const ejecutivoProyecto = p => String(p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || '').trim().toUpperCase() || 'SIN REGISTRO';
   const fechaProyecto = p => String(p?.fecha_pedido || p?.created_at || '').slice(0, 10);
 
   const filtrados = useMemo(() => proyectos.filter(p => {
@@ -566,6 +777,45 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
   const fechasHabilitadas = proyectos.some(p => Object.prototype.hasOwnProperty.call(p, 'fecha_entrega'));
   const fechaPedidoHabilitada = proyectos.some(p => Object.prototype.hasOwnProperty.call(p, 'fecha_pedido'));
 
+  const exportarProyectos = async () => {
+    try {
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Proyectos',
+        nombreArchivo: `FESTOS_PROYECTOS_${new Date().toISOString().slice(0, 10)}`,
+        filas: filtrados,
+        columnas: [
+          { header: 'Código', width: 18, value: p => p.codigo || '' },
+          { header: 'Proyecto', width: 36, value: p => p.nombre || '' },
+          { header: 'Cliente', width: 30, value: p => p.clientes?.nombre || '' },
+          { header: 'Categoría', width: 28, value: p => categoriaDelProyecto(p) },
+          { header: 'Ejecutivo comercial', width: 25, value: p => nombreCompletoUsuario(ejecutivoProyecto(p), 'SIN REGISTRO') },
+          { header: 'Estado', width: 16, value: p => normalizarEstado(p.estado) },
+          { header: 'Fecha de pedido', width: 18, value: p => fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '' },
+          { header: 'Fecha de entrega', width: 18, value: p => p.fecha_entrega ? new Date(`${String(p.fecha_entrega).slice(0,10)}T12:00:00`).toLocaleDateString('es-PE') : '' },
+          { header: 'Valor venta', width: 18, type: 'money', value: p => valorVenta(p) },
+          { header: 'Descripción', width: 42, value: p => p.descripcion || '' }
+        ],
+        filtros: [
+          { label: 'Búsqueda', value: busqueda },
+          { label: 'Desde', value: fechaDesde },
+          { label: 'Hasta', value: fechaHasta },
+          { label: 'Estado', value: filtroEstado },
+          { label: 'Ejecutivo comercial', value: filtroCargador, display: filtroCargador === 'TODOS' ? 'Todos' : nombreCompletoUsuario(filtroCargador, filtroCargador) },
+          { label: 'Categoría', value: filtroLob },
+          { label: 'Entrega', value: filtroEntrega, display: filtroEntrega === 'VENCIDOS' ? 'Entregas vencidas' : filtroEntrega === 'PROXIMOS_7' ? 'Próximos 7 días' : filtroEntrega }
+        ],
+        resumen: {
+          titulo: 'RESUMEN DE PROYECTOS FILTRADOS',
+          items: [
+            { label: 'Total de proyectos', value: filtrados.length },
+            { label: 'Valor venta filtrado', value: subtotalFiltrado, type: 'money' }
+          ]
+        }
+      });
+      if (ok) { onNotify(`Excel de Proyectos generado · ${filtrados.length} registros`, 'nuevo'); onAudit('Exportación', `Proyectos · ${filtrados.length} registros filtrados · ${money(subtotalFiltrado)}`); }
+    } catch (error) { console.error(error); alert(`No se pudo generar el Excel de Proyectos. ${error?.message || ''}`); }
+  };
+
   const abrirNuevo = () => { setEditando(null); setForm(emptyProject); setModalAbierto(true); };
   useEffect(() => { if (solicitudNuevo && puedeGestionar) { abrirNuevo(); onConsumirNuevo(); } }, [solicitudNuevo]);
   const lastProjectVoiceId = useRef(null);
@@ -593,7 +843,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
   const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ valor_venta: p.valor_base ?? p.valor_venta ?? '', nombre: p.nombre, descripcion: p.descripcion || '', estado: normalizarEstado(p.estado), client_id: p.client_id || '', ejecutivo: p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || 'GONZALO', lob: p.lob || quoteForProject(p)?.lob || '', fecha_pedido: p.fecha_pedido || '', fecha_inicio: p.fecha_inicio || '', fecha_entrega: p.fecha_entrega || '' }); setModalAbierto(true); };
   const puedeEliminarProyecto = String(usuario || '').trim().toLowerCase() === 'gonzalo';
   const eliminarProyecto = async p => {
-    if (!puedeEliminarProyecto) return alert('Solo GONZALO puede eliminar proyectos.');
+    if (!puedeEliminarProyecto) return alert('Solo GONZALO VILLAVICENCIO puede eliminar proyectos.');
     const ok = window.confirm(`¿Eliminar el proyecto ${p.nombre}?\n\nEsta acción no se puede deshacer.`);
     if (!ok) return;
     setMenuAbierto(null); setCargando(true);
@@ -636,12 +886,12 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
       <div className={`toolbar-filter-row project-filter-row ${filtrosMovilAbiertos ? "project-filters-open" : "project-filters-collapsed"}`}>
         <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div>
         <select className="business-payment-filter" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}><option value="TODOS">Estado: Todos</option>{estadosProyecto.map(estado => <option key={estado} value={estado}>{estado}</option>)}</select>
-        <select className="business-payment-filter" value={filtroCargador} onChange={e => setFiltroCargador(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{cargadores.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select>
+        <select className="business-payment-filter" value={filtroCargador} onChange={e => setFiltroCargador(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{cargadores.map(persona => <option key={persona} value={persona}>{nombreCompletoUsuario(persona, persona)}</option>)}</select>
         <select className="business-payment-filter" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">Categoría: Todas</option>{categoriasProyectoFiltro.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select>
         {filtroEntrega !== 'TODOS' && <span className="project-delivery-tag">{filtroEntrega === 'VENCIDOS' ? 'Entregas vencidas' : 'Entregas en los próximos 7 días'}</span>}
         <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEstado('TODOS'); setFiltroCargador('TODOS'); setFiltroLob('TODOS'); setFiltroEntrega('TODOS'); }}>Limpiar filtros</button>
       </div>
-      <div className="project-filter-subtotal-row"><div className="project-filter-total"><span>Valor venta filtrado</span><strong>{money(subtotalFiltrado)}</strong></div></div>
+      <div className="project-filter-subtotal-row"><div className="project-filter-total"><span>Valor venta filtrado</span><strong>{money(subtotalFiltrado)}</strong></div><button type="button" className="btn-export project-export-btn" onClick={exportarProyectos}><FestosIcon name="Sheet" size={16} /> Exportar Excel</button></div>
     </div>
     <div className="business-record-list">
       {filtrados.length === 0 ? <p className="empty-hint">No hay proyectos con los filtros actuales.</p> : filtrados.map(p => {
@@ -655,7 +905,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
           <div className="business-pro-main">
             <div className="business-identity">
               <span className={`business-status-dot project-dot-${estado.toLowerCase().replace(/\s+/g, '-')}`} />
-              <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{estado}</span><span>•</span><span>Ejecutivo comercial · {ejecutivo}</span></div></div>
+              <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{estado}</span><span>•</span><span>Ejecutivo comercial · {nombreCompletoUsuario(ejecutivo, ejecutivo)}</span></div></div>
             </div>
             <div className="business-date-value"><span>Valor venta</span><strong>{money(venta)}</strong><small>Pedido · {fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</small></div>
             <div className="business-menu-wrap">
@@ -669,7 +919,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
           </div>
           <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
           {abierto && <div className="business-detail-grid">
-            <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>Categoría</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Ejecutivo comercial</span><strong>{ejecutivo}</strong></div><div><span>Fecha de pedido</span><strong>{fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</strong></div>
+            <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>Categoría</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Ejecutivo comercial</span><strong>{nombreCompletoUsuario(ejecutivo, ejecutivo)}</strong></div><div><span>Fecha de pedido</span><strong>{fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</strong></div>
             {fechasHabilitadas && <div><span>Fecha de entrega</span><strong>{p.fecha_entrega || 'Sin registrar'}</strong></div>}<div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>
             {q && <div className="business-detail-wide project-quote-summary"><span>Cotización vinculada</span><strong>{q.codigo} · {q.estado} · Categoría: {q.lob || '—'} · Valor venta {money(q.subtotal)}</strong><small>{q.descripcion || 'Sin notas adicionales.'}</small></div>}
           </div>}
@@ -682,7 +932,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
         <div className="form-row"><label>Cliente *</label><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value })} required><option value="">Selecciona un cliente...</option>{clientes.filter(c => c.estado).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></div>
         <div className="form-row"><label>Nombre del proyecto *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div>
         <div className="form-row"><label>Descripción</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} /></div><div className="form-row"><label>Valor venta (S/.)</label><input type="number" min="0" step="0.01" value={form.valor_venta ?? ''} onChange={e => setForm({ ...form, valor_venta: e.target.value })} placeholder="Opcional; monto sin IGV" /><small>Se guarda sin IGV. Si lo dejas vacío, se conserva el valor existente o se toma el de su cotización.</small></div>
-        <div className="form-grid-2"><div className="form-row"><label>Estado</label><select value={normalizarEstado(form.estado)} onChange={e => setForm({ ...form, estado: e.target.value })}>{estadosProyecto.map(estado => <option key={estado}>{estado}</option>)}</select></div><div className="form-row"><label>Ejecutivo comercial *</label><select value={form.ejecutivo || 'GONZALO'} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="MAR">MAR</option><option value="GONZALO">GONZALO</option></select></div></div>{fechaPedidoHabilitada && <div className="form-row"><label>Fecha de pedido</label><input type="date" value={form.fecha_pedido || ''} onChange={e => setForm({ ...form, fecha_pedido: e.target.value })}/><small>Esta es la fecha comercial que usa Proyectos y Dashboard. Para los históricos proviene del Excel.</small></div>}<div className="form-row"><label>Categoría *</label><select value={form.lob || ''} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{lobsProyecto.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div>
+        <div className="form-grid-2"><div className="form-row"><label>Estado</label><select value={normalizarEstado(form.estado)} onChange={e => setForm({ ...form, estado: e.target.value })}>{estadosProyecto.map(estado => <option key={estado}>{estado}</option>)}</select></div><div className="form-row"><label>Ejecutivo comercial *</label><select value={form.ejecutivo || 'GONZALO'} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="MAR">MARJORIE MUÑOZ</option><option value="GONZALO">GONZALO VILLAVICENCIO</option></select></div></div>{fechaPedidoHabilitada && <div className="form-row"><label>Fecha de pedido</label><input type="date" value={form.fecha_pedido || ''} onChange={e => setForm({ ...form, fecha_pedido: e.target.value })}/><small>Esta es la fecha comercial que usa Proyectos y Dashboard. Para los históricos proviene del Excel.</small></div>}<div className="form-row"><label>Categoría *</label><select value={form.lob || ''} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{lobsProyecto.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div>
         {fechasHabilitadas && <div className="form-grid-2"><div className="form-row"><label>Fecha de entrega</label><input type="date" min={form.fecha_pedido || undefined} value={form.fecha_entrega || ''} onChange={e => setForm({ ...form, fecha_entrega: e.target.value })}/></div></div>}{!fechasHabilitadas && <p className="panel-note">Las fechas de entrega estarán disponibles después de ejecutar la migración opcional V28 de Supabase.</p>}<div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proyecto'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
       </form>
     </div>}
@@ -1187,8 +1437,8 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
       const proyecto = q.proyectos || {};
       const projectName = q.proyecto_nombre || proyecto.nombre || '';
       const updated = q.updated_at ? new Date(q.updated_at).toLocaleString('es-PE') : '';
-      const createdBy = q.created_by || '';
-      const updatedBy = q.updated_by || createdBy;
+      const createdBy = nombreCompletoUsuario(q.created_by || '', '');
+      const updatedBy = nombreCompletoUsuario(q.updated_by || q.created_by || '', createdBy);
       const mode = q.modo || itemList[0]?.modo || 'detallado';
       const excelCosto = itemList.reduce((sum, it) => sum + num(it.costo), 0);
       const excelValorVenta = itemList.reduce((sum, it) => sum + num(it.valor_total), 0);
@@ -1379,9 +1629,55 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
   const guardarClienteRapido = async e => { e.preventDefault(); if (!puedeCrearCliente) { setNuevoCliente(false); return alert('Solo HEAD ADMIN, ADMIN y DESARROLLADOR SOFTWARE pueden registrar clientes.'); } if (!clienteRapido.nombre.trim() || !clienteRapido.ruc.trim()) return; const payload = { ...clienteRapido, nombre: clienteRapido.nombre.trim(), ruc: clienteRapido.ruc.trim(), plazo_dias: clienteRapido.tipo_pago === 'Contado' ? 0 : Math.trunc(num(clienteRapido.plazo_dias)), id: id() }; const { error } = await supabase.from('clientes').insert([payload]); if (error) return alert(`No se pudo registrar el cliente. ${error.message}`); onNotify(`Nuevo cliente registrado: ${payload.nombre}`, 'nuevo'); onAudit('Creación', `Cliente creado desde Cotizaciones · ${payload.nombre}`); setNuevoCliente(false); setClienteRapido(emptyClient); await cargarDatos(); setForm(prev => ({ ...prev, client_id: payload.id })); };
   const ejecutivoCotizacion = q => String(q.ejecutivo || q.created_by || '').trim().toUpperCase() || 'SIN REGISTRO';
   const ejecutivosCotizacion = [...new Set(cotizaciones.map(ejecutivoCotizacion).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-  const filtradas = cotizaciones.filter(q => { if (filtro !== 'todas' && q.estado !== filtro) return false; const ejecutivo = ejecutivoCotizacion(q); const text = `${q.codigo} ${q.clientes?.nombre || ''} ${q.proyectos?.nombre || ''} ${q.proyecto_nombre || ''} ${q.descripcion || ''} ${ejecutivo}`.toLowerCase(); const fecha = q.created_at ? q.created_at.slice(0, 10) : ''; return (!busqueda.trim() || text.includes(busqueda.toLowerCase())) && (!fechaDesde || (fecha && fecha >= fechaDesde)) && (!fechaHasta || (fecha && fecha <= fechaHasta)) && (filtroEjecutivo === 'TODOS' || ejecutivo === filtroEjecutivo); });
+  const filtradas = cotizaciones.filter(q => { if (filtro !== 'todas' && q.estado !== filtro) return false; const ejecutivo = ejecutivoCotizacion(q); const text = `${q.codigo} ${q.clientes?.nombre || ''} ${q.proyectos?.nombre || ''} ${q.proyecto_nombre || ''} ${q.descripcion || ''} ${ejecutivo} ${nombreCompletoUsuario(ejecutivo, ejecutivo)}`.toLowerCase(); const fecha = q.created_at ? q.created_at.slice(0, 10) : ''; return (!busqueda.trim() || text.includes(busqueda.toLowerCase())) && (!fechaDesde || (fecha && fecha >= fechaDesde)) && (!fechaHasta || (fecha && fecha <= fechaHasta)) && (filtroEjecutivo === 'TODOS' || ejecutivo === filtroEjecutivo); });
+  const exportarCotizacionesFiltradas = async () => {
+    try {
+      const totalValorVenta = filtradas.reduce((sum, q) => sum + num(q.subtotal), 0);
+      const totalCosto = filtradas.reduce((sum, q) => sum + num(q.costo_estimado), 0);
+      const totalUtilidad = filtradas.reduce((sum, q) => sum + num(q.ganancia_estimada), 0);
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Cotizaciones',
+        nombreArchivo: `FESTOS_COTIZACIONES_${new Date().toISOString().slice(0, 10)}`,
+        filas: filtradas,
+        columnas: [
+          { header: 'Código', width: 20, value: q => q.codigo || '' },
+          { header: 'Fecha', width: 15, value: q => q.created_at ? new Date(q.created_at).toLocaleDateString('es-PE') : '' },
+          { header: 'Cliente', width: 34, value: q => q.clientes?.nombre || '' },
+          { header: 'Proyecto', width: 38, value: q => q.proyecto_nombre || q.proyectos?.nombre || '' },
+          { header: 'Categoría', width: 28, value: q => q.lob || '' },
+          { header: 'Ejecutivo comercial', width: 25, value: q => nombreCompletoUsuario(ejecutivoCotizacion(q), 'SIN REGISTRO') },
+          { header: 'Estado', width: 18, value: q => q.estado || '' },
+          { header: 'Valor venta', width: 18, type: 'money', value: q => num(q.subtotal) },
+          { header: 'Precio venta', width: 18, type: 'money', value: q => num(q.total) },
+          { header: 'Costo', width: 18, type: 'money', value: q => num(q.costo_estimado) },
+          { header: 'Utilidad', width: 18, type: 'money', value: q => num(q.ganancia_estimada) },
+          { header: 'Margen %', width: 14, align: 'right', value: q => `${num(q.margen).toFixed(1)}%` }
+        ],
+        filtros: [
+          { label: 'Búsqueda', value: busqueda },
+          { label: 'Desde', value: fechaDesde },
+          { label: 'Hasta', value: fechaHasta },
+          { label: 'Ejecutivo comercial', value: filtroEjecutivo, display: filtroEjecutivo === 'TODOS' ? 'Todos' : nombreCompletoUsuario(filtroEjecutivo, filtroEjecutivo) },
+          { label: 'Estado', value: filtro === 'todas' ? 'TODOS' : filtro }
+        ],
+        resumen: {
+          titulo: 'RESUMEN DE COTIZACIONES FILTRADAS',
+          items: [
+            { label: 'Total de cotizaciones', value: filtradas.length },
+            { label: 'Valor venta filtrado', value: totalValorVenta, type: 'money' },
+            { label: 'Costo estimado', value: totalCosto, type: 'money' },
+            { label: 'Utilidad proyectada', value: totalUtilidad, type: 'money' }
+          ]
+        }
+      });
+      if (ok) { onNotify(`Excel de Cotizaciones generado · ${filtradas.length} registros`, 'nuevo'); onAudit('Exportación', `Cotizaciones · ${filtradas.length} registros filtrados`); }
+    } catch (error) {
+      console.error(error);
+      alert(`No se pudo generar el Excel filtrado de Cotizaciones. ${error?.message || ''}`);
+    }
+  };
   const badge = estado => estado === 'En Revisión' ? 'tag-paid' : estado === 'Aprobado' ? 'tag-approval' : 'tag-pending';
-  if (vista === 'form') return <div><div className="section-header"><div><h3 className="section-title">{editando ? <><FestosIcon name="Pencil" size={21} /> Editar Cotización</> : <><FestosIcon name="FileText" size={21} /> Nueva Cotización</>}</h3><p className="panel-note">Cliente, proyecto obligatorio, ítems y control de rentabilidad.</p></div><button className="btn-secondary" onClick={reset}><FestosIcon name="ArrowLeft" size={16} /> Volver</button></div><div className="glass-card form-card"><div className="form-grid-2"><div className="form-row"><label>Cliente *</label><div className="select-with-action"><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value, project_id: '' })} required><option value="">Selecciona un cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.ruc}</option>)}</select>{puedeCrearCliente && <button type="button" className="btn-muted" onClick={() => setNuevoCliente(v => !v)}><FestosIcon name="Plus" size={15} /> Cliente</button>}</div></div><div className="form-row"><label>Proyecto</label><div className="select-with-action"><select value={form.project_id} disabled={!form.usar_proyecto || !form.client_id} onChange={e => setForm({ ...form, project_id: e.target.value })}><option value="">{form.usar_proyecto ? (form.client_id ? 'Selecciona un proyecto...' : 'Primero selecciona cliente') : 'Proyecto no asociado'}</option>{proyectosDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div></div><div className="form-row quote-executive-selector"><label>Ejecutivo comercial *</label><select value={form.ejecutivo || ejecutivoDefault} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="GONZALO">GONZALO</option><option value="MAR">MAR</option></select><small>Selecciona quién es responsable comercial de esta cotización.</small></div><div className="form-row"><label>Categoría general *</label><select value={form.lob} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{CATEGORIAS_FESTOS.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div></div>{puedeCrearCliente && nuevoCliente && <form onSubmit={guardarClienteRapido} className="quick-client-card"><div className="quick-client-head"><strong>Registrar cliente sin salir de Cotizaciones</strong><button type="button" className="btn-muted" onClick={() => setNuevoCliente(false)}>Cerrar</button></div><div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={clienteRapido.nombre} onChange={e => setClienteRapido({ ...clienteRapido, nombre: e.target.value })} required /></div><div className="form-row"><label>N° DOC *</label><input value={clienteRapido.ruc} onChange={e => setClienteRapido({ ...clienteRapido, ruc: e.target.value })} required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento</label><select value={clienteRapido.tipo_documento} onChange={e => setClienteRapido({ ...clienteRapido, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>CONDICIÓN DE PAGO</label><select value={clienteRapido.tipo_pago} onChange={e => setClienteRapido({ ...clienteRapido, tipo_pago: e.target.value })}><option>Contado</option><option>Crédito</option></select></div></div><div className="form-row quick-client-plazo"><label>Plazo (días)</label><input type="number" min="0" value={clienteRapido.plazo_dias} disabled={clienteRapido.tipo_pago === 'Contado'} onChange={e => setClienteRapido({ ...clienteRapido, plazo_dias: e.target.value })} /></div><button className="btn-primary btn-small">Registrar y seleccionar cliente</button></form>}<div className="form-row quote-project-required"><label>Proyecto *</label><input value={form.proyecto_nombre} onChange={e => setForm({ ...form, proyecto_nombre: e.target.value })} required placeholder="Escribe el nombre del proyecto..." /><small>El proyecto se creará automáticamente en Proyectos cuando la cotización sea aprobada.</small></div><div className="form-row"><label>Descripción / alcance</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Alcance, condiciones o notas de la cotización..." /></div><div className="quote-items-head"><div><h4 className="panel-title icon-heading" style={{ margin: 0 }}><FestosIcon name="ClipboardList" size={18} /> Ítems</h4><span className="panel-note">El modo Detallado / Directo se aplica a toda la cotización.</span></div><button type="button" className="btn-primary" onClick={addItem}><FestosIcon name="Plus" size={15} /> Agregar Ítem</button></div><div className="quote-items-list">{form.items.map((item, index) => {
+  if (vista === 'form') return <div><div className="section-header"><div><h3 className="section-title">{editando ? <><FestosIcon name="Pencil" size={21} /> Editar Cotización</> : <><FestosIcon name="FileText" size={21} /> Nueva Cotización</>}</h3><p className="panel-note">Cliente, proyecto obligatorio, ítems y control de rentabilidad.</p></div><button className="btn-secondary" onClick={reset}><FestosIcon name="ArrowLeft" size={16} /> Volver</button></div><div className="glass-card form-card"><div className="form-grid-2"><div className="form-row"><label>Cliente *</label><div className="select-with-action"><select value={form.client_id} onChange={e => setForm({ ...form, client_id: e.target.value, project_id: '' })} required><option value="">Selecciona un cliente...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} · {c.ruc}</option>)}</select>{puedeCrearCliente && <button type="button" className="btn-muted" onClick={() => setNuevoCliente(v => !v)}><FestosIcon name="Plus" size={15} /> Cliente</button>}</div></div><div className="form-row"><label>Proyecto</label><div className="select-with-action"><select value={form.project_id} disabled={!form.usar_proyecto || !form.client_id} onChange={e => setForm({ ...form, project_id: e.target.value })}><option value="">{form.usar_proyecto ? (form.client_id ? 'Selecciona un proyecto...' : 'Primero selecciona cliente') : 'Proyecto no asociado'}</option>{proyectosDisponibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div></div><div className="form-row quote-executive-selector"><label>Ejecutivo comercial *</label><select value={form.ejecutivo || ejecutivoDefault} onChange={e => setForm({ ...form, ejecutivo: e.target.value })} required><option value="GONZALO">GONZALO VILLAVICENCIO</option><option value="MAR">MARJORIE MUÑOZ</option></select><small>Selecciona quién es responsable comercial de esta cotización.</small></div><div className="form-row"><label>Categoría general *</label><select value={form.lob} onChange={e => setForm({ ...form, lob: e.target.value })} required><option value="">Selecciona una categoría</option>{categoriaAnterior(form.lob) && <option value={form.lob}>Categoría anterior: {form.lob}</option>}{CATEGORIAS_FESTOS.map(categoria => <option key={categoria} value={categoria}>{categoria}</option>)}</select></div></div>{puedeCrearCliente && nuevoCliente && <form onSubmit={guardarClienteRapido} className="quick-client-card"><div className="quick-client-head"><strong>Registrar cliente sin salir de Cotizaciones</strong><button type="button" className="btn-muted" onClick={() => setNuevoCliente(false)}>Cerrar</button></div><div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={clienteRapido.nombre} onChange={e => setClienteRapido({ ...clienteRapido, nombre: e.target.value })} required /></div><div className="form-row"><label>N° DOC *</label><input value={clienteRapido.ruc} onChange={e => setClienteRapido({ ...clienteRapido, ruc: e.target.value })} required /></div></div><div className="form-grid-2"><div className="form-row"><label>Tipo documento</label><select value={clienteRapido.tipo_documento} onChange={e => setClienteRapido({ ...clienteRapido, tipo_documento: e.target.value })}><option>RUC</option><option>DNI</option></select></div><div className="form-row"><label>CONDICIÓN DE PAGO</label><select value={clienteRapido.tipo_pago} onChange={e => setClienteRapido({ ...clienteRapido, tipo_pago: e.target.value })}><option>Contado</option><option>Crédito</option></select></div></div><div className="form-row quick-client-plazo"><label>Plazo (días)</label><input type="number" min="0" value={clienteRapido.plazo_dias} disabled={clienteRapido.tipo_pago === 'Contado'} onChange={e => setClienteRapido({ ...clienteRapido, plazo_dias: e.target.value })} /></div><button className="btn-primary btn-small">Registrar y seleccionar cliente</button></form>}<div className="form-row quote-project-required"><label>Proyecto *</label><input value={form.proyecto_nombre} onChange={e => setForm({ ...form, proyecto_nombre: e.target.value })} required placeholder="Escribe el nombre del proyecto..." /><small>El proyecto se creará automáticamente en Proyectos cuando la cotización sea aprobada.</small></div><div className="form-row"><label>Descripción / alcance</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Alcance, condiciones o notas de la cotización..." /></div><div className="quote-items-head"><div><h4 className="panel-title icon-heading" style={{ margin: 0 }}><FestosIcon name="ClipboardList" size={18} /> Ítems</h4><span className="panel-note">El modo Detallado / Directo se aplica a toda la cotización.</span></div><button type="button" className="btn-primary" onClick={addItem}><FestosIcon name="Plus" size={15} /> Agregar Ítem</button></div><div className="quote-items-list">{form.items.map((item, index) => {
   const qty = num(item.cantidad);
   const costoUnitario = num(item.costo_unitario ?? item.costo);
   const valorUnitario = form.modo === 'detallado' ? num(item.valor_unitario) : (qty > 0 ? num(item.valor_total) / qty : 0);
@@ -1411,5 +1707,5 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
     </div></>}
   </div>;
 })}</div><div className="quote-mode-global"><div><strong>Modo de valorización de la cotización</strong><span>En Directo puedes ajustar el valor de venta total sin modificar los datos de los ítems.</span></div><div className="quote-mode-switch"><button type="button" className={form.modo === 'detallado' ? 'active' : ''} onClick={() => cambiarModo('detallado')}>Detallado</button><button type="button" className={form.modo === 'directo' ? 'active' : ''} onClick={() => cambiarModo('directo')}>Directo</button></div></div><div className="quote-summary"><div><span>Valor venta</span>{form.modo === 'directo' ? <input className="quote-direct-value" type="number" min="0" step="0.01" value={valorVentaDirecto} onChange={e => setValorVentaDirecto(e.target.value)} /> : <strong>{money(subtotal)}</strong>}</div><div><span>IGV</span><strong>{money(igv)}</strong></div><div><span>Importe con IGV</span><strong>{money(total)}</strong></div><div><span>Costo total</span><strong>{money(costo)}</strong></div><div><span>Utilidad</span><strong>{money(ganancia)}</strong></div><div><span>Margen global</span><strong>{margen.toFixed(2)}%</strong></div></div><div className="modal-actions quote-actions"><button className="btn-secondary" onClick={() => guardar('Borrador')} disabled={cargando}>Guardar borrador</button><button className="btn-muted" onClick={() => guardar('En Revisión')} disabled={cargando}>Enviar a revisión</button>{puedeAprobar && <button className="btn-primary" onClick={() => guardar('Aprobado')} disabled={cargando}>Aprobar cotización</button>}</div></div></div>;
-  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>{borradorRecuperable && <div className="quote-local-draft-banner"><div><FestosIcon name="FileText" size={19}/><span><strong>Cotización sin guardar recuperable</strong><small>Se guardó una copia temporal en este dispositivo · {new Date(borradorRecuperable.savedAt).toLocaleString('es-PE')}</small></span></div><div><button type="button" className="btn-primary" onClick={recuperarBorradorLocal}>Continuar</button><button type="button" className="btn-muted" onClick={descartarBorradorLocal}>Descartar</button></div></div>}<div className="section-header"><div><h3 className="section-title"><FestosIcon name="FileText" size={21} /> Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}><FestosIcon name="Plus" size={16} /> Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><select className="business-payment-filter" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{ejecutivosCotizacion.map(persona => <option key={persona} value={persona}>{persona}</option>)}</select><select className="business-payment-filter quote-status-filter" value={filtro} onChange={e => setFiltro(e.target.value)}><option value="todas">Estado: Todos</option><option value="Aprobado">Estado: Aprobadas</option><option value="En Revisión">Estado: En Revisión</option><option value="Borrador">Estado: Borradores</option></select><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEjecutivo('TODOS'); setFiltro('todas'); }}>Limpiar filtros</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; const costoDetalle = items.reduce((sum, i) => sum + num(i.costo), 0); const utilidadDetalle = num(q.subtotal) - costoDetalle; const margenDetalle = num(q.subtotal) > 0 ? (utilidadDetalle / num(q.subtotal)) * 100 : 0; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin categoría'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Valor venta</span><strong>{money(q.subtotal)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}><FestosIcon name="MoreVertical" size={18} /></button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}><FestosIcon name="Pencil" size={16} /> <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}><FestosIcon name="Clock3" size={16} /> <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}><FestosIcon name="CheckCircle2" size={16} /> <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}><FestosIcon name="FileDown" size={16} /> <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}><FestosIcon name="Sheet" size={16} /> <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Categoría</span><strong>{q.lob || '—'}</strong></div><div><span>Ejecutivo comercial</span><strong>{q.ejecutivo || (String(q.created_by || '').trim().toUpperCase() === 'MAR' ? 'MAR' : 'GONZALO')}</strong></div><div className="quote-detail-value-sale"><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>Precio venta</span><strong>{money(q.total)}</strong></div><div><span>Costo</span><strong>{money(costoDetalle)}</strong></div><div><span>Utilidad</span><strong>{money(utilidadDetalle)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{margenDetalle.toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Valor venta</span><strong>{money(i.valor_total)}</strong></div><div><span>Utilidad</span><strong>{money(num(i.valor_total) - num(i.costo))}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
+  return <div onClick={() => menuAbierto && setMenuAbierto(null)}>{borradorRecuperable && <div className="quote-local-draft-banner"><div><FestosIcon name="FileText" size={19}/><span><strong>Cotización sin guardar recuperable</strong><small>Se guardó una copia temporal en este dispositivo · {new Date(borradorRecuperable.savedAt).toLocaleString('es-PE')}</small></span></div><div><button type="button" className="btn-primary" onClick={recuperarBorradorLocal}>Continuar</button><button type="button" className="btn-muted" onClick={descartarBorradorLocal}>Descartar</button></div></div>}<div className="section-header"><div><h3 className="section-title"><FestosIcon name="FileText" size={21} /> Cotizaciones</h3><p className="panel-note">Propuestas comerciales, seguimiento de estados y rentabilidad en un solo lugar.</p></div><button className="btn-primary" onClick={nuevaCotizacion}><FestosIcon name="Plus" size={16} /> Nueva Cotización</button></div><div className="glass-card form-card quote-list-shell"><div className="toolbar-search-row"><input className="search-input" placeholder="Buscar por código, cliente, proyecto..." value={busqueda} onChange={e => setBusqueda(e.target.value)} /></div><div className="toolbar-filter-row quote-filter-row"><div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div><select className="business-payment-filter" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Ejecutivo comercial: Todos</option>{ejecutivosCotizacion.map(persona => <option key={persona} value={persona}>{nombreCompletoUsuario(persona, persona)}</option>)}</select><select className="business-payment-filter quote-status-filter" value={filtro} onChange={e => setFiltro(e.target.value)}><option value="todas">Estado: Todos</option><option value="Aprobado">Estado: Aprobadas</option><option value="En Revisión">Estado: En Revisión</option><option value="Borrador">Estado: Borradores</option></select><button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroEjecutivo('TODOS'); setFiltro('todas'); }}>Limpiar filtros</button></div><div className="quote-filter-actions-row"><span>{filtradas.length} {filtradas.length === 1 ? 'cotización' : 'cotizaciones'} visibles</span><button type="button" className="btn-export" onClick={exportarCotizacionesFiltradas}><FestosIcon name="Sheet" size={16} /> Exportar Excel</button></div>{filtradas.length === 0 ? <p className="empty-hint">No hay cotizaciones con los filtros actuales.</p> : <div className="quote-record-list">{filtradas.map(q => { const items = detalleItems[q.id] || []; const abierto = detalleAbierto === q.id; const costoDetalle = items.reduce((sum, i) => sum + num(i.costo), 0); const utilidadDetalle = num(q.subtotal) - costoDetalle; const margenDetalle = num(q.subtotal) > 0 ? (utilidadDetalle / num(q.subtotal)) * 100 : 0; return <article className={`quote-record-pro quote-status-${q.estado === 'Aprobado' ? 'aprobado' : q.estado === 'En Revisión' ? 'revision' : 'borrador'} ${abierto ? 'is-open' : ''}`} key={q.id}><div className="quote-record-main"><div className="quote-record-identity"><span className={`quote-status-dot ${badge(q.estado)}`} /> <div><div className="quote-record-code">{q.codigo}</div><h4>{q.clientes?.nombre || 'Cliente sin nombre'}</h4><div className="quote-record-subline"><span>{`Proyecto · ${q.proyecto_nombre || q.proyectos?.nombre || 'Sin nombre'}`}</span><span>•</span><span>{q.lob || 'Sin categoría'}</span><span>•</span><span>{q.modo === 'directo' ? 'Valoración directa' : 'Valorización detallada'}</span></div></div></div><div className="quote-record-finance"><span>Valor venta</span><strong>{money(q.subtotal)}</strong><small>Margen {num(q.margen).toFixed(1)}%</small></div><div className="quote-record-status"><span className={`code-tag ${badge(q.estado)}`}>{q.estado}</span></div><div className="quote-record-menu-wrap"><button type="button" className="quote-more-btn" aria-label="Opciones de cotización" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === q.id ? null : q.id); }}><FestosIcon name="MoreVertical" size={18} /></button>{menuAbierto === q.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}><button onClick={() => toggleDetalle(q)}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle'}</span></button><button onClick={() => { setMenuAbierto(null); editar(q); }}><FestosIcon name="Pencil" size={16} /> <span>Editar cotización</span></button>{q.estado === 'Borrador' && <button onClick={() => cambiarEstado(q, 'En Revisión')}><FestosIcon name="Clock3" size={16} /> <span>Enviar a revisión</span></button>}{puedeAprobar && q.estado !== 'Aprobado' && <button onClick={() => cambiarEstado(q, 'Aprobado')}><FestosIcon name="CheckCircle2" size={16} /> <span>Aprobar cotización</span></button>}<button onClick={() => { setMenuAbierto(null); descargarPDF(q); }}><FestosIcon name="FileDown" size={16} /> <span>Descargar PDF</span></button><button className="excel-export-action" onClick={() => descargarExcel(q)}><FestosIcon name="Sheet" size={16} /> <span>Exportar Excel</span></button><div className="quote-menu-separator" /><button className="danger" onClick={() => eliminarCotizacion(q)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar cotización</span></button></div>}</div></div><button type="button" className="quote-expand-bar" onClick={() => toggleDetalle(q)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>{abierto && <div className="quote-record-detail"><div className="quote-detail-grid"><div><span>Cliente</span><strong>{q.clientes?.nombre || '—'}</strong></div><div><span>Proyecto</span><strong>{q.proyecto_nombre || q.proyectos?.nombre || '—'}</strong></div><div><span>Categoría</span><strong>{q.lob || '—'}</strong></div><div><span>Ejecutivo comercial</span><strong>{nombreCompletoUsuario(q.ejecutivo || (String(q.created_by || '').trim().toUpperCase() === 'MAR' ? 'MAR' : 'GONZALO'))}</strong></div><div className="quote-detail-value-sale"><span>Valor venta</span><strong>{money(q.subtotal)}</strong></div><div><span>Precio venta</span><strong>{money(q.total)}</strong></div><div><span>Costo</span><strong>{money(costoDetalle)}</strong></div><div><span>Utilidad</span><strong>{money(utilidadDetalle)}</strong></div><div className="quote-detail-margin"><span>Margen global</span><strong>{margenDetalle.toFixed(1)}%</strong></div></div>{q.descripcion && <div className="quote-detail-description"><span>Alcance / notas</span><p>{q.descripcion}</p></div>}<div className="quote-detail-items-head"><strong>Ítems de la cotización</strong><span>{items.length} {items.length === 1 ? 'ítem' : 'ítems'}</span></div>{items.length === 0 ? <p className="empty-hint">No hay ítems registrados.</p> : <div className="quote-detail-items">{items.map((i, idx) => <div className="quote-detail-item" key={i.id || idx}><div className="quote-detail-item-num">{String(idx + 1).padStart(2, '0')}</div><div className="quote-detail-item-name"><strong>{i.descripcion}</strong><small>{num(i.cantidad)} × {money(i.valor_unitario)} · {i.modo === 'directo' ? 'Directo' : 'Detallado'}</small></div><div><span>Valor venta</span><strong>{money(i.valor_total)}</strong></div><div><span>Utilidad</span><strong>{money(num(i.valor_total) - num(i.costo))}</strong></div><div className="quote-detail-item-margin"><span>Margen</span><strong>{num(i.margen).toFixed(1)}%</strong></div></div>)}</div>}</div>}</article>; })}</div>}</div></div>;
 }

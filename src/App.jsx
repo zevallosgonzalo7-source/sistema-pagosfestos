@@ -225,6 +225,18 @@ function obtenerFotoPerfilUsuario(usuario) {
   }
 }
 
+const NOMBRES_EQUIPO = {
+  gonzalo: 'GONZALO VILLAVICENCIO',
+  mar: 'MARJORIE MUÑOZ',
+  rodrigo: 'RODRIGO ZEVALLOS',
+  jesus: 'JESUS JORGE',
+};
+
+function nombreCompletoUsuario(usuario) {
+  const key = String(usuario || '').trim().toLowerCase();
+  return NOMBRES_EQUIPO[key] || String(usuario || '').trim();
+}
+
 function cargoUsuario(usuario) {
   const cargos = {
     gonzalo: 'HEAD ADMIN',
@@ -315,7 +327,7 @@ function GlobalSearchPalette({ open, onClose, onNavigate, permisos }) {
         const all = [
           ...(c.data || []).map(x => ({ id:`cliente-${x.id}`, view:'clientes', icon:'Users', type:'Cliente', title:x.nombre, subtitle:x.ruc || 'Cliente FESTOS' })),
           ...(p.data || []).map(x => ({ id:`proveedor-${x.id}`, view:'proveedores', icon:'Truck', type:'Proveedor', title:x.nombre, subtitle:[x.categoria,x.productos].filter(Boolean).join(' · ') || 'Proveedor FESTOS' })),
-          ...(pr.data || []).map(x => ({ id:`proyecto-${x.id}`, view:'proyectos', icon:'FolderKanban', type:'Proyecto', title:x.nombre || x.codigo, subtitle:[x.codigo,x.estado,x.ejecutivo ? `Ejecutivo comercial: ${x.ejecutivo}` : ''].filter(Boolean).join(' · ') })),
+          ...(pr.data || []).map(x => ({ id:`proyecto-${x.id}`, view:'proyectos', icon:'FolderKanban', type:'Proyecto', title:x.nombre || x.codigo, subtitle:[x.codigo,x.estado,x.ejecutivo ? `Ejecutivo comercial: ${nombreCompletoUsuario(x.ejecutivo)}` : ''].filter(Boolean).join(' · ') })),
           ...(q.data || []).map(x => ({ id:`cotizacion-${x.id}`, view:'cotizaciones', icon:'FileText', type:'Cotización', title:x.codigo || x.proyecto_nombre, subtitle:[x.proyecto_nombre,x.estado].filter(Boolean).join(' · ') })),
         ];
         setRecords(all);
@@ -393,6 +405,8 @@ function App() {
   const [perfilPasswordConfirm, setPerfilPasswordConfirm] = useState('');
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [mostrarBienvenida, setMostrarBienvenida] = useState(false);
+  const [agendaLoginItems, setAgendaLoginItems] = useState([]);
+  const [mostrarAgendaLogin, setMostrarAgendaLogin] = useState(false);
 
   const cargarPerfilAutenticado = async (authUser) => {
     if (!authUser?.id) {
@@ -497,6 +511,45 @@ function App() {
     setMostrarBienvenida(true);
     const timer = window.setTimeout(() => setMostrarBienvenida(false), 5000);
     return () => window.clearTimeout(timer);
+  }, [authReady, usuarioLogueado, perfilServidor?.activo]);
+
+  // Resumen de agenda compartida al entrar: aparece 5 s después de la bienvenida
+  // y se oculta automáticamente luego de 5 s. Solo muestra actividades vigentes
+  // de hoy y los próximos 7 días para no saturar el inicio de sesión.
+  useEffect(() => {
+    if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return undefined;
+    let active = true;
+    let showTimer;
+    let hideTimer;
+    const loadAgendaLogin = async () => {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      const { data, error } = await supabase
+        .from('calendario_actividades')
+        .select('id,titulo,tipo,fecha_inicio,fecha_fin,asignado_a,color,proyectos(codigo,nombre)')
+        .gte('fecha_inicio', start.toISOString())
+        .lt('fecha_inicio', end.toISOString())
+        .order('fecha_inicio', { ascending: true });
+      if (!active || error) return;
+      const now = Date.now();
+      const vigentes = (data || []).filter(item => {
+        const endTime = new Date(item.fecha_fin || item.fecha_inicio).getTime();
+        return Number.isNaN(endTime) || endTime >= now;
+      });
+      setAgendaLoginItems(vigentes.slice(0, 4));
+      if (vigentes.length) {
+        showTimer = window.setTimeout(() => setMostrarAgendaLogin(true), 5200);
+        hideTimer = window.setTimeout(() => setMostrarAgendaLogin(false), 10200);
+      }
+    };
+    loadAgendaLogin();
+    return () => {
+      active = false;
+      if (showTimer) window.clearTimeout(showTimer);
+      if (hideTimer) window.clearTimeout(hideTimer);
+    };
   }, [authReady, usuarioLogueado, perfilServidor?.activo]);
 
   // Tema visual persistente. V27 permite alternar entre claro y oscuro
@@ -1402,12 +1455,29 @@ function App() {
 
       {mostrarBienvenida && (
         <FestosWelcomeOverlay
-          nombre={(perfilNombre || perfilServidor?.nombre || usuarioLogueado).toUpperCase()}
+          nombre={nombreCompletoUsuario(perfilNombre || perfilServidor?.nombre || usuarioLogueado).toUpperCase()}
           cargo={perfilServidor?.rol_label || cargoUsuario(usuarioLogueado)}
           correo={authEmail}
           foto={perfilFoto}
           onClose={() => setMostrarBienvenida(false)}
         />
+      )}
+
+      {mostrarAgendaLogin && agendaLoginItems.length > 0 && (
+        <aside className="agenda-login-toast" role="status" aria-live="polite">
+          <div className="agenda-login-toast-head">
+            <span className="agenda-login-toast-icon"><FestosIcon name="CalendarDays" size={18} /></span>
+            <div><strong>Agenda compartida</strong><small>{agendaLoginItems.length} {agendaLoginItems.length === 1 ? 'actividad próxima' : 'actividades próximas'}</small></div>
+            <button type="button" onClick={() => setMostrarAgendaLogin(false)}>×</button>
+          </div>
+          <div className="agenda-login-toast-list">
+            {agendaLoginItems.slice(0, 3).map(item => <div key={item.id}>
+              <i style={{ background: ({petrol:'#224248',blue:'#3b82f6',green:'#22a579',purple:'#8b5cf6',amber:'#d59a31',rose:'#e85b79'}[item.color] || '#224248') }} />
+              <span><strong>{item.titulo}</strong><small>{new Date(item.fecha_inicio).toLocaleString('es-PE',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}{item.asignado_a ? ` · ${nombreCompletoUsuario(item.asignado_a)}` : ''}</small></span>
+            </div>)}
+          </div>
+          <button type="button" className="agenda-login-open" onClick={() => { setMostrarAgendaLogin(false); irAVista('operaciones'); }}>Abrir calendario</button>
+        </aside>
       )}
 
       {/* FESTOS Voz temporalmente oculto: sin escucha ni indicadores. Código conservado para reactivación futura. */}
@@ -1450,7 +1520,7 @@ function App() {
           </section>
         </div>
 
-        <div className="sidebar-footer">Sesión: {usuarioLogueado}</div>
+        <div className="sidebar-footer">Sesión: {nombreCompletoUsuario(usuarioLogueado)}</div>
       </aside>
 
       <div className="main-content">
@@ -1495,21 +1565,21 @@ function App() {
             />
 
             <div className="topbar-welcome">
-              <strong>Bienvenido, {perfilNombre || usuarioLogueado}</strong>
+              <strong>Bienvenido, {nombreCompletoUsuario(usuarioLogueado)}</strong>
               <span>{obtenerFechaActual()}</span>
             </div>
 
             <div className="profile-menu-wrap">
               <button type="button" className="user-profile-pill" onClick={() => setPerfilMenuAbierto(v => !v)} aria-label="Abrir menú de perfil">
                 <span className="user-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : <FestosIcon name="UserRound" size={19} />}</span>
-                <div className="user-profile-text"><strong>{perfilNombre || usuarioLogueado}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span></div>
+                <div className="user-profile-text"><strong>{nombreCompletoUsuario(usuarioLogueado)}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span></div>
                 <span className="profile-more-dots"><FestosIcon name="MoreVertical" size={18} /></span>
               </button>
               {perfilMenuAbierto && (
                 <>
                   <div className="profile-menu-backdrop" onClick={() => setPerfilMenuAbierto(false)} />
                   <div className="profile-menu">
-                    <div className="profile-menu-user"><span className="profile-menu-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : <FestosIcon name="UserRound" size={19} />}</span><div><strong>{perfilNombre || usuarioLogueado}</strong><small>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</small></div></div>
+                    <div className="profile-menu-user"><span className="profile-menu-avatar">{perfilFoto ? <img src={perfilFoto} alt="Perfil" /> : <FestosIcon name="UserRound" size={19} />}</span><div><strong>{nombreCompletoUsuario(usuarioLogueado)}</strong><small>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</small></div></div>
                     <button type="button" onClick={abrirPerfil}><FestosIcon name="UserRound" size={17} /> <span>Ver perfil</span></button>
                     <button type="button" onClick={abrirPerfil}><FestosIcon name="Settings" size={17} /> <span>Preferencias de cuenta</span></button>
                     <div className="profile-menu-separator" />
@@ -1533,11 +1603,11 @@ function App() {
                 </div>
                 <div className="profile-hero">
                   <div className="profile-avatar-large">{perfilFotoEdit ? <img src={perfilFotoEdit} alt="Foto de perfil" /> : <FestosIcon name="UserRound" size={34} />}</div>
-                  <div><strong>{perfilNombre || usuarioLogueado}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span><label className="profile-upload-btn"><FestosIcon name="Camera" size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={seleccionarFotoPerfil} /></label></div>
+                  <div><strong>{nombreCompletoUsuario(perfilNombre || usuarioLogueado)}</strong><span>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</span><label className="profile-upload-btn"><FestosIcon name="Camera" size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={seleccionarFotoPerfil} /></label></div>
                 </div>
                 <div className="profile-section-title">Información personal</div>
                 <div className="form-row"><label>Nombre visible</label><input value={perfilNombreEdit} onChange={e => setPerfilNombreEdit(e.target.value)} placeholder="Tu nombre" /></div>
-                <div className="profile-info-grid"><div><span>Correo de acceso</span><strong>{authEmail || '—'}</strong></div><div><span>Usuario interno</span><strong>{usuarioLogueado}</strong></div><div><span>Cargo</span><strong>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</strong></div></div>
+                <div className="profile-info-grid"><div><span>Correo de acceso</span><strong>{authEmail || '—'}</strong></div><div><span>Usuario interno</span><strong>{nombreCompletoUsuario(usuarioLogueado)}</strong></div><div><span>Cargo</span><strong>{(perfilServidor?.rol_label || cargoUsuario(usuarioLogueado))}</strong></div></div>
                 <div className="profile-section-title">Seguridad</div>
                 <div className="form-grid-2"><div className="form-row"><label>Nueva contraseña</label><input type="password" value={perfilPassword} onChange={e => setPerfilPassword(e.target.value)} placeholder="Mínimo 8 caracteres" /></div><div className="form-row"><label>Confirmar contraseña</label><input type="password" value={perfilPasswordConfirm} onChange={e => setPerfilPasswordConfirm(e.target.value)} placeholder="Repite la contraseña" /></div></div>
                 <div className="profile-tip"><FestosIcon name="LockKeyhole" size={16} /> Puedes cambiar tu contraseña cuando quieras. Tu sesión actual se mantiene activa.</div>
@@ -1771,7 +1841,7 @@ function App() {
                         </div>
                         <h4 className="record-title">{p.proveedor} - {p.producto}</h4>
                         <p className="record-meta">Proyecto: <strong>{p.proyecto}</strong> | Monto: <strong style={{ color: '#22c55e' }}>S/. {p.precio_con_igv}</strong></p>
-                        <p className="record-note">Registrado por: <strong>{p.registrado_por}</strong>{p.aprobado_por ? <> · Aprobado por: <strong>{p.aprobado_por}</strong></> : null}</p>
+                        <p className="record-note">Registrado por: <strong>{nombreCompletoUsuario(p.registrado_por)}</strong>{p.aprobado_por ? <> · Aprobado por: <strong>{nombreCompletoUsuario(p.aprobado_por)}</strong></> : null}</p>
                         <ChipsEtiquetas etiquetas={p.etiquetas} />
                       </div>
                       <div className="record-actions">
@@ -1808,7 +1878,7 @@ function App() {
                       <div className="audit-body">
                         <div className="audit-head">
                           <strong>{entry.accion}</strong>
-                          <span className="audit-user">{entry.usuario}</span>
+                          <span className="audit-user">{nombreCompletoUsuario(entry.usuario)}</span>
                         </div>
                         <p className="audit-detail">{entry.detalle}</p>
                         <span className="audit-time">{entry.timestamp}</span>

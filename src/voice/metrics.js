@@ -1,3 +1,4 @@
+import { nombreCompletoUsuario } from '../teamDirectory';
 import { CATEGORIAS_FESTOS } from '../categories.js';
 import { supabase } from '../supabaseClient';
 import { classifyDashboardQuestion, dashboardPeriod, dateLocal } from './dashboardIntents';

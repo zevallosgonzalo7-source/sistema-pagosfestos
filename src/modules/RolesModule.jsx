@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { CAMPOS_PERMISOS, PERMISOS_VACIOS } from '../permissions';
 import { FestosIcon } from '../FestosIcon';
+import { nombreCompletoUsuario } from '../teamDirectory';
 
 function agruparCampos() {
   const grupos = {};
@@ -79,7 +80,7 @@ function TarjetaUsuario({ perfil, guardandoPermisos, procesando, onGuardarPermis
       <div className="section-header role-card-head">
         <div>
           <h4 className="panel-title" style={{ margin: 0, textTransform: 'capitalize' }}>
-            {perfil.usuario}{' '}
+            {nombreCompletoUsuario(perfil.usuario, perfil.usuario)}{' '}
             <span className="code-tag tag-paid" style={{ marginLeft: 8 }}>{perfil.rol_label}</span>
             <span className={`code-tag ${perfil.activo ? 'tag-paid' : 'tag-pending'}`} style={{ marginLeft: 6 }}>
               {perfil.activo ? 'Activo' : 'Desactivado'}
@@ -159,8 +160,8 @@ export function GestionRoles({ usuarioActual, onNotify, onAudit, onCambio }) {
         .update({ activo: !activo, updated_by: usuarioActual })
         .eq('usuario', usuario);
       if (error) throw error;
-      onNotify?.(`Acceso ${!activo ? 'activado' : 'desactivado'} para ${usuario}`, 'edicion');
-      onAudit?.('Edición', `Seguridad · ${usuario} ${!activo ? 'activado' : 'desactivado'} por ${usuarioActual}`);
+      onNotify?.(`Acceso ${!activo ? 'activado' : 'desactivado'} para ${nombreCompletoUsuario(usuario, usuario)}`, 'edicion');
+      onAudit?.('Edición', `Seguridad · ${nombreCompletoUsuario(usuario, usuario)} ${!activo ? 'activado' : 'desactivado'} por ${nombreCompletoUsuario(usuarioActual, usuarioActual)}`);
       await cargarTodo();
       onCambio?.();
     } catch (err) {
@@ -180,8 +181,8 @@ export function GestionRoles({ usuarioActual, onNotify, onAudit, onCambio }) {
         .update({ permisos, updated_by: usuarioActual })
         .eq('usuario', usuario);
       if (error) throw error;
-      onNotify?.(`Permisos actualizados para ${usuario}`, 'edicion');
-      onAudit?.('Edición', `Seguridad · permisos de ${usuario} actualizados por ${usuarioActual}`);
+      onNotify?.(`Permisos actualizados para ${nombreCompletoUsuario(usuario, usuario)}`, 'edicion');
+      onAudit?.('Edición', `Seguridad · permisos de ${nombreCompletoUsuario(usuario, usuario)} actualizados por ${nombreCompletoUsuario(usuarioActual, usuarioActual)}`);
       await cargarTodo();
       onCambio?.();
     } catch (err) {

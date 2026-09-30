@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { FestosIcon } from '../FestosIcon';
+import { FESTOS_TEAM, nombreCompletoUsuario } from '../teamDirectory';
 
 const COLORS = [
   { id: 'petrol', label: 'Petróleo', hex: '#224248' },
@@ -11,6 +12,9 @@ const COLORS = [
   { id: 'rose', label: 'Rosa', hex: '#e85b79' },
 ];
 const TYPES = ['ACTIVIDAD', 'ENTREGA', 'REUNIÓN', 'RECORDATORIO', 'NOTA'];
+
+const TEAM_DIRECTORY = FESTOS_TEAM;
+const teamName = value => nombreCompletoUsuario(value, 'Sin responsable');
 const pad = value => String(value).padStart(2, '0');
 const dateKey = value => { if (!value) return ''; const d = new Date(value); if (Number.isNaN(d.getTime())) return String(value).slice(0,10); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
 const toLocalInput = value => {
@@ -24,6 +28,10 @@ const prettyDate = value => value ? new Date(value).toLocaleString('es-PE', { da
 const monthName = date => date.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
 const colorHex = id => COLORS.find(c => c.id === id)?.hex || '#224248';
 const emptyForm = () => ({ titulo: '', descripcion: '', tipo: 'ACTIVIDAD', color: 'petrol', proyecto_id: '', asignado_a: '', fecha_inicio: '', fecha_fin: '' });
+const isFinished = activity => {
+  const end = new Date(activity?.fecha_fin || activity?.fecha_inicio || '').getTime();
+  return Number.isFinite(end) && end < Date.now();
+};
 
 export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAudit }) {
   const [monthOffset, setMonthOffset] = useState(0);
@@ -39,6 +47,7 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
   const [form, setForm] = useState(emptyForm);
   const [filterType, setFilterType] = useState('TODOS');
   const [filterAssignee, setFilterAssignee] = useState('TODOS');
+  const [filterStatus, setFilterStatus] = useState('TODAS');
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -47,14 +56,13 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
       const [a, p, u] = await Promise.all([
         supabase.from('calendario_actividades').select('*, proyectos(id,codigo,nombre)').order('fecha_inicio', { ascending: true }),
         permisos.ver_proyectos ? supabase.from('proyectos').select('id,codigo,nombre,estado').order('nombre') : Promise.resolve({ data: [], error: null }),
-        supabase.from('profiles').select('usuario,nombre,rol_label,activo').eq('activo', true).order('nombre'),
+        Promise.resolve({ data: TEAM_DIRECTORY, error: null }),
       ]);
       if (a.error) throw a.error;
       if (p.error) throw p.error;
       setActivities(a.data || []);
       setProjects(p.data || []);
-      const fallback = ['GONZALO','JESUS','MAR','RODRIGO'].map(x => ({ usuario:x, nombre:x }));
-      setTeam(u.error || !(u.data || []).length ? fallback : u.data);
+      setTeam(TEAM_DIRECTORY);
     } catch (err) {
       setError(err?.message || 'No se pudo cargar el calendario global. Ejecuta primero el SQL de esta versión.');
     } finally {
@@ -73,8 +81,10 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
   const visibleActivities = useMemo(() => activities.filter(a => {
     if (filterType !== 'TODOS' && a.tipo !== filterType) return false;
     if (filterAssignee !== 'TODOS' && String(a.asignado_a || '').toUpperCase() !== filterAssignee) return false;
+    if (filterStatus === 'VIGENTES' && isFinished(a)) return false;
+    if (filterStatus === 'FINALIZADAS' && !isFinished(a)) return false;
     return true;
-  }), [activities, filterType, filterAssignee]);
+  }), [activities, filterType, filterAssignee, filterStatus]);
 
   const month = new Date(new Date().getFullYear(), new Date().getMonth() + monthOffset, 1);
   const days = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
@@ -87,7 +97,9 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
   const today = dateKey(new Date().toISOString());
   const activitiesForDay = day => visibleActivities.filter(a => dateKey(a.fecha_inicio) === `${monthPrefix}-${pad(day)}`);
   const monthActivities = visibleActivities.filter(a => dateKey(a.fecha_inicio).startsWith(monthPrefix));
-  const nextActivities = visibleActivities.filter(a => dateKey(a.fecha_inicio) >= today).slice().sort((a,b) => String(a.fecha_inicio).localeCompare(String(b.fecha_inicio))).slice(0, 7);
+  const nextActivities = visibleActivities.filter(a => !isFinished(a) && dateKey(a.fecha_inicio) >= today).slice().sort((a,b) => String(a.fecha_inicio).localeCompare(String(b.fecha_inicio))).slice(0, 7);
+  const finishedMonthCount = monthActivities.filter(isFinished).length;
+  const activeMonthCount = monthActivities.length - finishedMonthCount;
 
   const openNew = (day = null) => {
     const base = day ? `${monthPrefix}-${pad(day)}T09:00` : `${today}T09:00`;
@@ -139,7 +151,7 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
     {error && <div className="ops-error"><FestosIcon name="AlertTriangle" size={17}/>{error}</div>}
     <section className="global-calendar-toolbar">
       <div className="global-calendar-month-nav"><button type="button" onClick={() => setMonthOffset(v => v-1)}><FestosIcon name="ArrowLeft" size={17}/></button><strong>{monthName(month)}</strong><button type="button" onClick={() => setMonthOffset(v => v+1)}><FestosIcon name="ArrowRight" size={17}/></button></div>
-      <div className="global-calendar-filters"><select value={filterType} onChange={e => setFilterType(e.target.value)}><option value="TODOS">Todos los tipos</option>{TYPES.map(x => <option key={x}>{x}</option>)}</select><select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}><option value="TODOS">Todo el equipo</option>{team.map(x => <option key={x.usuario} value={String(x.usuario).toUpperCase()}>{x.nombre || x.usuario}</option>)}</select></div>
+      <div className="global-calendar-filters"><select value={filterType} onChange={e => setFilterType(e.target.value)}><option value="TODOS">Todos los tipos</option>{TYPES.map(x => <option key={x}>{x}</option>)}</select><select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}><option value="TODOS">Todo el equipo</option>{team.map(x => <option key={x.usuario} value={String(x.usuario).toUpperCase()}>{x.nombre || x.usuario}</option>)}</select><select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}><option value="TODAS">Todas</option><option value="VIGENTES">Vigentes</option><option value="FINALIZADAS">Finalizadas</option></select></div>
     </section>
 
     <div className="global-calendar-layout">
@@ -148,18 +160,18 @@ export function OperationsCenter({ usuario, permisos, onNavigate, onNotify, onAu
         <div className="global-calendar-grid">
           {cells.map((day, idx) => day ? <button type="button" key={idx} className={`global-calendar-day ${`${monthPrefix}-${pad(day)}` === today ? 'is-today' : ''}`} onDoubleClick={() => openNew(day)} onClick={() => { const first = activitiesForDay(day)[0]; if (first) setSelected(first); }}>
             <span className="global-calendar-day-number">{day}</span>
-            <div className="global-calendar-events">{activitiesForDay(day).slice(0,3).map(a => <span key={a.id} style={{ '--event-color': colorHex(a.color) }} onClick={e => { e.stopPropagation(); setSelected(a); }}><b>{new Date(a.fecha_inicio).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</b> {a.titulo}</span>)}{activitiesForDay(day).length > 3 && <small>+{activitiesForDay(day).length-3} más</small>}</div>
+            <div className="global-calendar-events">{activitiesForDay(day).slice(0,3).map(a => <span key={a.id} className={isFinished(a) ? 'is-finished' : ''} style={{ '--event-color': colorHex(a.color) }} onClick={e => { e.stopPropagation(); setSelected(a); }}><b>{new Date(a.fecha_inicio).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</b> {a.titulo}{isFinished(a) ? ' · Finalizada' : ''}</span>)}{activitiesForDay(day).length > 3 && <small>+{activitiesForDay(day).length-3} más</small>}</div>
           </button> : <div key={idx} className="global-calendar-day is-empty" />)}
         </div>
       </section>
 
       <aside className="global-calendar-side">
-        <article className="global-calendar-summary"><span>ESTE MES</span><strong>{monthActivities.length}</strong><small>actividades registradas</small></article>
-        <article className="global-calendar-agenda"><div className="global-calendar-side-head"><div><span>PRÓXIMAMENTE</span><h2>Agenda del equipo</h2></div></div>{nextActivities.length ? nextActivities.map(a => <button type="button" key={a.id} className="global-agenda-item" onClick={() => setSelected(a)}><i style={{ background: colorHex(a.color) }} /><div><strong>{a.titulo}</strong><span>{prettyDate(a.fecha_inicio)}</span><small>{a.asignado_a ? `Asignado a ${a.asignado_a}` : 'Sin responsable'}{a.proyectos?.nombre ? ` · ${a.proyectos.nombre}` : ''}</small></div></button>) : <p className="empty-hint">No hay actividades próximas con estos filtros.</p>}</article>
+        <article className="global-calendar-summary"><span>ESTE MES</span><strong>{monthActivities.length}</strong><small>{activeMonthCount} vigentes · {finishedMonthCount} finalizadas</small></article>
+        <article className="global-calendar-agenda"><div className="global-calendar-side-head"><div><span>PRÓXIMAMENTE</span><h2>Agenda del equipo</h2></div></div>{nextActivities.length ? nextActivities.map(a => <button type="button" key={a.id} className="global-agenda-item" onClick={() => setSelected(a)}><i style={{ background: colorHex(a.color) }} /><div><strong>{a.titulo}</strong><span>{prettyDate(a.fecha_inicio)}</span><small>{a.asignado_a ? `Asignado a ${teamName(a.asignado_a)}` : 'Sin responsable'}{a.proyectos?.nombre ? ` · ${a.proyectos.nombre}` : ''}</small></div></button>) : <p className="empty-hint">No hay actividades próximas con estos filtros.</p>}</article>
       </aside>
     </div>
 
-    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><article className="glass-card modal-card calendar-detail-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><div><span className="calendar-type-pill" style={{ '--event-color': colorHex(selected.color) }}>{selected.tipo}</span><h4 className="panel-title">{selected.titulo}</h4></div><button className="modal-close-btn" onClick={() => setSelected(null)}>×</button></div><div className="calendar-detail-grid"><div><span>Fecha y hora</span><strong>{prettyDate(selected.fecha_inicio)}</strong></div><div><span>Asignado a</span><strong>{selected.asignado_a || 'Sin responsable'}</strong></div><div><span>Proyecto</span><strong>{selected.proyectos?.codigo ? `${selected.proyectos.codigo} · ` : ''}{selected.proyectos?.nombre || 'Sin proyecto'}</strong></div><div><span>Creado por</span><strong>{selected.created_by || '—'}</strong></div></div>{selected.descripcion && <p className="calendar-detail-notes">{selected.descripcion}</p>}<div className="modal-actions"><button type="button" className="btn-primary" onClick={() => openEdit(selected)}><FestosIcon name="Pencil" size={16}/> Editar</button><button type="button" className="btn-secondary" onClick={() => remove(selected)}><FestosIcon name="Trash2" size={16}/> Eliminar</button>{permisos.ver_proyectos && selected.proyecto_id && <button type="button" className="btn-muted" onClick={() => onNavigate('proyectos')}><FestosIcon name="FolderKanban" size={16}/> Abrir proyectos</button>}</div></article></div>}
+    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><article className="glass-card modal-card calendar-detail-modal" onClick={e => e.stopPropagation()}><div className="modal-head"><div><div className="calendar-detail-pills"><span className="calendar-type-pill" style={{ '--event-color': colorHex(selected.color) }}>{selected.tipo}</span><span className={`calendar-status-pill ${isFinished(selected) ? 'is-finished' : 'is-active'}`}>{isFinished(selected) ? 'Finalizada' : 'Vigente'}</span></div><h4 className="panel-title">{selected.titulo}</h4></div><button className="modal-close-btn" onClick={() => setSelected(null)}>×</button></div><div className="calendar-detail-grid"><div><span>Fecha y hora</span><strong>{prettyDate(selected.fecha_inicio)}</strong></div><div><span>Asignado a</span><strong>{teamName(selected.asignado_a)}</strong></div><div><span>Proyecto</span><strong>{selected.proyectos?.codigo ? `${selected.proyectos.codigo} · ` : ''}{selected.proyectos?.nombre || 'Sin proyecto'}</strong></div><div><span>Creado por</span><strong>{selected.created_by ? teamName(selected.created_by) : '—'}</strong></div></div>{selected.descripcion && <p className="calendar-detail-notes">{selected.descripcion}</p>}<div className="modal-actions"><button type="button" className="btn-primary" onClick={() => openEdit(selected)}><FestosIcon name="Pencil" size={16}/> Editar</button><button type="button" className="btn-secondary" onClick={() => remove(selected)}><FestosIcon name="Trash2" size={16}/> Eliminar</button>{permisos.ver_proyectos && selected.proyecto_id && <button type="button" className="btn-muted" onClick={() => onNavigate('proyectos')}><FestosIcon name="FolderKanban" size={16}/> Abrir proyectos</button>}</div></article></div>}
 
     {modalOpen && <div className="modal-overlay" onClick={() => !saving && setModalOpen(false)}><form className="glass-card modal-card calendar-editor-modal" onSubmit={save} onClick={e => e.stopPropagation()}><div className="modal-head"><div><h4 className="panel-title"><FestosIcon name="CalendarDays" size={18}/> {editing ? 'Editar actividad' : 'Agregar actividad'}</h4><p className="panel-note">Crea una nota, entrega, reunión o recordatorio para todo el equipo.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalOpen(false)}>×</button></div>
       <div className="form-row"><label>Título *</label><input value={form.titulo} onChange={e => setForm({...form,titulo:e.target.value})} placeholder="Ej. Entrega de módulos Xiaomi" required /></div>
