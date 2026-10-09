@@ -9,6 +9,8 @@ import './App.css';
 import { Clientes, Proveedores, Proyectos, Cotizaciones } from './modules/BusinessModules';
 import { ExecutiveDashboard } from './modules/ExecutiveDashboard';
 import { OperationsCenter } from './modules/OperationsCenter';
+import { PurchaseRegister } from './modules/PurchaseRegister';
+import { PurchaseDashboard } from './modules/PurchaseDashboard';
 import { GestionRoles } from './modules/RolesModule';
 import { PERMISOS_VACIOS } from './permissions';
 import { FestosIcon } from './FestosIcon';
@@ -584,7 +586,6 @@ function App() {
   }, []);
 
   // --- SIDEBAR (única navegación de la app) ---
-  const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth >= 1024 : true;
   });
@@ -778,6 +779,7 @@ function App() {
     : PERMISOS_VACIOS;
 
   const [vista, setVista] = useState('analisis');
+  const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
   const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
   const [voiceCommand, setVoiceCommand] = useState(null);
@@ -1258,6 +1260,7 @@ function App() {
     ...(misPermisos.ver_clientes ? [{ id: 'clientes', icono: 'Users', label: 'Clientes' }] : []),
     ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: 'Truck', label: 'Proveedores' }] : []),
     ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos' }] : []),
+    { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras' },
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
     ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: 'ShieldCheck', label: 'Roles y Permisos' }] : []),
   ];
@@ -1267,9 +1270,10 @@ function App() {
     { id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones', actionLabel: 'Abrir', actionId: 'cotizaciones', tone: 'cotizaciones', visible: misPermisos.ver_cotizaciones, activeIds: ['cotizaciones'], obligatorio: true },
     { id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos', actionLabel: 'Abrir', actionId: 'proyectos', tone: 'proyectos', visible: misPermisos.ver_proyectos, activeIds: ['proyectos'], obligatorio: true },
     { id: 'clientes', icono: 'Users', label: 'Clientes', actionLabel: misPermisos.gestionar_clientes ? 'Gestionar' : 'Ver', tone: 'clientes', visible: misPermisos.ver_clientes, activeIds: ['clientes'], obligatorio: true },
-    { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard', actionLabel: 'Proyectos', tone: 'dashboard', activeIds: ['analisis'] },
+    { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard', actionLabel: 'Proyectos', tone: 'dashboard', activeIds: ['analisis', 'analisis_compras'] },
     // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.
     { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global', actionLabel: 'Agenda', tone: 'operaciones', activeIds: ['operaciones'] },
+    { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras', actionLabel: 'Abrir', tone: 'proveedores', activeIds: ['compras'] },
     { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
     { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V31.pdf', tone: 'manual' },
     { id: 'roles', icono: 'ShieldCheck', label: 'Roles y permisos', actionLabel: 'Abrir', tone: 'roles', visible: misPermisos.gestionar_roles, activeIds: ['roles'] },
@@ -1508,7 +1512,13 @@ function App() {
                 </>;
 
                 return <div key={`launcher-${item.id}`} className={`sidebar-launcher-wrap ${active ? 'active' : ''}`}>
-                  {item.actionHref
+                  {item.id === 'analisis' ? <>
+                    <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => setDashboardMenuOpen(v => !v)} aria-expanded={dashboardMenuOpen}>{card}</button>
+                    <div className={`dashboard-launcher-submenu ${dashboardMenuOpen ? 'is-open' : ''}`}>
+                      <button type="button" onClick={() => { irAVista('analisis'); setDashboardMenuOpen(false); }}><FestosIcon name="FolderKanban" size={15}/> Proyectos</button>
+                      <button type="button" onClick={() => { irAVista('analisis_compras'); setDashboardMenuOpen(false); }}><FestosIcon name="ClipboardList" size={15}/> Compras</button>
+                    </div>
+                  </> : item.actionHref
                     ? <a className={`sidebar-launcher-card ${active ? 'active' : ''}`} href={item.actionHref} target="_blank" rel="noreferrer">{card}</a>
                     : <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => irAVista(item.actionId || item.id)}>{card}</button>}
                   {item.obligatorio
@@ -1657,6 +1667,13 @@ function App() {
 
           {(vista === 'analisis' || vista === 'analisis_ventas') && (
             <ExecutiveDashboard tipo={vista === 'analisis_ventas' ? 'ventas' : 'proyectos'} usuario={usuarioLogueado} onOpenAI={() => setVista('asistente')} onOpenProjects={abrirProyectosFiltrados} />
+          )}
+          {vista === 'analisis_compras' && (
+            <PurchaseDashboard onOpenPurchases={() => setVista('compras')} />
+          )}
+
+          {vista === 'compras' && (
+            <PurchaseRegister usuario={usuarioLogueado} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
           )}
 
           {/* VISTA: SUBIR PAGO */}

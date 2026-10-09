@@ -4,6 +4,7 @@ import { FestosIcon } from '../FestosIcon';
 import { CATEGORIAS_FESTOS, CATEGORIA_PENDIENTE, categoriaActual, categoriaDelProyecto } from '../categories';
 import { dateKey, dashboardDate, dashboardPeriodBounds, isInDashboardRange, localDateKey } from '../dashboardPeriod';
 import { nombreCompletoUsuario } from '../teamDirectory';
+import SearchableSelect from '../components/SearchableSelect';
 import { exportarListadoFiltradoExcel } from './BusinessModules';
 
 const money = value => `S/. ${Number(value || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -518,8 +519,8 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
                   {periodo === 'month' && <select aria-label="Mes" value={mes} onChange={e => setMes(Number(e.target.value))}>{['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'].map((nombre, i) => <option key={nombre} value={i+1}>{nombre}</option>)}</select>}
                   {periodo === 'quarter' && <select aria-label="Trimestre" value={trimestre} onChange={e => setTrimestre(Number(e.target.value))}>{[1,2,3,4].map(q => <option key={q} value={q}>Trimestre {q}</option>)}</select>}
                   {periodo === 'custom' && <><label className="ed-date-control">Desde <input aria-label="Desde" type="date" max={hasta || undefined} value={desde} onChange={e => setDesde(e.target.value)} /></label><label className="ed-date-control">Hasta <input aria-label="Hasta" type="date" min={desde || undefined} value={hasta} onChange={e => setHasta(e.target.value)} /></label></>}
-                  <select aria-label="Ejecutivo comercial" value={filtroEjecutivo} onChange={e => setFiltroEjecutivo(e.target.value)}><option value="TODOS">Todos los ejecutivos comerciales</option>{ejecutivos.map(x => <option key={x} value={x}>{nombreCompletoUsuario(x, x)}</option>)}</select>
-                  <select aria-label="Categoría de proyecto" value={filtroLob} onChange={e => setFiltroLob(e.target.value)}><option value="TODOS">Todas las categorías</option>{categoriasFiltro.map(x => <option key={x} value={x}>{x}</option>)}</select>
+                  <SearchableSelect value={filtroEjecutivo} onChange={setFiltroEjecutivo} ariaLabel="Ejecutivo comercial" options={[{value:'TODOS',label:'Todos los ejecutivos comerciales'},...ejecutivos.map(x => ({value:x,label:nombreCompletoUsuario(x, x)}))]} />
+                  <SearchableSelect value={filtroLob} onChange={setFiltroLob} ariaLabel="Categoría de proyecto" options={[{value:'TODOS',label:'Todas las categorías'},...categoriasFiltro.map(x => ({value:x,label:x}))]} />
                   <button type="button" onClick={limpiar}>Limpiar filtros</button>
                 </div>
                 <div className="ed-period-context">{periodo === 'all' ? 'Todo el historial disponible' : periodo === 'custom' && !desde && !hasta ? 'Sin límite de fechas' : `${limites.desde || 'Sin fecha inicial'} → ${limites.hasta || 'Hoy'}`} · Fecha de pedido del proyecto{periodo === 'custom' && desde && hasta && desde > hasta ? ' · La fecha inicial debe ser anterior a la final' : ''}</div>

@@ -5014,3 +5014,359 @@ input:focus,select:focus,textarea:focus{
 
 .app-shell[data-theme='dark'] .agenda-login-toast{background:rgba(21,43,47,.97);border-color:rgba(220,239,237,.10)}
 .app-shell[data-theme='dark'] .agenda-login-toast-head strong,.app-shell[data-theme='dark'] .agenda-login-toast-list strong{color:#edf7f6}.app-shell[data-theme='dark'] .agenda-login-toast-head small,.app-shell[data-theme='dark'] .agenda-login-toast-list small{color:#9db0b2}.app-shell[data-theme='dark'] .agenda-login-toast-list>div{background:#1c363a}.app-shell[data-theme='dark'] .agenda-login-toast-head>button{background:#254247;color:#dbe9e7}
+
+/* ===== FESTOS V29.34 · REGISTRO DE COMPRAS ===== */
+.purchase-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:14px 0 18px}.purchase-kpi{padding:18px 20px;display:flex;flex-direction:column;gap:6px}.purchase-kpi span{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted,#63777a);font-weight:800}.purchase-kpi strong{font-size:24px;color:var(--text-main,#18383d)}.purchase-kpi small{color:var(--text-muted,#6a7d80)}.purchase-filter-row{grid-template-columns:auto minmax(210px,1.2fr) minmax(170px,.8fr) minmax(150px,.7fr) auto}.purchase-card{overflow:visible}.purchase-state-block{min-width:132px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}.purchase-state-block small{color:var(--text-muted,#6a7d80)}.purchase-dot.purchase-pendiente{background:#f59e0b}.purchase-dot.purchase-parcial{background:#3b82f6}.purchase-dot.purchase-pagada{background:#22c55e}.purchase-detail-wrap{padding-bottom:4px}.purchase-detail-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 18px 18px}.btn-danger-soft{border:1px solid rgba(220,38,38,.18);background:rgba(254,226,226,.75);color:#b91c1c;border-radius:12px;padding:10px 14px;font-weight:800;display:inline-flex;align-items:center;gap:7px}.purchase-modal{overflow-y:auto}.purchase-modal .form-row>small{font-size:12px;line-height:1.45;color:var(--text-muted,#6a7d80)}.purchase-payment-note{display:flex;gap:12px;align-items:flex-start;margin-top:10px;padding:14px 16px;border-radius:14px;border:1px solid rgba(34,66,72,.13);background:rgba(34,66,72,.055);color:#224248}.purchase-payment-note div{display:flex;flex-direction:column;gap:3px}.purchase-payment-note span{font-size:13px;color:#687b7e}.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:1100px){.purchase-summary-grid{grid-template-columns:1fr 1fr}.purchase-filter-row{grid-template-columns:1fr 1fr}.purchase-filter-row .date-filter-group{grid-column:1/-1}}
+@media(max-width:680px){.purchase-summary-grid{grid-template-columns:1fr}.purchase-filter-row,.form-grid-3{grid-template-columns:1fr}.purchase-filter-row .date-filter-group{grid-column:auto}.purchase-state-block{align-items:flex-start}.purchase-card .business-pro-main{grid-template-columns:1fr}.purchase-detail-actions{justify-content:stretch}.purchase-detail-actions button{flex:1}}
+
+/* FESTOS V29.34.2 · Registro de Compras limpio + adjuntos */
+.purchase-filter-row-clean{grid-template-columns:auto minmax(180px,1.15fr) minmax(170px,.9fr) minmax(170px,.85fr) auto}
+.purchase-card-main-clean{grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
+.purchase-value-zone{display:flex;align-items:center;gap:14px}
+.purchase-attachment-status{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 20px rgba(15,23,42,.08);flex:0 0 auto}
+.purchase-attachment-status.is-missing{background:#dc2626;border:1px solid #b91c1c}
+.purchase-attachment-status.is-complete{background:#16a34a;border:1px solid #15803d}
+.purchase-detail-grid-clean{grid-template-columns:repeat(4,minmax(0,1fr))}
+.purchase-documents-detail{align-items:flex-start!important}
+.purchase-document-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.purchase-add-provider-btn{margin-top:8px;width:max-content}
+.quick-provider-card{margin:0 0 16px;padding:16px;border-radius:16px;border:1px solid rgba(13,148,136,.18);background:rgba(34,66,72,.055);display:flex;flex-direction:column;gap:12px}
+.purchase-amount-block{display:flex;flex-direction:column;gap:12px;padding:14px 0}
+.purchase-amount-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.purchase-amount-summary>div{padding:12px 14px;border:1px solid rgba(34,66,72,.12);border-radius:12px;background:rgba(248,251,251,.8);display:flex;flex-direction:column;gap:4px}
+.purchase-amount-summary span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6a7d80;font-weight:800}
+.purchase-amount-summary strong{font-size:16px;color:#18383d}
+.purchase-total-highlight{border-color:rgba(190,215,48,.55)!important;background:rgba(238,252,194,.55)!important}
+.purchase-invoice-files{display:flex;flex-direction:column;gap:10px;margin:4px 0 16px;padding:16px;border:1px solid rgba(34,66,72,.13);border-radius:16px;background:rgba(248,251,251,.8)}
+.purchase-files-title{display:flex;gap:10px;align-items:flex-start;margin-bottom:2px;color:#224248}
+.purchase-files-title>div{display:flex;flex-direction:column;gap:2px}.purchase-files-title small{color:#6a7d80;font-size:12px}
+.purchase-file-box{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;border:1px dashed rgba(34,66,72,.25);border-radius:12px;padding:12px 14px;cursor:pointer;background:#fff}
+.purchase-file-box>span{font-size:12px;font-weight:900;color:#224248}.purchase-file-box>strong{font-size:13px;color:#5e7478;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.purchase-file-box input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+@media(max-width:1100px){.purchase-filter-row-clean{grid-template-columns:1fr 1fr}.purchase-filter-row-clean .date-filter-group{grid-column:1/-1}.purchase-detail-grid-clean{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.purchase-card-main-clean{grid-template-columns:1fr}.purchase-value-zone{justify-content:space-between;width:100%;margin-top:10px}.purchase-detail-grid-clean,.purchase-amount-summary{grid-template-columns:1fr}.purchase-file-box{grid-template-columns:1fr}.purchase-add-provider-btn{width:100%}}
+
+/* FESTOS V29.34.3 — selectores con búsqueda instantánea */
+.searchable-select { position: relative; width: 100%; min-width: 0; }
+.searchable-select-required-proxy { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.searchable-select-control { display:flex; align-items:center; width:100%; min-height:48px; border:1px solid var(--border, #cfe0e2); border-radius:14px; background:#fff; overflow:hidden; transition:border-color .16s ease, box-shadow .16s ease; }
+.searchable-select.is-open .searchable-select-control { border-color:#2d777b; box-shadow:0 0 0 3px rgba(45,119,123,.09); }
+.searchable-select-control input { flex:1; width:100%; min-width:0; height:46px; border:0 !important; outline:0 !important; box-shadow:none !important; background:transparent !important; padding:0 10px 0 14px !important; color:#223b3f; font:inherit; }
+.searchable-select-control button { width:42px; height:46px; border:0; background:transparent; color:#28474b; cursor:pointer; display:grid; place-items:center; }
+.searchable-select-chevron { font-size:20px; line-height:1; transform:translateY(-2px); }
+.searchable-select-menu { position:absolute; z-index:10000; top:calc(100% + 6px); left:0; right:0; max-height:300px; overflow:auto; background:#fff; border:1px solid #cadadd; border-radius:14px; padding:6px; box-shadow:0 18px 42px rgba(28,58,63,.16); }
+.searchable-select-menu > button { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:10px 11px; border:0; border-radius:9px; background:transparent; color:#263d41; text-align:left; font:inherit; cursor:pointer; }
+.searchable-select-menu > button:hover,.searchable-select-menu > button.is-active { background:#eef7f7; }
+.searchable-select-menu > button.is-selected { color:#1f6267; font-weight:700; }
+.searchable-select-empty { padding:14px 11px; color:#73868a; font-size:13px; }
+.searchable-select.is-disabled { opacity:.62; }
+.toolbar-filter-row .searchable-select,.global-calendar-filters .searchable-select { min-width:190px; flex:1 1 210px; }
+@media (max-width:720px){ .searchable-select-menu{max-height:240px}.toolbar-filter-row .searchable-select,.global-calendar-filters .searchable-select{min-width:100%;} }
+
+
+/* FESTOS V29.34.4 · Registro de Compras — filtros ordenados + fecha control + IGV off */
+.purchase-filter-stack{display:flex;flex-direction:column;gap:12px;width:100%}
+.purchase-filter-dates-row{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,220px);gap:14px;align-items:end}
+.purchase-filter-dates-row label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:800;color:#60777a}
+.purchase-filter-dates-row input{width:100%;min-height:48px;border:1px solid var(--border,#cfe0e2);border-radius:14px;background:#fff;padding:0 14px;color:#28474b;font:inherit;box-sizing:border-box}
+.purchase-filter-selects-row{display:grid;grid-template-columns:minmax(280px,1.5fr) minmax(180px,.8fr) minmax(190px,.9fr) auto;gap:12px;align-items:center;width:100%}
+.purchase-filter-selects-row .searchable-select{min-width:0!important;width:100%}
+.purchase-filter-selects-row .btn-filter-clear{height:48px;white-space:nowrap;padding-inline:16px}
+.purchase-toolbar .toolbar-search-row{margin-bottom:14px}
+.purchase-toolbar .toolbar-search-row .search-input{width:100%;box-sizing:border-box}
+.purchase-document-number{margin-bottom:6px}
+.igv-switch-row.is-disabled{opacity:.72;background:rgba(148,163,184,.08);border-radius:12px;padding:10px 12px}
+@media(max-width:1100px){
+  .purchase-filter-selects-row{grid-template-columns:1fr 1fr}
+  .purchase-filter-selects-row .btn-filter-clear{width:100%}
+}
+@media(max-width:680px){
+  .purchase-filter-dates-row,.purchase-filter-selects-row{grid-template-columns:1fr}
+  .purchase-filter-dates-row{gap:10px}
+}
+
+/* FESTOS V29.34.5 - filtros Registro de Compras con catálogos empresariales */
+.purchase-filter-selects-row{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+}
+.purchase-filter-selects-row .searchable-select,
+.purchase-filter-selects-row .btn-filter-clear{min-height:48px}
+.purchase-filter-selects-row .btn-filter-clear{width:100%}
+@media(max-width:980px){.purchase-filter-selects-row{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.purchase-filter-selects-row{grid-template-columns:1fr}}
+
+/* FESTOS V29.34.6 · Registro de Compras — ajuste visual integral */
+.purchase-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.purchase-kpi{min-height:118px;justify-content:center;border:1px solid rgba(34,66,72,.09)}
+.purchase-kpi-alert{background:linear-gradient(180deg,rgba(254,242,242,.98),rgba(255,255,255,.98));border-color:rgba(220,38,38,.22)!important}
+.purchase-kpi-alert span,.purchase-kpi-alert strong{color:#b91c1c!important}
+.purchase-kpi-alert small{color:#8f5555!important}
+.purchase-toolbar{position:relative;z-index:40;overflow:visible!important;padding:18px!important;margin-bottom:22px}
+.purchase-list{position:relative;z-index:1}
+.purchase-filter-stack{gap:14px}
+.purchase-filter-dates-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%}
+.purchase-filter-dates-row label{min-width:0}
+.purchase-filter-dates-row input{height:50px;min-height:50px}
+.purchase-filter-selects-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%;align-items:stretch}
+.purchase-filter-selects-row>*{min-width:0;width:100%}
+.purchase-filter-selects-row .searchable-select-control,.purchase-filter-selects-row .btn-filter-clear{height:50px;min-height:50px}
+.purchase-filter-selects-row .searchable-select-control input{height:48px!important}
+.purchase-filter-selects-row .searchable-select-control button{height:48px}
+.purchase-filter-selects-row .btn-filter-clear{display:flex;align-items:center;justify-content:center}
+.purchase-toolbar .searchable-select{position:relative;z-index:auto}
+.purchase-toolbar .searchable-select.is-open{z-index:10020}
+.purchase-toolbar .searchable-select-menu{z-index:10030;background:#fff!important;opacity:1!important;border:1px solid #c7dadd;box-shadow:0 18px 45px rgba(21,54,59,.22);max-height:260px}
+.purchase-toolbar .searchable-select-menu>button{background:#fff}
+.purchase-toolbar .searchable-select-menu>button:hover,.purchase-toolbar .searchable-select-menu>button.is-active{background:#eef7f7}
+.purchase-toolbar .searchable-select-menu>button.is-selected{background:#e8f4f4}
+.purchase-files-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.purchase-file-box{grid-template-columns:120px minmax(0,1fr);min-height:58px;box-sizing:border-box}
+.purchase-modal .searchable-select.is-disabled .searchable-select-control{background:#f4f6f6;border-color:#dbe5e6}
+.purchase-modal .searchable-select.is-disabled input{color:#87979a!important;cursor:not-allowed}
+@media(max-width:1100px){.purchase-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.purchase-filter-selects-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.purchase-summary-grid,.purchase-filter-dates-row,.purchase-filter-selects-row,.purchase-files-grid{grid-template-columns:1fr}.purchase-toolbar{padding:14px!important}.purchase-kpi{min-height:100px}.purchase-filter-selects-row .searchable-select-menu{max-height:220px}}
+
+/* FESTOS V29.34.6 hotfix · lector de PDF */
+.pdf-reader-status{display:block;margin-top:6px;font-size:12px;line-height:1.4;color:#6a7d80}
+.pdf-reader-status.is-success{color:#15803d;font-weight:800}
+.pdf-reader-status.is-warning{color:#a16207;font-weight:700}
+
+/* ========================================================================
+   FESTOS V29.34.7 · SISTEMA GLOBAL DE FILTROS
+   Dimensiones uniformes en Clientes, Proveedores, Proyectos, Cotizaciones,
+   Registro de Compras, Dashboard y Calendario.
+   ======================================================================== */
+:root{--filter-control-h:50px;--filter-radius:14px;--filter-gap:12px}
+.business-toolbar,.quote-list-shell,.purchase-toolbar{overflow:visible!important}
+.toolbar-search-row{width:100%;margin-bottom:14px}
+.toolbar-search-row .search-input{width:100%;min-height:var(--filter-control-h);height:var(--filter-control-h);box-sizing:border-box;border-radius:var(--filter-radius)!important}
+
+.business-toolbar .toolbar-filter-row,
+.quote-list-shell .toolbar-filter-row{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:var(--filter-gap)!important;
+  align-items:end!important;
+  width:100%;
+}
+.business-toolbar .toolbar-filter-row .date-filter-group,
+.quote-list-shell .toolbar-filter-row .date-filter-group{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--filter-gap)!important;
+  width:100%!important;
+  min-width:0!important;
+  grid-column:span 2;
+}
+.date-filter-group label{min-width:0;display:flex!important;flex-direction:column!important;gap:6px!important;font-size:12px!important;font-weight:800!important;color:#60777a!important}
+.date-filter-group input,
+.business-toolbar .toolbar-filter-row select,
+.quote-list-shell .toolbar-filter-row select,
+.business-toolbar .toolbar-filter-row .business-payment-filter,
+.quote-list-shell .toolbar-filter-row .business-payment-filter,
+.business-toolbar .toolbar-filter-row .searchable-select,
+.quote-list-shell .toolbar-filter-row .searchable-select,
+.business-toolbar .toolbar-filter-row .btn-filter-clear,
+.quote-list-shell .toolbar-filter-row .btn-filter-clear{
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:var(--filter-control-h)!important;
+  height:var(--filter-control-h)!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+  border-radius:var(--filter-radius)!important;
+}
+.business-toolbar .toolbar-filter-row .searchable-select-control,
+.quote-list-shell .toolbar-filter-row .searchable-select-control{height:var(--filter-control-h)!important;min-height:var(--filter-control-h)!important;border-radius:var(--filter-radius)!important}
+.business-toolbar .toolbar-filter-row .searchable-select-control input,
+.quote-list-shell .toolbar-filter-row .searchable-select-control input{height:48px!important}
+.business-toolbar .toolbar-filter-row .btn-filter-clear,
+.quote-list-shell .toolbar-filter-row .btn-filter-clear{display:flex!important;align-items:center!important;justify-content:center!important;white-space:nowrap}
+.project-filter-row .project-delivery-tag{min-height:var(--filter-control-h);display:flex;align-items:center;justify-content:center;border-radius:var(--filter-radius);padding:0 14px;box-sizing:border-box}
+
+/* Dashboard */
+.ed-filter-card{align-items:flex-start!important}
+.ed-filter-controls{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--filter-gap)!important;width:100%!important;justify-content:stretch!important;align-items:end!important}
+.ed-filter-controls>select,.ed-filter-controls>input,.ed-filter-controls>button,.ed-filter-controls>.searchable-select,.ed-filter-controls>.ed-date-control{width:100%!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important}
+.ed-filter-controls select,.ed-filter-controls input,.ed-filter-controls button,.ed-filter-controls .searchable-select-control{height:44px!important;min-height:44px!important;border-radius:12px!important}
+.ed-date-control{display:flex!important;flex-direction:column!important;gap:5px!important;font-size:10px!important;font-weight:850!important;color:#6a7d80!important}
+.ed-date-control input{width:100%!important}
+
+/* Calendario */
+.global-calendar-filters{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--filter-gap)!important;width:100%;align-items:stretch}
+.global-calendar-filters>select,.global-calendar-filters>.searchable-select{width:100%!important;min-width:0!important;max-width:none!important;min-height:46px!important;box-sizing:border-box!important}
+.global-calendar-filters .searchable-select-control{min-height:46px!important;height:46px!important}
+
+/* Registro de Compras */
+.purchase-toolbar{margin-bottom:16px!important}
+.purchase-summary-grid{margin-top:0;margin-bottom:22px}
+.purchase-filter-selects-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.purchase-filter-selects-row>.business-payment-filter,
+.purchase-filter-selects-row>.searchable-select,
+.purchase-filter-selects-row>.multi-searchable-select,
+.purchase-filter-selects-row>.btn-filter-clear{min-width:0!important;width:100%!important;min-height:var(--filter-control-h)!important}
+.multi-searchable-select{position:relative;width:100%;min-width:0}
+.multi-searchable-control{display:flex;align-items:stretch;min-height:var(--filter-control-h);border:1px solid var(--border,#cfe0e2);border-radius:var(--filter-radius);background:#fff;transition:border-color .16s ease,box-shadow .16s ease}
+.multi-searchable-select.is-open{z-index:10020}.multi-searchable-select.is-open .multi-searchable-control{border-color:#2d777b;box-shadow:0 0 0 3px rgba(45,119,123,.09)}
+.multi-searchable-values{display:flex;flex:1;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;padding:6px 8px 6px 10px}
+.multi-searchable-values input{flex:1 1 130px;min-width:90px;height:34px!important;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;padding:0 4px!important;font:inherit;color:#223b3f}
+.multi-searchable-chip{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:6px 8px;border-radius:999px;background:#eaf4f4;color:#24575c;font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.multi-searchable-chip button{border:0;background:transparent;color:#52777a;font-size:15px;line-height:1;cursor:pointer;padding:0}
+.multi-searchable-chevron{width:42px;border:0;background:transparent;color:#28474b;cursor:pointer;font-size:20px}
+.multi-searchable-menu{position:absolute;z-index:10030;top:calc(100% + 6px);left:0;right:0;max-height:280px;overflow:auto;padding:6px;background:#fff;border:1px solid #cadadd;border-radius:14px;box-shadow:0 18px 45px rgba(21,54,59,.22)}
+.multi-searchable-menu>button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 11px;border:0;border-radius:9px;background:#fff;color:#263d41;text-align:left;font:inherit;cursor:pointer}
+.multi-searchable-menu>button:hover{background:#eef7f7}.multi-searchable-menu>button.is-selected{background:#e8f4f4;color:#1f6267;font-weight:800}
+.purchase-project-line{margin-top:5px;color:#61777b;font-size:11px;font-weight:750}
+
+@media(max-width:1180px){
+  .business-toolbar .toolbar-filter-row,.quote-list-shell .toolbar-filter-row{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .ed-filter-controls{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .purchase-filter-selects-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .global-calendar-filters{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+  .business-toolbar .toolbar-filter-row,.quote-list-shell .toolbar-filter-row,.ed-filter-controls,.global-calendar-filters,.purchase-filter-selects-row{grid-template-columns:1fr!important}
+  .business-toolbar .toolbar-filter-row .date-filter-group,.quote-list-shell .toolbar-filter-row .date-filter-group{grid-column:auto;grid-template-columns:1fr!important}
+  .project-filter-row.project-filters-collapsed,.ed-filter-card.ed-filters-collapsed .ed-filter-controls{display:none!important}
+  .project-filter-row.project-filters-open{display:grid!important}
+  .multi-searchable-menu{max-height:230px}
+}
+
+
+/* FESTOS V29.34.9 — KPI Compras sin adjunto como filtro */
+.purchase-kpi-filter{
+  width:100%;
+  appearance:none;
+  border:0;
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.purchase-kpi-filter:hover{
+  transform:translateY(-2px);
+}
+.purchase-kpi-filter:focus-visible{
+  outline:2px solid currentColor;
+  outline-offset:3px;
+}
+.purchase-kpi-filter.is-active{
+  box-shadow:0 0 0 2px rgba(220,38,38,.18), 0 14px 34px rgba(220,38,38,.12);
+}
+
+
+/* FESTOS V29.35.0 — Compras + Dashboard submenu */
+.purchase-card-tags{
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  flex-wrap:wrap;
+  margin-left:auto;
+  margin-right:14px;
+}
+.purchase-card-tag{
+  min-width:150px;
+  max-width:220px;
+  padding:9px 12px;
+  border:1px solid rgba(34,66,72,.12);
+  border-radius:13px;
+  background:rgba(255,255,255,.72);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
+}
+.purchase-card-tag span{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:#718285;
+}
+.purchase-card-tag strong{
+  font-size:12px;
+  line-height:1.2;
+  color:#24383c;
+  overflow-wrap:anywhere;
+}
+.sidebar-launcher-wrap{ position:relative; }
+.dashboard-launcher-submenu{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top:calc(100% - 4px);
+  z-index:80;
+  display:none;
+  padding:6px;
+  border:1px solid rgba(34,66,72,.12);
+  border-radius:14px;
+  background:rgba(255,255,255,.98);
+  box-shadow:0 16px 34px rgba(15,23,42,.14);
+}
+.sidebar-launcher-wrap:hover .dashboard-launcher-submenu,
+.sidebar-launcher-wrap:focus-within .dashboard-launcher-submenu,
+.dashboard-launcher-submenu.is-open{ display:grid; gap:4px; }
+.dashboard-launcher-submenu button{
+  border:0;
+  background:transparent;
+  min-height:38px;
+  border-radius:10px;
+  padding:8px 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font:inherit;
+  color:#29464b;
+  cursor:pointer;
+  text-align:left;
+}
+.dashboard-launcher-submenu button:hover{ background:rgba(34,66,72,.07); }
+
+.purchase-dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin-top:16px;
+}
+.purchase-dashboard-panel{ padding:18px; }
+.purchase-dashboard-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+.purchase-dashboard-panel-head small{ color:#758588; }
+.purchase-dashboard-bars{ display:grid; gap:13px; }
+.purchase-dashboard-bar-row{ min-width:0; }
+.purchase-dashboard-bar-row > div{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  margin-bottom:6px;
+}
+.purchase-dashboard-bar-row span{
+  font-size:12px;
+  color:#52666a;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.purchase-dashboard-bar-row strong{ font-size:12px; white-space:nowrap; color:#22383d; }
+.purchase-dashboard-bar-row i{
+  display:block;
+  height:7px;
+  max-width:100%;
+  border-radius:999px;
+  background:#5b7c82;
+}
+.purchase-dashboard-error{ padding:14px 16px; color:#9f1239; }
+.purchase-dashboard-loading{ padding:22px; }
+
+@media (max-width: 900px){
+  .purchase-card-tags{ order:3; width:100%; margin:8px 0 0; }
+  .purchase-card-tag{ min-width:0; flex:1 1 160px; }
+  .purchase-dashboard-grid{ grid-template-columns:1fr; }
+}
