@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { FestosIcon } from '../FestosIcon';
 import { FESTOS_TEAM, nombreCompletoUsuario } from '../teamDirectory';
+import SearchableSelect from "../components/SearchableSelect";
 
 const COLORS = [
   { id: 'petrol', label: 'Petróleo', hex: '#224248' },
