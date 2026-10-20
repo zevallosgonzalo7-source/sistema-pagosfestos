@@ -13,7 +13,7 @@ const IGV_RATE = 0.18;
 const money = value => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
 const id = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const TIPOS_COMPROBANTE = ['SIN COMPROBANTE','FACTURA','BOLETA','RECIBO POR HONORARIOS','OTRO'];
-const emptyProveedorRapido = { nombre: '', ruc_documento: '', categoria: '', productos: '', condicion_pago: 'CONTADO', plazo_dias: 0 };
+const emptyProveedorRapido = { nombre: '', nombre_comercial: '', ruc_documento: '', productos: '', contactos: [{ nombre: '', telefono: '' }], condicion_pago: 'CONTADO', plazo_dias: 0 };
 const emptyFiles = { pdf: null, xml: null, ctz: null };
 const emptyForm = {
   fecha_compra: new Date().toISOString().slice(0, 10),
@@ -50,6 +50,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   const [lobCatalogo, setLobCatalogo] = useState([]);
   const [cecoCatalogo, setCecoCatalogo] = useState([]);
   const [categoriaGastoCatalogo, setCategoriaGastoCatalogo] = useState([]);
+  const [proyectosGenerales, setProyectosGenerales] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [archivos, setArchivos] = useState(emptyFiles);
   const [editando, setEditando] = useState(null);
@@ -72,13 +73,14 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   const [estadoLecturaPdf, setEstadoLecturaPdf] = useState('');
 
   const cargar = async () => {
-    const [c, p, pr, lobRes, cecoRes, gastoRes] = await Promise.all([
-      supabase.from('compras').select('*, proyectos(id,codigo,nombre,lob), proveedores(id,nombre,ruc_documento)').order('fecha_compra', { ascending: false }).order('created_at', { ascending: false }),
+    const [c, p, pr, lobRes, cecoRes, gastoRes, generalRes] = await Promise.all([
+      supabase.from('compras').select('*, proyectos(id,codigo,nombre,lob), proveedores(id,nombre,nombre_comercial,ruc_documento)').order('fecha_compra', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('proyectos').select('id,codigo,nombre,estado,lob').order('created_at', { ascending: false }),
-      supabase.from('proveedores').select('id,nombre,ruc_documento,estado,categoria,productos,condicion_pago,plazo_dias').order('nombre'),
+      supabase.from('proveedores').select('id,nombre,nombre_comercial,ruc_documento,estado,productos,telefono,contacto_nombre,condicion_pago,plazo_dias').order('nombre'),
       supabase.from('compras_lob_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre'),
       supabase.from('compras_ceco_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre'),
-      supabase.from('compras_categoria_gasto_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre')
+      supabase.from('compras_categoria_gasto_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre'),
+      supabase.from('compras_proyectos_generales').select('id,nombre,activo').eq('activo', true).order('nombre')
     ]);
     if (c.error) console.error('Compras:', c.error); else setCompras(c.data || []);
     if (p.error) console.error('Proyectos:', p.error); else setProyectos(p.data || []);
@@ -86,6 +88,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
     if (lobRes.error) console.error('Catálogo LOB:', lobRes.error); else setLobCatalogo((lobRes.data || []).map(x => x.nombre));
     if (cecoRes.error) console.error('Catálogo CeCo:', cecoRes.error); else setCecoCatalogo((cecoRes.data || []).map(x => x.nombre));
     if (gastoRes.error) console.error('Catálogo categoría de gasto:', gastoRes.error); else setCategoriaGastoCatalogo((gastoRes.data || []).map(x => x.nombre));
+    if (generalRes.error) console.error('Proyectos generales:', generalRes.error); else setProyectosGenerales(generalRes.data || []);
   };
 
   useEffect(() => {
@@ -97,6 +100,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   }, []);
 
   const tieneAlgunAdjunto = c => !!(c?.pdf_factura_path || c?.xml_factura_path || c?.ctz_path);
+  const requiereAdjunto = c => ['FACTURA', 'RECIBO POR HONORARIOS'].includes(String(c?.tipo_comprobante || '').toUpperCase());
+  const faltaAdjuntoObligatorio = c => requiereAdjunto(c) && !tieneAlgunAdjunto(c);
 
   const filtradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -104,13 +109,17 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       const fecha = c.fecha_compra || '';
       const texto = `${c.codigo || ''} ${c.descripcion || ''} ${c.proveedor_nombre || c.proveedores?.nombre || ''} ${c.proyectos?.codigo || ''} ${c.proyectos?.nombre || ''} ${c.proyecto_texto || ''} ${c.lob || ''} ${c.ceco || ''}`.toLowerCase();
       return (!q || texto.includes(q)) &&
-        (!filtroProyectos.length || filtroProyectos.some(v => v === 'SIN_PROYECTO' ? (!c.project_id && !c.proyecto_texto) : String(c.project_id) === String(v))) &&
+        (!filtroProyectos.length || filtroProyectos.some(v => {
+          if (v === 'SIN_PROYECTO') return !c.project_id && !c.proyecto_texto;
+          if (String(v).startsWith('GENERAL:')) return !c.project_id && normalizeText(c.proyecto_texto) === normalizeText(String(v).slice(8));
+          return String(c.project_id) === String(v);
+        })) &&
         (filtroProveedor === 'TODOS' || String(c.proveedor_id || '') === String(filtroProveedor)) &&
         (filtroCategoriaGasto === 'TODAS' || c.categoria_gasto === filtroCategoriaGasto) &&
         (filtroLob === 'TODOS' || String(c.lob || '') === filtroLob) &&
         (filtroCeCo === 'TODOS' || String(c.ceco || '') === filtroCeCo) &&
         (!fechaDesde || fecha >= fechaDesde) && (!fechaHasta || fecha <= fechaHasta) &&
-        (!filtroSinAdjunto || !tieneAlgunAdjunto(c));
+        (!filtroSinAdjunto || faltaAdjuntoObligatorio(c));
     });
   }, [compras, busqueda, filtroProyectos, filtroProveedor, filtroCategoriaGasto, filtroLob, filtroCeCo, fechaDesde, fechaHasta, filtroSinAdjunto]);
 
@@ -118,7 +127,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
     valorCompra: filtradas.reduce((s, c) => s + Number(c.monto_base ?? c.monto ?? 0), 0),
     creditoFiscal: filtradas.reduce((s, c) => s + ((c.genera_credito_fiscal ?? (c.tipo_comprobante === 'FACTURA')) ? Number(c.igv_monto || 0) : 0), 0),
     precioCompra: filtradas.reduce((s, c) => s + Number(c.monto || 0), 0),
-    sinAdjunto: filtradas.filter(c => !tieneAlgunAdjunto(c)).length
+    sinAdjunto: filtradas.filter(faltaAdjuntoObligatorio).length
   }), [filtradas]);
 
   const abrirNuevo = () => {
@@ -162,24 +171,32 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
 
   const guardarProveedorRapido = async e => {
     e.preventDefault();
-    if (!proveedorRapido.nombre.trim() || !proveedorRapido.ruc_documento.trim() || !proveedorRapido.categoria.trim() || !proveedorRapido.productos.trim()) {
-      return alert('Completa razón social, RUC / Documento, categoría y producto/servicio del proveedor.');
+    if (!proveedorRapido.nombre.trim() || !proveedorRapido.ruc_documento.trim() || !proveedorRapido.productos.trim()) {
+      return alert('Completa razón social, RUC / Documento y producto/servicio del proveedor.');
     }
     if (proveedorRapido.condicion_pago === 'CREDITO' && Number(proveedorRapido.plazo_dias) <= 0) return alert('Indica el plazo de crédito.');
     setGuardandoProveedor(true);
     try {
+      const contactosValidos = (proveedorRapido.contactos || []).map(c => ({ nombre: String(c.nombre || '').trim(), telefono: String(c.telefono || '').trim() })).filter(c => c.nombre || c.telefono);
+      const contactoPrincipal = contactosValidos[0] || { nombre: '', telefono: '' };
       const payload = {
         nombre: proveedorRapido.nombre.trim(),
+        nombre_comercial: String(proveedorRapido.nombre_comercial || '').trim() || null,
         ruc_documento: proveedorRapido.ruc_documento.trim(),
-        categoria: proveedorRapido.categoria.trim(),
         productos: proveedorRapido.productos.trim(),
+        contacto_nombre: contactoPrincipal.nombre || null,
+        telefono: contactoPrincipal.telefono || null,
         condicion_pago: proveedorRapido.condicion_pago,
         plazo_dias: proveedorRapido.condicion_pago === 'CONTADO' ? 0 : Math.trunc(Number(proveedorRapido.plazo_dias) || 0),
         estado: true
       };
-      const { data: proveedorCreado, error } = await supabase.from('proveedores').insert([payload]).select('id,nombre,ruc_documento').single();
+      const { data: proveedorCreado, error } = await supabase.from('proveedores').insert([payload]).select('id,nombre,nombre_comercial,ruc_documento').single();
       if (error) throw error;
       if (!proveedorCreado?.id) throw new Error('La base de datos no devolvió el proveedor creado.');
+      if (contactosValidos.length) {
+        const { error: contactosError } = await supabase.from('proveedor_contactos').insert(contactosValidos.map(c => ({ proveedor_id: proveedorCreado.id, nombre: c.nombre || null, telefono: c.telefono || null })));
+        if (contactosError) throw contactosError;
+      }
       await cargar();
       setForm(f => ({ ...f, proveedor_id: proveedorCreado.id, proveedor_nombre: proveedorCreado.nombre || payload.nombre }));
       setMostrarNuevoProveedor(false);
@@ -353,6 +370,14 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
         : await supabase.from('compras').insert([{ ...payload, id: compraId }]);
       if (result.error) throw result.error;
 
+      if (!esCostoDirecto(form.categoria_gasto)) {
+        const proyectoGeneral = String(form.proyecto_texto || '').trim();
+        if (proyectoGeneral) {
+          const { error: generalError } = await supabase.from('compras_proyectos_generales').insert([{ nombre: proyectoGeneral, created_by: usuario || null }]);
+          if (generalError && generalError.code !== '23505') console.warn('No se pudo actualizar el catálogo de proyectos generales:', generalError);
+        }
+      }
+
       const [pdfPath, xmlPath, ctzPath] = await Promise.all([
         uploadAdjunto(compraId, 'pdf', archivos.pdf, form),
         uploadAdjunto(compraId, 'xml', archivos.xml, form),
@@ -408,12 +433,14 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
           <label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)}/></label>
           <label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)}/></label>
         </div>
-        <div className="purchase-filter-selects-row">
-          <MultiSearchableSelect className="business-payment-filter" values={filtroProyectos} onChange={setFiltroProyectos} ariaLabel="Filtrar por uno o más proyectos" placeholder="Proyecto: Todos" options={[{value:'SIN_PROYECTO',label:'Sin proyecto / compra general'},...proyectos.map(p => ({value:p.id,label:`${p.codigo || 'PRY'} · ${p.nombre}`,searchText:`${p.codigo || ''} ${p.nombre || ''}`}))]} />
-          <SearchableSelect className="business-payment-filter" value={filtroProveedor} onChange={setFiltroProveedor} ariaLabel="Filtrar por proveedor" options={[{value:'TODOS',label:'Proveedor: Todos'},...proveedores.filter(p => p.estado !== false).map(p => ({value:p.id,label:p.nombre,searchText:`${p.nombre || ''} ${p.ruc_documento || ''}`}))]} />
-          <SearchableSelect className="business-payment-filter" value={filtroLob} onChange={setFiltroLob} ariaLabel="Filtrar por LOB" options={[{value:'TODOS',label:'LOB: Todos'},...lobCatalogo.map(x => ({value:x,label:x}))]} />
+        <div className="purchase-filter-selects-row purchase-filter-ordered">
           <SearchableSelect className="business-payment-filter" value={filtroCeCo} onChange={setFiltroCeCo} ariaLabel="Filtrar por CeCo" options={[{value:'TODOS',label:'CeCo: Todos'},...cecoCatalogo.map(x => ({value:x,label:x}))]} />
-          <SearchableSelect className="business-payment-filter" value={filtroCategoriaGasto} onChange={setFiltroCategoriaGasto} ariaLabel="Filtrar por categoría de gasto" options={[{value:'TODAS',label:'Categoría de gasto: Todas'},...categoriaGastoCatalogo.map(x => ({value:x,label:x}))]} />
+          <SearchableSelect className="business-payment-filter" value={filtroCategoriaGasto} onChange={value => { setFiltroCategoriaGasto(value); setFiltroProyectos([]); }} ariaLabel="Filtrar por categoría de gasto" options={[{value:'TODAS',label:'Categoría de gasto: Todas'},...categoriaGastoCatalogo.map(x => ({value:x,label:x}))]} />
+          <SearchableSelect className="business-payment-filter" value={filtroLob} onChange={setFiltroLob} ariaLabel="Filtrar por LOB" options={[{value:'TODOS',label:'LOB: Todos'},...lobCatalogo.map(x => ({value:x,label:x}))]} />
+          <MultiSearchableSelect className="business-payment-filter" values={filtroProyectos} onChange={setFiltroProyectos} ariaLabel="Filtrar por uno o más proyectos" placeholder={esCostoDirecto(filtroCategoriaGasto) ? 'Proyecto PRY: Todos' : 'Proyecto general: Todos'} options={esCostoDirecto(filtroCategoriaGasto)
+            ? [{value:'SIN_PROYECTO',label:'Sin proyecto'},...proyectos.map(p => ({value:p.id,label:`${p.codigo || 'PRY'} · ${p.nombre}`,searchText:`${p.codigo || ''} ${p.nombre || ''}`}))]
+            : [{value:'SIN_PROYECTO',label:'Sin proyecto / compra general'},...proyectosGenerales.map(p => ({value:`GENERAL:${p.nombre}`,label:p.nombre,searchText:p.nombre}))]} />
+          <SearchableSelect className="business-payment-filter" value={filtroProveedor} onChange={setFiltroProveedor} ariaLabel="Filtrar por proveedor" options={[{value:'TODOS',label:'Proveedor: Todos'},...proveedores.filter(p => p.estado !== false).map(p => ({value:p.id,label:p.nombre_comercial ? `${p.nombre_comercial} · ${p.nombre}` : p.nombre,searchText:`${p.nombre || ''} ${p.nombre_comercial || ''} ${p.ruc_documento || ''}`}))]} />
           <button className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFiltroProyectos([]); setFiltroProveedor('TODOS'); setFiltroCategoriaGasto('TODAS'); setFiltroLob('TODOS'); setFiltroCeCo('TODOS'); setFechaDesde(''); setFechaHasta(''); setFiltroSinAdjunto(false); }}>Limpiar filtros</button>
         </div>
       </div>
@@ -443,7 +470,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
     <div className="business-record-list purchase-list">
       {filtradas.length === 0 ? <p className="empty-hint">No hay compras con los filtros actuales.</p> : filtradas.map(c => {
         const abierto = detalle === c.id;
-        const adjuntosOk = tieneAlgunAdjunto(c);
+        const adjuntoObligatorio = requiereAdjunto(c);
+        const adjuntosOk = !adjuntoObligatorio || tieneAlgunAdjunto(c);
         return <article className={`business-pro-card purchase-card ${abierto ? 'is-open' : ''}`} key={c.id}>
           <div className="business-pro-main purchase-card-main-clean">
             <div className="business-identity"><span className="business-status-dot status-active"/><div><div className="business-code">{c.codigo || 'COMPRA'}</div><h4>{c.descripcion}</h4>{(c.proyectos || c.proyecto_texto) && <div className="purchase-project-line">{c.proyectos ? `${c.proyectos.codigo || ''} · ${c.proyectos.nombre}` : c.proyecto_texto}</div>}</div></div>
@@ -452,10 +480,9 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
               <div className="purchase-card-tag"><span>Tipo de comprobante</span><strong>{c.tipo_comprobante === 'SIN COMPROBANTE' ? 'Sin comprobante' : (c.tipo_comprobante || '—')}</strong></div>
             </div>
             <div className="purchase-value-zone">
-              <div className={`purchase-attachment-status ${adjuntosOk ? 'is-complete' : 'is-missing'}`} title={adjuntosOk ? 'Compra con adjunto' : 'Compra sin adjunto'}><FestosIcon name={adjuntosOk ? 'Check' : 'AlertTriangle'} size={17}/></div>
+              <div className={`purchase-attachment-status ${adjuntosOk ? 'is-complete' : 'is-missing'}`} title={!adjuntoObligatorio ? 'Adjunto no obligatorio para este comprobante' : (adjuntosOk ? 'Compra con adjunto' : 'Compra sin adjunto obligatorio')}><FestosIcon name={adjuntosOk ? 'Check' : 'AlertTriangle'} size={17}/></div>
               <div className="business-date-value"><span>Valor compra</span><strong>{money(c.monto_base ?? c.monto)}</strong><small>{c.fecha_compra ? new Date(`${c.fecha_compra}T12:00:00`).toLocaleDateString('es-PE') : '—'}</small></div>
             </div>
-            <div className="business-menu-wrap"><button type="button" className="quote-more-btn" onClick={() => setDetalle(abierto ? null : c.id)}><FestosIcon name="Eye" size={18}/></button></div>
           </div>
           <button type="button" className="quote-expand-bar" onClick={() => setDetalle(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17}/></span></button>
           {abierto && <div className="purchase-detail-wrap"><div className="business-detail-grid purchase-detail-grid-clean">
@@ -478,21 +505,21 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18}/> Editar compra</> : <><FestosIcon name="Plus" size={18}/> Registrar compra</>}</h4><p className="panel-note">Completa la información de la compra.</p></div><button type="button" className="modal-close-btn" onClick={() => setModal(false)}>×</button></div>
 
       <div className="form-row"><label>Fecha de compra *</label><input type="date" value={form.fecha_compra} onChange={e => setForm({...form, fecha_compra:e.target.value})} required/></div>
-      <div className="form-row"><label>Fecha de control</label><input type="date" value={form.fecha_control || ''} disabled/><small>Se completará automáticamente desde Registro de Ventas cuando ese módulo esté disponible.</small></div>
+      <div className="form-row"><label>Fecha de control</label><input type="date" value={form.fecha_control || ''} onChange={e => setForm({...form, fecha_control:e.target.value})}/></div>
       <div className="form-row"><label>CeCo *</label><SearchableSelect value={form.ceco} onChange={value => setForm({...form, ceco:value})} required ariaLabel="Seleccionar CeCo" placeholder="Selecciona un CeCo" options={[{value:'',label:'Selecciona un CeCo'},...cecoCatalogo.map(x => ({value:x,label:x}))]} /></div>
       <div className="form-row"><label>LOB</label><SearchableSelect value={form.lob} onChange={value => setForm({...form, lob:value})} ariaLabel="Seleccionar LOB" placeholder="Sin LOB / opcional" options={[{value:'',label:'Sin LOB / opcional'},...lobCatalogo.map(x => ({value:x,label:x}))]} /></div>
       <div className="form-row"><label>Categoría de gasto *</label><SearchableSelect value={form.categoria_gasto} onChange={value => setForm({...form, categoria_gasto:value, project_id: esCostoDirecto(value) ? form.project_id : '', proyecto_texto: esCostoDirecto(value) ? '' : form.proyecto_texto})} required ariaLabel="Seleccionar categoría de gasto" placeholder="Selecciona una categoría de gasto" options={[{value:'',label:'Selecciona una categoría de gasto'},...categoriaGastoCatalogo.map(x => ({value:x,label:x}))]} /><small>Clasificación administrativa/contable usada por Registro de Compras.</small></div>
-      <div className="form-row"><label>Proyecto</label>{esCostoDirecto(form.categoria_gasto) ? <SearchableSelect value={form.project_id} onChange={value => setForm({...form, project_id:value})} ariaLabel="Seleccionar proyecto" placeholder="Escribe para buscar un proyecto..." searchPlaceholder="Escribe código o nombre..." options={[{value:'',label:'Sin proyecto / compra general'},...proyectos.map(p => ({value:p.id,label:`${p.codigo || 'PRY'} · ${p.nombre}`,searchText:`${p.codigo || ''} ${p.nombre || ''}`}))]} /> : <input value={form.proyecto_texto || ''} onChange={e => setForm({...form, proyecto_texto:e.target.value})} placeholder="Escribe el proyecto, referencia o concepto..." />}<small>{esCostoDirecto(form.categoria_gasto) ? 'Costos Directos: busca y selecciona un proyecto existente.' : 'Para esta categoría puedes escribir libremente el proyecto o referencia.'}</small></div>
+      <div className="form-row"><label>Proyecto</label>{esCostoDirecto(form.categoria_gasto) ? <SearchableSelect value={form.project_id} onChange={value => setForm({...form, project_id:value})} ariaLabel="Seleccionar proyecto" placeholder="Escribe para buscar un proyecto..." searchPlaceholder="Escribe código o nombre..." options={[{value:'',label:'Sin proyecto / compra general'},...proyectos.map(p => ({value:p.id,label:`${p.codigo || 'PRY'} · ${p.nombre}`,searchText:`${p.codigo || ''} ${p.nombre || ''}`}))]} /> : <><input list="compras-proyectos-generales" value={form.proyecto_texto || ''} onChange={e => setForm({...form, proyecto_texto:e.target.value})} placeholder="Escribe o selecciona un proyecto general..."/><datalist id="compras-proyectos-generales">{proyectosGenerales.map(p => <option key={p.id} value={p.nombre}/>)}</datalist></>}<small>Si escribes un proyecto nuevo, FESTOS lo guardará como proyecto general para futuras compras y filtros.</small></div>
       <div className="form-row"><label>Descripción *</label><textarea rows="3" value={form.descripcion} onChange={e => setForm({...form, descripcion:e.target.value})} placeholder="¿Qué se compró?" required/></div>
 
       <div className="form-row"><label>Proveedor *</label><SearchableSelect value={form.proveedor_id} onChange={seleccionarProveedor} required ariaLabel="Seleccionar proveedor" placeholder="Selecciona un proveedor..." options={[{value:'',label:'Selecciona un proveedor...'},...proveedores.filter(p => p.estado !== false).map(p => ({value:p.id,label:p.nombre,searchText:`${p.nombre || ''} ${p.ruc_documento || ''}`}))]} /><button type="button" className="btn-muted purchase-add-provider-btn" onClick={() => setMostrarNuevoProveedor(v => !v)}><FestosIcon name="Plus" size={15}/> Añadir nuevo proveedor</button></div>
 
       {mostrarNuevoProveedor && <div className="quick-provider-card" onClick={e => e.stopPropagation()}>
         <div className="quick-client-head"><strong>Registrar proveedor sin salir de Compras</strong><button type="button" className="btn-muted" onClick={() => setMostrarNuevoProveedor(false)}>Cerrar</button></div>
-        <div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={proveedorRapido.nombre} onChange={e => setProveedorRapido({...proveedorRapido, nombre:e.target.value})}/></div><div className="form-row"><label>RUC / Documento *</label><input value={proveedorRapido.ruc_documento} onChange={e => setProveedorRapido({...proveedorRapido, ruc_documento:e.target.value})} placeholder="RUC, DNI u otro documento"/></div></div>
-        <div className="form-row"><label>Categoría *</label><input value={proveedorRapido.categoria} onChange={e => setProveedorRapido({...proveedorRapido, categoria:e.target.value})} placeholder="Ej. Materiales, transporte..."/></div>
-        <div className="form-row"><label>Producto / Servicio *</label><input value={proveedorRapido.productos} onChange={e => setProveedorRapido({...proveedorRapido, productos:e.target.value})}/></div>
-        <div className="form-grid-2"><div className="form-row"><label>Condición de pago</label><select value={proveedorRapido.condicion_pago} onChange={e => setProveedorRapido({...proveedorRapido, condicion_pago:e.target.value})}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días)</label><input type="number" min="0" disabled={proveedorRapido.condicion_pago==='CONTADO'} value={proveedorRapido.plazo_dias} onChange={e => setProveedorRapido({...proveedorRapido, plazo_dias:e.target.value})}/></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={proveedorRapido.nombre} onChange={e => setProveedorRapido({...proveedorRapido, nombre:e.target.value})}/></div><div className="form-row"><label>Nombre comercial</label><input value={proveedorRapido.nombre_comercial} onChange={e => setProveedorRapido({...proveedorRapido, nombre_comercial:e.target.value})} placeholder="Nombre con el que se conoce al proveedor"/></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>RUC / Documento *</label><input value={proveedorRapido.ruc_documento} onChange={e => setProveedorRapido({...proveedorRapido, ruc_documento:e.target.value})} placeholder="RUC, DNI u otro documento"/></div><div className="form-row"><label>Producto / Servicio *</label><input value={proveedorRapido.productos} onChange={e => setProveedorRapido({...proveedorRapido, productos:e.target.value})}/></div></div>
+        <div className="quick-provider-contacts"><div className="contactos-head"><div><strong>Contactos</strong><small>Nombre y teléfono del contacto.</small></div><button type="button" className="btn-muted" onClick={() => setProveedorRapido(prev => ({...prev, contactos:[...(prev.contactos || []), {nombre:'',telefono:''}]}))}><FestosIcon name="Plus" size={15}/> Agregar contacto</button></div>{(proveedorRapido.contactos || []).map((ct, index) => <div className="form-grid-2 quick-provider-contact-row" key={index}><div className="form-row"><label>Nombre{index === 0 ? '' : ` ${index + 1}`}</label><input value={ct.nombre} onChange={e => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.map((x,i) => i === index ? {...x,nombre:e.target.value} : x)}))} placeholder="Nombre del contacto"/></div><div className="form-row"><label>Teléfono{index === 0 ? '' : ` ${index + 1}`}</label><div className="quick-provider-phone-line"><input value={ct.telefono} onChange={e => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.map((x,i) => i === index ? {...x,telefono:e.target.value} : x)}))} placeholder="+51 999 999 999"/>{index > 0 && <button type="button" className="contact-remove-btn" onClick={() => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.filter((_,i) => i !== index)}))}>×</button>}</div></div></div>)}</div>
+        <div className="form-grid-2"><div className="form-row"><label>Condición de pago</label><select value={proveedorRapido.condicion_pago} onChange={e => setProveedorRapido({...proveedorRapido, condicion_pago:e.target.value, plazo_dias:e.target.value==='CONTADO'?0:proveedorRapido.plazo_dias})}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días)</label><input type="number" min="0" disabled={proveedorRapido.condicion_pago==='CONTADO'} value={proveedorRapido.plazo_dias} onChange={e => setProveedorRapido({...proveedorRapido, plazo_dias:e.target.value})}/></div></div>
         <button type="button" className="btn-primary btn-small" disabled={guardandoProveedor} onClick={guardarProveedorRapido}>{guardandoProveedor ? 'Guardando...' : 'Registrar y seleccionar proveedor'}</button>
       </div>}
 

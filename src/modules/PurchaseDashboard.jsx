@@ -7,7 +7,10 @@ const money = value => `S/. ${Number(value || 0).toLocaleString('es-PE', { minim
 const num = value => Number(value || 0);
 const norm = value => String(value || '').trim().toLowerCase();
 const hasAttachment = c => !!(c?.pdf_factura_path || c?.xml_factura_path || c?.ctz_path);
+const requiresAttachment = c => ['FACTURA', 'RECIBO POR HONORARIOS'].includes(String(c?.tipo_comprobante || '').toUpperCase());
+const missingRequiredAttachment = c => requiresAttachment(c) && !hasAttachment(c);
 const purchaseValue = c => num(c?.monto_base ?? c?.monto ?? 0);
+const normalizeProjectKey = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 function DonutCeCo({ items, total, onPick }) {
   const radius = 54;
@@ -66,6 +69,12 @@ function BarList({ items, onPick, empty = 'Todavía no hay compras registradas.'
 
 export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
   const [compras, setCompras] = useState([]);
+  const [proyectosCatalogo, setProyectosCatalogo] = useState([]);
+  const [proyectosGenerales, setProyectosGenerales] = useState([]);
+  const [proveedoresCatalogo, setProveedoresCatalogo] = useState([]);
+  const [cecoCatalogo, setCecoCatalogo] = useState([]);
+  const [lobCatalogo, setLobCatalogo] = useState([]);
+  const [categoriaCatalogo, setCategoriaCatalogo] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -82,13 +91,22 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
   const cargar = async () => {
     setLoading(true);
     setError('');
-    const { data, error: err } = await supabase
-      .from('compras')
-      .select('*, proyectos(id,codigo,nombre,lob), proveedores(id,nombre,ruc_documento)')
-      .order('fecha_compra', { ascending: false })
-      .order('created_at', { ascending: false });
-    if (err) setError(err.message);
-    else setCompras(data || []);
+    const [comprasRes, proyectosRes, generalesRes, proveedoresRes, cecoRes, lobRes, categoriaRes] = await Promise.all([
+      supabase.from('compras').select('*, proyectos(id,codigo,nombre,lob), proveedores(id,nombre,nombre_comercial,ruc_documento)').order('fecha_compra', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('proyectos').select('id,codigo,nombre,estado').order('created_at', { ascending: false }),
+      supabase.from('compras_proyectos_generales').select('id,nombre,activo').eq('activo', true).order('nombre'),
+      supabase.from('proveedores').select('id,nombre,nombre_comercial,ruc_documento,estado').order('nombre'),
+      supabase.from('compras_ceco_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre'),
+      supabase.from('compras_lob_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre'),
+      supabase.from('compras_categoria_gasto_catalogo').select('nombre,orden').eq('activo', true).order('orden').order('nombre')
+    ]);
+    if (comprasRes.error) setError(comprasRes.error.message); else setCompras(comprasRes.data || []);
+    if (!proyectosRes.error) setProyectosCatalogo(proyectosRes.data || []);
+    if (!generalesRes.error) setProyectosGenerales(generalesRes.data || []);
+    if (!proveedoresRes.error) setProveedoresCatalogo(proveedoresRes.data || []);
+    if (!cecoRes.error) setCecoCatalogo((cecoRes.data || []).map(x => x.nombre));
+    if (!lobRes.error) setLobCatalogo((lobRes.data || []).map(x => x.nombre));
+    if (!categoriaRes.error) setCategoriaCatalogo((categoriaRes.data || []).map(x => x.nombre));
     setLoading(false);
   };
 
@@ -100,45 +118,29 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const proyectos = useMemo(() => {
-    const map = new Map();
-    compras.forEach(c => {
-      if (c.project_id && c.proyectos) map.set(String(c.project_id), `${c.proyectos.codigo || 'PRY'} · ${c.proyectos.nombre || 'Proyecto'}`);
-      else if (c.proyecto_texto) map.set(`TXT:${c.proyecto_texto}`, c.proyecto_texto);
-    });
-    return [...map.entries()].sort((a,b) => a[1].localeCompare(b[1], 'es'));
-  }, [compras]);
-
-  const proveedores = useMemo(() => {
-    const map = new Map();
-    compras.forEach(c => {
-      const value = c.proveedor_id ? String(c.proveedor_id) : `TXT:${c.proveedor_nombre || ''}`;
-      const label = c.proveedores?.nombre || c.proveedor_nombre;
-      if (label) map.set(value, label);
-    });
-    return [...map.entries()].sort((a,b) => a[1].localeCompare(b[1], 'es'));
-  }, [compras]);
-
+  const proyectos = useMemo(() => proyectosCatalogo.map(p => [String(p.id), `${p.codigo || 'PRY'} · ${p.nombre || 'Proyecto'}`]), [proyectosCatalogo]);
+  const proyectosGeneralesOpciones = useMemo(() => proyectosGenerales.map(p => [`GENERAL:${p.nombre}`, p.nombre]), [proyectosGenerales]);
+  const proveedores = useMemo(() => proveedoresCatalogo.filter(p => p.estado !== false).map(p => [String(p.id), p.nombre_comercial ? `${p.nombre_comercial} · ${p.nombre}` : p.nombre]), [proveedoresCatalogo]);
   const unique = key => [...new Set(compras.map(c => String(c[key] || '').trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,'es'));
-  const cecos = useMemo(() => unique('ceco'), [compras]);
-  const lobs = useMemo(() => unique('lob'), [compras]);
-  const categorias = useMemo(() => unique('categoria_gasto'), [compras]);
+  const cecos = useMemo(() => cecoCatalogo.length ? cecoCatalogo : unique('ceco'), [compras, cecoCatalogo]);
+  const lobs = useMemo(() => lobCatalogo.length ? lobCatalogo : unique('lob'), [compras, lobCatalogo]);
+  const categorias = useMemo(() => categoriaCatalogo.length ? categoriaCatalogo : unique('categoria_gasto'), [compras, categoriaCatalogo]);
   const comprobantes = useMemo(() => unique('tipo_comprobante'), [compras]);
 
   const filtradas = useMemo(() => compras.filter(c => {
     const fecha = String(c.fecha_compra || '').slice(0,10);
-    const projectKey = c.project_id ? String(c.project_id) : (c.proyecto_texto ? `TXT:${c.proyecto_texto}` : 'SIN_PROYECTO');
+    const projectKey = c.project_id ? String(c.project_id) : (c.proyecto_texto ? `GENERAL:${c.proyecto_texto}` : 'SIN_PROYECTO');
     const providerKey = c.proveedor_id ? String(c.proveedor_id) : `TXT:${c.proveedor_nombre || ''}`;
     const adj = hasAttachment(c);
     return (!fechaDesde || fecha >= fechaDesde) &&
       (!fechaHasta || fecha <= fechaHasta) &&
-      (filtroProyecto === 'TODOS' || projectKey === filtroProyecto || (filtroProyecto === 'SIN_PROYECTO' && projectKey === 'SIN_PROYECTO')) &&
+      (filtroProyecto === 'TODOS' || (String(filtroProyecto).startsWith('GENERAL:') ? normalizeProjectKey(projectKey) === normalizeProjectKey(filtroProyecto) : projectKey === filtroProyecto) || (filtroProyecto === 'SIN_PROYECTO' && projectKey === 'SIN_PROYECTO')) &&
       (filtroProveedor === 'TODOS' || providerKey === filtroProveedor) &&
       (filtroCeCo === 'TODOS' || String(c.ceco || '') === filtroCeCo) &&
       (filtroLob === 'TODOS' || String(c.lob || '') === filtroLob) &&
       (filtroCategoria === 'TODAS' || String(c.categoria_gasto || '') === filtroCategoria) &&
       (filtroComprobante === 'TODOS' || String(c.tipo_comprobante || '') === filtroComprobante) &&
-      (filtroAdjunto === 'TODOS' || (filtroAdjunto === 'CON' ? adj : !adj));
+      (filtroAdjunto === 'TODOS' || (filtroAdjunto === 'CON' ? adj : missingRequiredAttachment(c)));
   }), [compras, fechaDesde, fechaHasta, filtroProyecto, filtroProveedor, filtroCeCo, filtroLob, filtroCategoria, filtroComprobante, filtroAdjunto]);
 
   const resumen = useMemo(() => {
@@ -150,7 +152,7 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
       credito,
       precio,
       cantidad: filtradas.length,
-      sinAdjunto: filtradas.filter(c => !hasAttachment(c)).length,
+      sinAdjunto: filtradas.filter(missingRequiredAttachment).length,
       proveedores: new Set(filtradas.map(c => c.proveedor_id || c.proveedor_nombre).filter(Boolean)).size
     };
   }, [filtradas]);
@@ -220,42 +222,18 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
         <label className="ed-date-control">Desde <input type="date" value={fechaDesde} max={fechaHasta || undefined} onChange={e => setFechaDesde(e.target.value)}/></label>
         <label className="ed-date-control">Hasta <input type="date" value={fechaHasta} min={fechaDesde || undefined} onChange={e => setFechaHasta(e.target.value)}/></label>
 
+        <SearchableSelect value={filtroCeCo} onChange={setFiltroCeCo} ariaLabel="CeCo" options={[{value:'TODOS',label:'Todos los CeCo'},...cecos.map(x => ({value:x,label:x}))]}/>
+        <SearchableSelect value={filtroCategoria} onChange={value => { setFiltroCategoria(value); setFiltroProyecto('TODOS'); }} ariaLabel="Categoría de gasto" options={[{value:'TODAS',label:'Todas las categorías de gasto'},...categorias.map(x => ({value:x,label:x}))]}/>
+        <SearchableSelect value={filtroLob} onChange={setFiltroLob} ariaLabel="LOB" options={[{value:'TODOS',label:'Todos los LOB'},...lobs.map(x => ({value:x,label:x}))]}/>
         <SearchableSelect value={filtroProyecto} onChange={setFiltroProyecto} ariaLabel="Proyecto" options={[
-          {value:'TODOS',label:'Todos los proyectos'},
+          {value:'TODOS',label:normalizeProjectKey(filtroCategoria) === 'costos directos' ? 'Todos los PRY' : 'Todos los proyectos generales'},
           {value:'SIN_PROYECTO',label:'Sin proyecto'},
-          ...proyectos.map(([value,label]) => ({value,label}))
+          ...(normalizeProjectKey(filtroCategoria) === 'costos directos' ? proyectos : proyectosGeneralesOpciones).map(([value,label]) => ({value,label}))
         ]}/>
+        <SearchableSelect value={filtroProveedor} onChange={setFiltroProveedor} ariaLabel="Proveedor" options={[{value:'TODOS',label:'Todos los proveedores'},...proveedores.map(([value,label]) => ({value,label}))]}/>
 
-        <SearchableSelect value={filtroProveedor} onChange={setFiltroProveedor} ariaLabel="Proveedor" options={[
-          {value:'TODOS',label:'Todos los proveedores'},
-          ...proveedores.map(([value,label]) => ({value,label}))
-        ]}/>
-
-        <SearchableSelect value={filtroCeCo} onChange={setFiltroCeCo} ariaLabel="CeCo" options={[
-          {value:'TODOS',label:'Todos los CeCo'},
-          ...cecos.map(x => ({value:x,label:x}))
-        ]}/>
-
-        <SearchableSelect value={filtroLob} onChange={setFiltroLob} ariaLabel="LOB" options={[
-          {value:'TODOS',label:'Todos los LOB'},
-          ...lobs.map(x => ({value:x,label:x}))
-        ]}/>
-
-        <SearchableSelect value={filtroCategoria} onChange={setFiltroCategoria} ariaLabel="Categoría de gasto" options={[
-          {value:'TODAS',label:'Todas las categorías de gasto'},
-          ...categorias.map(x => ({value:x,label:x}))
-        ]}/>
-
-        <select aria-label="Tipo de comprobante" value={filtroComprobante} onChange={e => setFiltroComprobante(e.target.value)}>
-          <option value="TODOS">Todos los comprobantes</option>
-          {comprobantes.map(x => <option key={x} value={x}>{x}</option>)}
-        </select>
-
-        <select aria-label="Adjuntos" value={filtroAdjunto} onChange={e => setFiltroAdjunto(e.target.value)}>
-          <option value="TODOS">Todos los adjuntos</option>
-          <option value="CON">Con adjunto</option>
-          <option value="SIN">Sin adjunto</option>
-        </select>
+        <select aria-label="Tipo de comprobante" value={filtroComprobante} onChange={e => setFiltroComprobante(e.target.value)}><option value="TODOS">Todos los comprobantes</option>{comprobantes.map(x => <option key={x} value={x}>{x}</option>)}</select>
+        <select aria-label="Adjuntos" value={filtroAdjunto} onChange={e => setFiltroAdjunto(e.target.value)}><option value="TODOS">Todos los adjuntos</option><option value="CON">Con adjunto</option><option value="SIN">Sin adjunto obligatorio</option></select>
 
         <button type="button" onClick={limpiar}>Limpiar filtros</button>
       </div>

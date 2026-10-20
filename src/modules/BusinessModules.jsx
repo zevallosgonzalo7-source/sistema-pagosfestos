@@ -40,7 +40,7 @@ const registrarAvisoEmail = async (quoteId, codigo, tipo) => {
 const emptyClient = { nombre: '', ruc: '', tipo_documento: 'RUC', categoria: '', tipo_pago: 'CONTADO', plazo_dias: 0, estado: true };
 const emptyClientContact = { telefono: '', nombre: '', cargo: '' };
 const emptyProject = { valor_venta: '', nombre: '', descripcion: '', estado: 'EN PROCESO', client_id: '', ejecutivo: 'GONZALO', lob: '', fecha_pedido: '', fecha_inicio: '', fecha_entrega: '' };
-const emptyProveedor = { categoria: '', nombre: '', productos: '', telefono: '', contacto_nombre: '', condicion_pago: 'CONTADO', plazo_dias: 0, observaciones: '', estado: true };
+const emptyProveedor = { nombre: '', nombre_comercial: '', ruc_documento: '', productos: '', telefono: '', contacto_nombre: '', condicion_pago: 'CONTADO', plazo_dias: 0, observaciones: '', estado: true };
 const CATEGORIAS_PROVEEDOR = ['Imprenta', 'Publicidad', 'Materiales', 'Transporte', 'Servicios', 'Equipamiento', 'Tecnología', 'Otros'];
 const newItem = () => ({ id: id(), descripcion: '', cantidad: 1, valor_unitario: '', valor_total: '', costo: '' });
 
@@ -527,7 +527,6 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [filtroPago, setFiltroPago] = useState('TODAS');
-  const [filtroCategoria, setFiltroCategoria] = useState('TODAS');
   const [form, setForm] = useState(emptyProveedor);
   const [editando, setEditando] = useState(null);
   const [cargando, setCargando] = useState(false);
@@ -546,20 +545,18 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
 
   useEffect(() => { cargar(); const unsubscribe = suscribirTabla('proveedores', () => cargar()); return unsubscribe; }, []);
 
-  const categoriasDisponibles = useMemo(() => [...new Set([...CATEGORIAS_PROVEEDOR, ...proveedores.map(p => String(p.categoria || '').trim()).filter(Boolean)])].sort((a, b) => a.localeCompare(b, 'es')), [proveedores]);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return proveedores.filter(p => {
-      const texto = `${p.categoria} ${p.nombre} ${p.productos} ${p.telefono} ${p.observaciones || ''}`.toLowerCase();
+      const texto = `${p.nombre} ${p.nombre_comercial || ''} ${p.ruc_documento || ''} ${p.productos} ${p.telefono} ${p.observaciones || ''}`.toLowerCase();
       const fecha = p.created_at ? p.created_at.slice(0, 10) : '';
       return (!q || texto.includes(q)) &&
         (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
         (!fechaHasta || (fecha && fecha <= fechaHasta)) &&
-        (filtroPago === 'TODAS' || String(p.condicion_pago || '').toUpperCase() === filtroPago) &&
-        (filtroCategoria === 'TODAS' || String(p.categoria || '').trim() === filtroCategoria);
+        (filtroPago === 'TODAS' || String(p.condicion_pago || '').toUpperCase() === filtroPago);
     });
-  }, [proveedores, busqueda, fechaDesde, fechaHasta, filtroPago, filtroCategoria]);
+  }, [proveedores, busqueda, fechaDesde, fechaHasta, filtroPago]);
 
   const exportarProveedores = async () => {
     try {
@@ -570,7 +567,8 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
         columnas: [
           { header: 'Código', width: 16, value: p => p.codigo || '' },
           { header: 'Razón social', width: 34, value: p => p.nombre || '' },
-          { header: 'Categoría', width: 20, value: p => p.categoria || '' },
+          { header: 'Nombre comercial', width: 30, value: p => p.nombre_comercial || '' },
+          { header: 'RUC / Documento', width: 20, value: p => p.ruc_documento || '' },
           { header: 'Producto / Servicio', width: 34, value: p => p.productos || '' },
           { header: 'Teléfono', width: 18, value: p => p.telefono || '' },
           { header: 'Contacto', width: 24, value: p => p.contacto_nombre || '' },
@@ -584,7 +582,6 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
           { label: 'Búsqueda', value: busqueda },
           { label: 'Desde', value: fechaDesde },
           { label: 'Hasta', value: fechaHasta },
-          { label: 'Categoría', value: filtroCategoria },
           { label: 'Condición de pago', value: filtroPago }
         ]
       });
@@ -596,12 +593,12 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
   const editar = p => { if (!puedeGestionar) return; setMenuAbierto(null); setEditando(p); setForm({ ...emptyProveedor, ...p, condicion_pago: String(p.condicion_pago || 'CONTADO').toUpperCase(), plazo_dias: Number(p.plazo_dias) || 0 }); setContactos([]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); setModalAbierto(true); (async () => { const { data } = await supabase.from('proveedor_contactos').select('*').eq('proveedor_id', p.id).order('created_at'); setContactos(data || []); })(); };
   const guardar = async e => {
     e.preventDefault(); if (!puedeGestionar) return;
-    if (!form.categoria.trim() || !form.nombre.trim()) return alert('Completa la categoría y la razón social del proveedor.');
+    if (!form.nombre.trim() || !form.ruc_documento.trim()) return alert('Completa la razón social y el RUC / Documento del proveedor.');
     if (!form.productos.trim()) return alert('Indica el producto/servicio que vende.');
     if (form.condicion_pago === 'CREDITO' && num(form.plazo_dias) <= 0) return alert('Indica un plazo mayor a 0 días para crédito.');
     setCargando(true);
     try {
-      const payload = { categoria: form.categoria.trim(), nombre: form.nombre.trim(), productos: form.productos.trim(), telefono: form.telefono.trim() || null, contacto_nombre: form.contacto_nombre.trim() || null, condicion_pago: form.condicion_pago, plazo_dias: form.condicion_pago === 'CONTADO' ? 0 : Math.trunc(num(form.plazo_dias)), observaciones: form.observaciones.trim() || null, estado: !!form.estado };
+      const payload = { nombre: form.nombre.trim(), nombre_comercial: String(form.nombre_comercial || '').trim() || null, ruc_documento: form.ruc_documento.trim(), productos: form.productos.trim(), telefono: form.telefono.trim() || null, contacto_nombre: form.contacto_nombre.trim() || null, condicion_pago: form.condicion_pago, plazo_dias: form.condicion_pago === 'CONTADO' ? 0 : Math.trunc(num(form.plazo_dias)), observaciones: form.observaciones.trim() || null, estado: !!form.estado };
       let proveedorId = editando?.id; if (!proveedorId) proveedorId = id(); const result = editando ? await supabase.from('proveedores').update(payload).eq('id', editando.id) : await supabase.from('proveedores').insert([{ ...payload, id: proveedorId }]);
       if (result.error) throw result.error;
       await supabase.from('proveedor_contactos').delete().eq('proveedor_id', proveedorId); if (contactos.length) { const { error: contactError } = await supabase.from('proveedor_contactos').insert(contactos.map(c => ({ id: c.id || id(), proveedor_id: proveedorId, telefono: c.telefono.trim(), nombre: c.nombre.trim() }))); if (contactError) throw contactError; }
@@ -620,18 +617,17 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
 
   return <div onClick={() => menuAbierto && setMenuAbierto(null)}>
     <div className="section-header">
-      <div><h3 className="section-title"><FestosIcon name="Truck" size={21} /> Proveedores</h3><p className="panel-note">Directorio de proveedores por categoría, productos y contacto.</p></div>
+      <div><h3 className="section-title"><FestosIcon name="Truck" size={21} /> Proveedores</h3><p className="panel-note">Directorio de proveedores, productos/servicios y contactos.</p></div>
       {puedeGestionar && <button className="btn-primary" onClick={e => { e.stopPropagation(); abrirNuevo(); }}><FestosIcon name="Plus" size={16} /> Nuevo proveedor</button>}
     </div>
     <div className="glass-card form-card business-toolbar">
       <div className="toolbar-search-row">
-        <input className="search-input" placeholder="Buscar por nombre, categoría, producto o teléfono..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+        <input className="search-input" placeholder="Buscar por razón social, nombre comercial, producto o teléfono..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
       </div>
       <div className="toolbar-filter-row">
         <div className="date-filter-group"><label>Desde <input type="date" value={fechaDesde} onChange={e => setFechaDesde(e.target.value)} /></label><label>Hasta <input type="date" value={fechaHasta} onChange={e => setFechaHasta(e.target.value)} /></label></div>
-        <select className="business-payment-filter" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}><option value="TODAS">Categoría: Todas</option>{categoriasDisponibles.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
         <select className="business-payment-filter" value={filtroPago} onChange={e => setFiltroPago(e.target.value)}><option value="TODAS">Condición de pago: Todas</option><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select>
-        <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroPago('TODAS'); setFiltroCategoria('TODAS'); }}>Limpiar filtros</button>
+        <button type="button" className="btn-muted btn-filter-clear" onClick={() => { setBusqueda(''); setFechaDesde(''); setFechaHasta(''); setFiltroPago('TODAS'); }}>Limpiar filtros</button>
       </div>
     </div>
     <div className="business-record-list">
@@ -641,7 +637,7 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
           <div className="business-pro-main">
             <div className="business-identity">
               <span className={`business-status-dot ${p.estado ? 'status-active' : 'status-inactive'}`} />
-              <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>{p.categoria}</span><span>•</span><span>{p.telefono || 'Sin teléfono'}</span><span>•</span><span>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</span>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' && <span className="payment-term-badge"><FestosIcon name="Clock3" size={14} /> {Number(p.plazo_dias) || 0} días</span>}</div></div>
+              <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre_comercial || p.nombre}</h4><div className="business-subline"><span>{p.nombre_comercial ? p.nombre : 'Sin nombre comercial'}</span><span>•</span><span>{p.ruc_documento || 'Sin documento'}</span><span>•</span><span>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</span>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' && <span className="payment-term-badge"><FestosIcon name="Clock3" size={14} /> {Number(p.plazo_dias) || 0} días</span>}</div></div>
             </div>
             <div className="business-date-value"><span>Registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleDateString('es-PE') : '—'}</strong></div>
             <div className="business-menu-wrap">
@@ -655,7 +651,7 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
           </div>
           <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
           {abierto && <div className="business-detail-grid">
-            <div><span>Categoría</span><strong>{p.categoria || '—'}</strong></div><div><span>Productos</span><strong>{p.productos || '—'}</strong></div><div><span>Teléfono</span><strong>{p.telefono || '—'}</strong></div><div><span>Nombre de contacto</span><strong>{p.contacto_nombre || '—'}</strong></div><div><span>Condición de pago</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' ? `${Number(p.plazo_dias) || 0} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{p.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
+            <div><span>Razón social</span><strong>{p.nombre || '—'}</strong></div><div><span>Nombre comercial</span><strong>{p.nombre_comercial || '—'}</strong></div><div><span>RUC / Documento</span><strong>{p.ruc_documento || '—'}</strong></div><div><span>Productos</span><strong>{p.productos || '—'}</strong></div><div><span>Nombre de contacto</span><strong>{p.contacto_nombre || '—'}</strong></div><div><span>Teléfono</span><strong>{p.telefono || '—'}</strong></div><div><span>Condición de pago</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' ? `${Number(p.plazo_dias) || 0} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{p.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
             {p.observaciones && <div className="business-detail-wide"><span>Observaciones</span><strong>{p.observaciones}</strong></div>}
           </div>}
         </article>;
@@ -664,9 +660,9 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
     {modalAbierto && <div className="modal-overlay" onClick={() => !cargando && setModalAbierto(false)}>
       <form onSubmit={guardar} className="glass-card modal-card business-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18} /> Editar proveedor</> : <><FestosIcon name="Plus" size={18} /> Registrar proveedor</>}</h4><p className="panel-note">Completa la información del proveedor.</p></div><button type="button" className="modal-close-btn" onClick={() => setModalAbierto(false)}>×</button></div>
-        <div className="form-grid-2"><div className="form-row"><label>Categoría *</label><input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} list="categorias-proveedor" placeholder="Ej. Imprenta" required /><datalist id="categorias-proveedor">{CATEGORIAS_PROVEEDOR.map(c => <option key={c} value={c} />)}</datalist></div><div className="form-row"><label>RAZÓN SOCIAL *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div></div>
-        <div className="form-row"><label>PRODUCTO/SERVICIO QUE VENDE *</label><input value={form.productos} onChange={e => setForm({ ...form, productos: e.target.value })} placeholder="Ej. Banners, tarjetas personalizadas..." required /></div>
-        <div className="form-grid-2"><div className="form-row"><label>Teléfono</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div><div className="form-row"><label>NOMBRE</label><input value={form.contacto_nombre} onChange={e => setForm({ ...form, contacto_nombre: e.target.value })} placeholder="Nombre del contacto principal" /></div></div><div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.condicion_pago} onChange={e => setForm({ ...form, condicion_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option>CONTADO</option><option>CREDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.condicion_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del proveedor.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}><FestosIcon name="Plus" size={15} /> Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor provider-contact-editor"><input placeholder="TELEFONO" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><input placeholder="NOMBRE" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div>
+        <div className="form-grid-2"><div className="form-row"><label>RAZÓN SOCIAL *</label><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} required /></div><div className="form-row"><label>NOMBRE COMERCIAL</label><input value={form.nombre_comercial || ''} onChange={e => setForm({ ...form, nombre_comercial: e.target.value })} placeholder="Nombre con el que se conoce al proveedor" /></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>RUC / Documento *</label><input value={form.ruc_documento || ''} onChange={e => setForm({ ...form, ruc_documento: e.target.value })} placeholder="RUC, DNI u otro documento" required /></div><div className="form-row"><label>PRODUCTO / SERVICIO *</label><input value={form.productos} onChange={e => setForm({ ...form, productos: e.target.value })} placeholder="Ej. Banners, transporte, impresión..." required /></div></div>
+        <div className="form-grid-2 provider-primary-contact"><div className="form-row"><label>NOMBRE</label><input value={form.contacto_nombre} onChange={e => setForm({ ...form, contacto_nombre: e.target.value })} placeholder="Nombre del contacto principal" /></div><div className="form-row"><label>TELÉFONO</label><input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="+51 999 999 999" /></div></div><div className="form-grid-2"><div className="form-row"><label>CONDICIÓN DE PAGO *</label><select value={form.condicion_pago} onChange={e => setForm({ ...form, condicion_pago: e.target.value, plazo_dias: e.target.value === 'CONTADO' ? 0 : form.plazo_dias })}><option>CONTADO</option><option>CREDITO</option></select></div><div className="form-row"><label>Plazo (días) *</label><input type="number" min="0" step="1" value={form.plazo_dias} disabled={form.condicion_pago === 'CONTADO'} onChange={e => setForm({ ...form, plazo_dias: e.target.value })} /></div></div><div className="contactos-section"><div className="contactos-head"><div><strong>Contactos</strong><small>Agrega los contactos del proveedor.</small></div><button type="button" className="btn-muted" onClick={() => setMostrarContactoForm(v => !v)}><FestosIcon name="Plus" size={15} /> Agregar contacto</button></div>{mostrarContactoForm && <div className="contacto-editor provider-contact-editor"><input placeholder="NOMBRE" value={contactoForm.nombre} onChange={e => setContactoForm({ ...contactoForm, nombre: e.target.value })} /><input placeholder="TELÉFONO" value={contactoForm.telefono} onChange={e => setContactoForm({ ...contactoForm, telefono: e.target.value })} /><button type="button" className="btn-primary" onClick={() => { if (!contactoForm.telefono.trim() && !contactoForm.nombre.trim()) return; setContactos(prev => [...prev, { ...contactoForm, id: id() }]); setContactoForm({ telefono: '', nombre: '' }); setMostrarContactoForm(false); }}>Guardar contacto</button></div>}{contactos.length > 0 && <div className="contactos-list">{contactos.map((ct, i) => <div className="contacto-chip" key={ct.id || i}><div><strong>{ct.nombre || 'Contacto'}</strong><span>{ct.telefono || '—'}</span></div><button type="button" onClick={() => setContactos(prev => prev.filter(x => x.id !== ct.id))}>×</button></div>)}</div>}</div><div className="form-row"><label>Observaciones</label><input value={form.observaciones} onChange={e => setForm({ ...form, observaciones: e.target.value })} placeholder="Notas adicionales" /></div>
         <label className="checkbox-label"><input type="checkbox" checked={!!form.estado} onChange={e => setForm({ ...form, estado: e.target.checked })} /> Proveedor activo</label>
         <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar proveedor'}</button><button type="button" className="btn-secondary" onClick={() => setModalAbierto(false)}>Cancelar</button></div>
       </form>
