@@ -1,37 +1,6 @@
-# Logs
-logs
-*.log
+.env
+node_modules/
+FACTURAS.zip
+*.pdf
+resultado_carga.csv
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Voice model is prepared on the build machine and distributed inside installers.
-public/voice-assets/models/
-public/voice-assets/onnx/
-public/voice-assets/ready.json
-
-/release/
-
-/node_modules/
-
-/dist-electron/
-
-/out/

@@ -1,32 +1,53 @@
-# Versión actual: FESTOS V28 · Centro de trabajo (1.2.0)
+# FESTOS - Carga masiva de comprobantes (corregido)
 
-Leer primero **README_V28_CENTRO_DE_TRABAJO.md**. La migración opcional de fechas está en `supabase/V28_FECHAS_PROYECTOS_OPCIONAL.sql`. Para seguridad y actualizaciones: **PLAN_SEGURIDAD_ACTUALIZACIONES_V28.md**.
+Este paquete contiene la prueba real con los 5 PDFs y el CSV de Compras.
 
----
+## Correcciones incluidas
 
-# Control Festos V13 — PDF comercial profesional
+- Normaliza tildes para Supabase Storage: `CATÓLICA DEL PERÚ` -> `CATOLICA DEL PERU`.
+- Continúa con el siguiente archivo si uno falla.
+- Detecta archivos que ya existen y no los duplica.
+- Mantiene `UPDATE_DATABASE=false` para no tocar la tabla de compras todavía.
+- Incluye `.gitignore` para proteger `.env`, PDFs y ZIP de facturas.
 
-V13 mantiene el flujo de Cotizaciones de V12 y mejora únicamente la salida PDF para cliente.
+## Uso
 
-## Cambios del PDF
-- Se elimina del documento enviado al cliente: Costo total, Utilidad y Margen global.
-- Se muestra claramente el RUC del cliente.
-- Logo FESTOS más grande y mejor integrado en el encabezado.
-- Tabla de ítems rediseñada con columnas alineadas: Descripción, Cantidad, Valor unitario y Total.
-- Resumen comercial limpio: Valor de venta, IGV 18% y Precio total.
-- Condición de pago y plazo, cuando están disponibles.
-- Encabezado/pie de página y numeración para un acabado más profesional.
-- Diseño moderno en formato A4 y compatible con varias páginas.
+1. Abre esta carpeta en VS Code.
+2. Ejecuta:
 
-## Instalación
-Si ya tienes V12 funcionando, solo reemplaza el proyecto por esta versión y ejecuta:
-
-```bash
+```powershell
 npm install
-npm run dev
+copy .env.example .env
 ```
 
-La dependencia `jspdf` ya está incluida en `package.json`.
+3. Abre `.env` y coloca tus datos reales de Supabase.
+4. Para subir los 5 PDFs usa:
 
-## V29.5 · FESTOS AI con voz
-Antes de probar el asistente inteligente en Electron, consulta `README_V29_5_FESTOS_AI_VOZ.md`: la Edge Function de Supabase y su secreto de API deben desplegarse por separado. El ZIP no lleva una clave privada ni activa automáticamente el servicio de IA.
+```env
+DRY_RUN=false
+UPDATE_DATABASE=false
+```
+
+5. Ejecuta:
+
+```powershell
+npm run cargar
+```
+
+## Dónde se guardan
+
+Bucket: `compras-adjuntos`
+
+Ruta:
+
+`compras/AÑO/MES/AÑOMES_RAZONSOCIAL_NUMERODOCUMENTO.pdf`
+
+Ejemplo:
+
+`compras/2026/10/202610_PONTIFICIA UNIVERSIDAD CATOLICA DEL PERU_F062-31285.pdf`
+
+## IMPORTANTE
+
+- No publiques `.env` ni la clave Service Role / Secret Key.
+- No hagas `git add .` con documentos reales sin revisar primero.
+- Este paquete NO actualiza todavía la tabla de compras; solo Storage.
