@@ -212,13 +212,33 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   };
 
   const buildAdjuntoFileName = (file, formData) => {
-    const proveedor = sanitizeFileName(formData?.proveedor_nombre || 'PROVEEDOR');
-    const numero = sanitizeFileName(formData?.numero_documento || 'SIN-DOCUMENTO');
-    const fecha = sanitizeFileName(formData?.fecha_compra || 'SIN-FECHA');
+    const fechaCompra = String(formData?.fecha_compra || '').trim();
+    const anioMes = /^\d{4}-\d{2}-\d{2}$/.test(fechaCompra)
+      ? fechaCompra.slice(0, 7).replace('-', '')
+      : 'SINFECHA';
+
+    // La razón social sale del proveedor seleccionado en FESTOS.
+    // Se normaliza para Storage: mayúsculas, sin tildes y con guiones bajos.
+    const razonSocial = String(formData?.proveedor_nombre || 'PROVEEDOR')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'PROVEEDOR';
+
+    const numeroDocumento = String(formData?.numero_documento || 'SIN-DOC')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/[–—]/g, '-')
+      .replace(/[^A-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'SIN-DOC';
+
     const original = String(file?.name || '');
     const dot = original.lastIndexOf('.');
     const ext = dot >= 0 ? original.slice(dot + 1).toLowerCase() : '';
-    const baseName = `${proveedor}_${numero}_${fecha}`;
+
+    // Regla solicitada por Gerencia:
+    // AÑOMES_RAZONSOCIAL_NUMERODEDOCUMENTO.ext
+    const baseName = `${anioMes}_${razonSocial}_${numeroDocumento}`;
     return ext ? `${baseName}.${ext}` : baseName;
   };
 
