@@ -242,13 +242,48 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
 
     {error && <div className="ed-alert"><FestosIcon name="AlertTriangle" size={17}/> {error}</div>}
     {loading ? <div className="glass-card purchase-dashboard-loading">Cargando compras…</div> : <>
-      <section className="ed-kpi-grid ed-summary-band pdb-kpi-grid">
-        <article className="ed-kpi ed-kpi-main"><div className="ed-kpi-label"><span>VALOR COMPRA</span></div><strong>{money(resumen.valor)}</strong><small>Base sin IGV · {resumen.cantidad} compras filtradas</small></article>
-        <article className="ed-kpi"><div className="ed-kpi-label"><span>CRÉDITO FISCAL</span></div><strong>{money(resumen.credito)}</strong><small>Solo comprobantes que generan crédito fiscal</small></article>
-        <article className="ed-kpi"><div className="ed-kpi-label"><span>PRECIO DE COMPRA</span></div><strong>{money(resumen.precio)}</strong><small>Total final registrado</small></article>
-        <article className="ed-kpi"><div className="ed-kpi-label"><span>COMPRAS</span></div><strong>{resumen.cantidad}</strong><small>Registros dentro del filtro</small></article>
-        <button type="button" className="ed-kpi pdb-kpi-button pdb-kpi-danger" onClick={() => { setFiltroAdjunto('SIN'); onOpenPurchases({ sinAdjunto: true }); }}><div className="ed-kpi-label"><span>SIN ADJUNTO</span></div><strong>{resumen.sinAdjunto}</strong><small>Requieren documentación</small></button>
-        <article className="ed-kpi"><div className="ed-kpi-label"><span>PROVEEDORES</span></div><strong>{resumen.proveedores}</strong><small>Proveedores distintos utilizados</small></article>
+      <section className="pdb-section-intro">
+        <div><span>RESUMEN EJECUTIVO</span><h2>Indicadores de compras</h2></div>
+        <small>Vista consolidada según los filtros seleccionados</small>
+      </section>
+
+      <section className="pdb-executive-panel">
+        <article className="pdb-executive-main">
+          <div className="pdb-executive-value">
+            <div className="ed-kpi-label"><span>VALOR COMPRA</span></div>
+            <strong>{money(resumen.valor)}</strong>
+            <small>Base sin IGV · {resumen.cantidad} compras filtradas</small>
+          </div>
+
+          <div className="pdb-executive-metrics">
+            <div className="pdb-executive-metric">
+              <span>CRÉDITO FISCAL</span>
+              <strong>{money(resumen.credito)}</strong>
+              <small>Solo comprobantes que generan crédito fiscal</small>
+            </div>
+            <div className="pdb-executive-metric">
+              <span>PRECIO DE COMPRA</span>
+              <strong>{money(resumen.precio)}</strong>
+              <small>Total final registrado</small>
+            </div>
+            <div className="pdb-executive-metric">
+              <span>COMPRAS</span>
+              <strong>{resumen.cantidad}</strong>
+              <small>Registros dentro del filtro</small>
+            </div>
+          </div>
+
+          <button type="button" className="pdb-primary-warning" onClick={() => { setFiltroAdjunto('SIN'); onOpenPurchases({ sinAdjunto: true }); }}>
+            <span className="pdb-warning-icon"><FestosIcon name="AlertTriangle" size={17}/></span>
+            <span className="pdb-warning-copy"><b>Sin adjunto</b><small>Factura / recibo por honorarios</small></span>
+            <strong>{resumen.sinAdjunto}</strong>
+          </button>
+        </article>
+      </section>
+
+      <section className="pdb-section-intro pdb-analysis-title">
+        <div><span>ANÁLISIS DE COMPRAS</span><h2>Distribución y comportamiento</h2></div>
+        <small>Haz clic en los gráficos para filtrar la información</small>
       </section>
 
       <section className="ed-main-grid pdb-main-grid">

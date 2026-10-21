@@ -461,7 +461,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
         aria-pressed={filtroSinAdjunto}
         title={filtroSinAdjunto ? 'Mostrar todas las compras' : 'Mostrar solo compras sin adjuntos'}
       >
-        <span>Compras sin adjunto</span>
+        <span className="purchase-kpi-alert-title"><FestosIcon name="AlertTriangle" size={17}/> Compras sin adjunto</span>
         <strong>{resumen.sinAdjunto}</strong>
         <small>{filtroSinAdjunto ? 'Filtro activo · clic para quitar' : 'Clic para ver registros sin documentos'}</small>
       </button>
@@ -471,7 +471,10 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       {filtradas.length === 0 ? <p className="empty-hint">No hay compras con los filtros actuales.</p> : filtradas.map(c => {
         const abierto = detalle === c.id;
         const adjuntoObligatorio = requiereAdjunto(c);
-        const adjuntosOk = !adjuntoObligatorio || tieneAlgunAdjunto(c);
+        const tipoComprobanteVisual = String(c.tipo_comprobante || '').trim().toUpperCase();
+        const sinComprobante = !tipoComprobanteVisual || tipoComprobanteVisual === 'SIN COMPROBANTE';
+        const tieneAdjuntoVisual = tieneAlgunAdjunto(c);
+        const adjuntosOk = sinComprobante || tieneAdjuntoVisual;
         return <article className={`business-pro-card purchase-card ${abierto ? 'is-open' : ''}`} key={c.id}>
           <div className="business-pro-main purchase-card-main-clean">
             <div className="business-identity"><span className="business-status-dot status-active"/><div><div className="business-code">{c.codigo || 'COMPRA'}</div><h4>{c.descripcion}</h4>{(c.proyectos || c.proyecto_texto) && <div className="purchase-project-line">{c.proyectos ? `${c.proyectos.codigo || ''} · ${c.proyectos.nombre}` : c.proyecto_texto}</div>}</div></div>
@@ -480,7 +483,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
               <div className="purchase-card-tag"><span>Tipo de comprobante</span><strong>{c.tipo_comprobante === 'SIN COMPROBANTE' ? 'Sin comprobante' : (c.tipo_comprobante || '—')}</strong></div>
             </div>
             <div className="purchase-value-zone">
-              <div className={`purchase-attachment-status ${adjuntosOk ? 'is-complete' : 'is-missing'}`} title={!adjuntoObligatorio ? 'Adjunto no obligatorio para este comprobante' : (adjuntosOk ? 'Compra con adjunto' : 'Compra sin adjunto obligatorio')}><FestosIcon name={adjuntosOk ? 'Check' : 'AlertTriangle'} size={17}/></div>
+              <div className={`purchase-attachment-status ${adjuntosOk ? 'is-complete' : 'is-missing'} ${adjuntoObligatorio && !adjuntosOk ? 'is-required-missing' : ''}`} title={sinComprobante ? 'Sin comprobante · no requiere adjunto' : (tieneAdjuntoVisual ? 'Compra con adjunto' : (adjuntoObligatorio ? 'Falta adjunto obligatorio' : 'Sin adjunto · no afecta el indicador'))}><FestosIcon name={adjuntosOk ? 'Check' : 'X'} size={17}/></div>
               <div className="business-date-value"><span>Valor compra</span><strong>{money(c.monto_base ?? c.monto)}</strong><small>{c.fecha_compra ? new Date(`${c.fecha_compra}T12:00:00`).toLocaleDateString('es-PE') : '—'}</small></div>
             </div>
           </div>
