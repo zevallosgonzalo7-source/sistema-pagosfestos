@@ -1,6 +1,6 @@
 .env
-node_modules/
 FACTURAS.zip
 *.pdf
 resultado_carga.csv
-npm-debug.log*
+node_modules/
+*.log
