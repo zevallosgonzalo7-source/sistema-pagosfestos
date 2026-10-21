@@ -11,6 +11,7 @@ import { ExecutiveDashboard } from './modules/ExecutiveDashboard';
 import { OperationsCenter } from './modules/OperationsCenter';
 import { PurchaseRegister } from './modules/PurchaseRegister';
 import { PurchaseDashboard } from './modules/PurchaseDashboard';
+import { CashModule } from './modules/CashModule';
 import { GestionRoles } from './modules/RolesModule';
 import { PERMISOS_VACIOS } from './permissions';
 import { FestosIcon } from './FestosIcon';
@@ -780,6 +781,8 @@ function App() {
 
   const [vista, setVista] = useState('analisis');
   const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
+  const [cashMenuOpen, setCashMenuOpen] = useState(false);
+  const [quotesMenuOpen, setQuotesMenuOpen] = useState(false);
   const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
   const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
   const [voiceCommand, setVoiceCommand] = useState(null);
@@ -1261,6 +1264,7 @@ function App() {
     ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: 'Truck', label: 'Proveedores' }] : []),
     ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos' }] : []),
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras' },
+    { id: 'caja', icono: 'CreditCard', label: 'Caja' },
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
     ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: 'ShieldCheck', label: 'Roles y Permisos' }] : []),
   ];
@@ -1274,6 +1278,7 @@ function App() {
     // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.
     { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global', actionLabel: 'Agenda', tone: 'operaciones', activeIds: ['operaciones'] },
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras', actionLabel: 'Abrir', tone: 'proveedores', activeIds: ['compras'] },
+    { id: 'caja', icono: 'CreditCard', label: 'Caja', actionLabel: 'Tesorería', tone: 'dashboard', activeIds: ['caja_ibk', 'caja_chica'] },
     { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
     { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V31.pdf', tone: 'manual' },
     { id: 'roles', icono: 'ShieldCheck', label: 'Roles y permisos', actionLabel: 'Abrir', tone: 'roles', visible: misPermisos.gestionar_roles, activeIds: ['roles'] },
@@ -1518,6 +1523,20 @@ function App() {
                       <button type="button" onClick={() => { irAVista('analisis'); setDashboardMenuOpen(false); }}><FestosIcon name="FolderKanban" size={15}/> Proyectos</button>
                       <button type="button" onClick={() => { irAVista('analisis_compras'); setDashboardMenuOpen(false); }}><FestosIcon name="ClipboardList" size={15}/> Compras</button>
                     </div>
+                  </> : item.id === 'cotizaciones' ? <>
+                    <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => { irAVista('cotizaciones'); setQuotesMenuOpen(false); }}>{card}</button>
+                    <div className="quote-launcher-side-action">
+                      <button type="button" title="Nueva cotización" aria-label="Nueva cotización" onClick={(e) => { e.stopPropagation(); irAVista('nueva-cotizacion'); setQuotesMenuOpen(false); }}>
+                        <FestosIcon name="Plus" size={17}/>
+                        <span>Nueva cotización</span>
+                      </button>
+                    </div>
+                  </> : item.id === 'caja' ? <>
+                    <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => setCashMenuOpen(v => !v)} aria-expanded={cashMenuOpen}>{card}</button>
+                    <div className={`dashboard-launcher-submenu ${cashMenuOpen ? 'is-open' : ''}`}>
+                      <button type="button" onClick={() => { irAVista('caja_ibk'); setCashMenuOpen(false); }}><FestosIcon name="CreditCard" size={15}/> CAJA IBK</button>
+                      <button type="button" onClick={() => { irAVista('caja_chica'); setCashMenuOpen(false); }}><FestosIcon name="CircleDollarSign" size={15}/> CAJA CHICA</button>
+                    </div>
                   </> : item.actionHref
                     ? <a className={`sidebar-launcher-card ${active ? 'active' : ''}`} href={item.actionHref} target="_blank" rel="noreferrer">{card}</a>
                     : <button type="button" className={`sidebar-launcher-card ${active ? 'active' : ''}`} onClick={() => irAVista(item.actionId || item.id)}>{card}</button>}
@@ -1674,6 +1693,10 @@ function App() {
 
           {vista === 'compras' && (
             <PurchaseRegister usuario={usuarioLogueado} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
+          )}
+
+          {(vista === 'caja_ibk' || vista === 'caja_chica') && (
+            <CashModule usuario={usuarioLogueado} initialAccount={vista === 'caja_chica' ? 'CAJA_CHICA' : 'INTERBANK'} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
           )}
 
           {/* VISTA: SUBIR PAGO */}

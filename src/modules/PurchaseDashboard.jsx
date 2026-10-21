@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import FestosIcon from '../FestosIcon';
 import SearchableSelect from '../components/SearchableSelect';
+import { exportarListadoFiltradoExcel } from './BusinessModules';
 
 const money = value => `S/. ${Number(value || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const num = value => Number(value || 0);
@@ -203,6 +204,64 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
     setFiltroAdjunto('TODOS');
   };
 
+  const exportarDashboardCompras = async () => {
+    try {
+      const proyectoLabel = filtroProyecto === 'TODOS' ? 'Todos'
+        : filtroProyecto === 'SIN_PROYECTO' ? 'Sin proyecto'
+        : String(filtroProyecto).startsWith('GENERAL:') ? String(filtroProyecto).replace(/^GENERAL:/, '')
+        : proyectos.find(([value]) => value === filtroProyecto)?.[1] || filtroProyecto;
+      const proveedorLabel = filtroProveedor === 'TODOS' ? 'Todos'
+        : proveedores.find(([value]) => value === filtroProveedor)?.[1] || filtroProveedor;
+      const ok = await exportarListadoFiltradoExcel({
+        nombreModulo: 'Dashboard Compras',
+        nombreArchivo: `FESTOS_DASHBOARD_COMPRAS_${new Date().toISOString().slice(0, 10)}`,
+        filas: filtradas,
+        columnas: [
+          { header: 'Código', width: 19, value: c => c.codigo || '' },
+          { header: 'Fecha compra', width: 17, value: c => c.fecha_compra ? new Date(`${String(c.fecha_compra).slice(0,10)}T12:00:00`).toLocaleDateString('es-PE') : '' },
+          { header: 'Fecha control', width: 17, value: c => c.fecha_control ? new Date(`${String(c.fecha_control).slice(0,10)}T12:00:00`).toLocaleDateString('es-PE') : '' },
+          { header: 'CeCo', width: 18, value: c => c.ceco || '' },
+          { header: 'Categoría de gasto', width: 28, value: c => c.categoria_gasto || '' },
+          { header: 'LOB', width: 26, value: c => c.lob || '' },
+          { header: 'Proyecto', width: 38, value: c => c.proyectos ? `${c.proyectos.codigo || ''}${c.proyectos.codigo ? ' · ' : ''}${c.proyectos.nombre || ''}` : (c.proyecto_texto || '') },
+          { header: 'Proveedor', width: 36, value: c => c.proveedores?.nombre || c.proveedor_nombre || '' },
+          { header: 'Descripción', width: 48, value: c => c.descripcion || '' },
+          { header: 'Comprobante', width: 23, value: c => c.tipo_comprobante || '' },
+          { header: 'N° documento', width: 24, value: c => c.numero_documento || '' },
+          { header: 'Valor compra', width: 18, type: 'money', value: c => purchaseValue(c) },
+          { header: 'Crédito fiscal', width: 18, type: 'money', value: c => c.genera_credito_fiscal ? num(c.igv_monto) : 0 },
+          { header: 'Precio compra', width: 18, type: 'money', value: c => num(c.monto) },
+          { header: 'Adjunto', width: 16, value: c => hasAttachment(c) ? 'CON ADJUNTO' : (requiresAttachment(c) ? 'SIN ADJUNTO' : 'NO REQUERIDO') }
+        ],
+        filtros: [
+          { label: 'Desde', value: fechaDesde || 'Sin fecha inicial' },
+          { label: 'Hasta', value: fechaHasta || 'Sin fecha final' },
+          { label: 'CeCo', value: filtroCeCo === 'TODOS' ? 'Todos' : filtroCeCo },
+          { label: 'Categoría de gasto', value: filtroCategoria === 'TODAS' ? 'Todas' : filtroCategoria },
+          { label: 'LOB', value: filtroLob === 'TODOS' ? 'Todos' : filtroLob },
+          { label: 'Proyecto', value: proyectoLabel },
+          { label: 'Proveedor', value: proveedorLabel },
+          { label: 'Comprobante', value: filtroComprobante === 'TODOS' ? 'Todos' : filtroComprobante },
+          { label: 'Adjuntos', value: filtroAdjunto === 'TODOS' ? 'Todos' : filtroAdjunto === 'CON' ? 'Con adjunto' : 'Sin adjunto obligatorio' }
+        ],
+        resumen: {
+          titulo: 'RESUMEN DEL DASHBOARD FILTRADO',
+          items: [
+            { label: 'Compras', value: resumen.cantidad },
+            { label: 'Valor compra', value: resumen.valor, type: 'money' },
+            { label: 'Crédito fiscal', value: resumen.credito, type: 'money' },
+            { label: 'Precio compra', value: resumen.precio, type: 'money' },
+            { label: 'Sin adjunto', value: resumen.sinAdjunto }
+          ]
+        }
+      });
+      if (!ok) return;
+    } catch (error) {
+      console.error(error);
+      alert(`No se pudo generar el Excel del Dashboard de Compras. ${error?.message || ''}`);
+    }
+  };
+
   return <div className="purchase-dashboard ed-page">
     <div className="ed-hero ed-general-hero">
       <div>
@@ -211,6 +270,7 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
         <p>Control financiero, documental y operativo del Registro de Compras.</p>
       </div>
       <div className="ed-hero-actions">
+        <button className="ed-dashboard-export" type="button" onClick={exportarDashboardCompras}><FestosIcon name="Sheet" size={16}/> Exportar Excel</button>
         <button className="ed-dashboard-export" type="button" onClick={() => onOpenPurchases({})}><FestosIcon name="ClipboardList" size={16}/> Registro de compras</button>
         <button className="ed-refresh" type="button" onClick={cargar}><FestosIcon name="RefreshCw" size={16}/> Actualizar</button>
       </div>
@@ -286,47 +346,50 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
         <small>Haz clic en los gráficos para filtrar la información</small>
       </section>
 
-      <section className="ed-main-grid pdb-main-grid">
-        <article className="ed-card pdb-card">
-          <div className="ed-card-head"><div><span className="pdb-card-kicker">DISTRIBUCIÓN</span><h2>Compras por CeCo</h2></div><strong>{money(resumen.valor)}</strong></div>
-          <DonutCeCo items={cecoData} total={resumen.valor} onPick={label => setFiltroCeCo(label === 'Sin CeCo' ? 'TODOS' : label)}/>
-        </article>
+      <section className="pdb-analysis-masonry">
+        <div className="pdb-analysis-stack">
+          <article className="ed-card pdb-card">
+            <div className="ed-card-head"><div><span className="pdb-card-kicker">DISTRIBUCIÓN</span><h2>Compras por CeCo</h2></div><strong>{money(resumen.valor)}</strong></div>
+            <DonutCeCo items={cecoData} total={resumen.valor} onPick={label => setFiltroCeCo(label === 'Sin CeCo' ? 'TODOS' : label)}/>
+          </article>
 
-        <article className="ed-card pdb-card">
-          <div className="ed-card-head"><div><span className="pdb-card-kicker">CATEGORÍA DE GASTO</span><h2>¿Dónde se concentra la compra?</h2></div></div>
-          <BarList items={categoriaData} onPick={setFiltroCategoria}/>
-        </article>
+          <article className="ed-card pdb-card">
+            <div className="ed-card-head"><div><span className="pdb-card-kicker">LÍNEA DE NEGOCIO</span><h2>Valor por LOB</h2></div></div>
+            <BarList items={lobData} onPick={label => setFiltroLob(label === 'Sin LOB' ? 'TODOS' : label)}/>
+          </article>
 
-        <article className="ed-card pdb-card">
-          <div className="ed-card-head"><div><span className="pdb-card-kicker">LÍNEA DE NEGOCIO</span><h2>Valor por LOB</h2></div></div>
-          <BarList items={lobData} onPick={label => setFiltroLob(label === 'Sin LOB' ? 'TODOS' : label)}/>
-        </article>
+          <article className="ed-card pdb-card pdb-month-card">
+            <div className="ed-card-head"><div><span className="pdb-card-kicker">EVOLUCIÓN</span><h2>Valor de compra por mes</h2></div><strong>Últimos 12 meses con actividad</strong></div>
+            <div className="pdb-month-bars">
+              {monthlyData.length ? monthlyData.map(([month,value]) => {
+                const [y,m] = month.split('-');
+                const label = new Intl.DateTimeFormat('es-PE',{month:'short'}).format(new Date(Number(y), Number(m)-1, 1)).replace('.','');
+                return <button type="button" key={month} title={`${month}: ${money(value)}`} onClick={() => { setFechaDesde(`${month}-01`); const last = new Date(Number(y), Number(m), 0).getDate(); setFechaHasta(`${month}-${String(last).padStart(2,'0')}`); }}>
+                  <i style={{height:`${Math.max(6,(value/maxMonth)*100)}%`}}/><span>{label}</span><small>{money(value)}</small>
+                </button>;
+              }) : <div className="pdb-empty-chart"><div><strong>S/. 0.00</strong><span>La evolución mensual aparecerá cuando registres la primera compra.</span></div></div>}
+            </div>
+          </article>
+        </div>
 
-        <article className="ed-card pdb-card">
-          <div className="ed-card-head"><div><span className="pdb-card-kicker">PROVEEDORES</span><h2>Top proveedores</h2></div></div>
-          <div className="pdb-provider-list">
-            {proveedorData.length ? proveedorData.map(([label, data], i) => <div className="pdb-provider-row" key={label}>
-              <span className="pdb-rank">{String(i+1).padStart(2,'0')}</span>
-              <div><strong>{label}</strong><small>{data.count} compra{data.count === 1 ? '' : 's'}</small></div>
-              <b>{money(data.value)}</b>
-            </div>) : <div className="pdb-empty-chart"><div><strong>0 proveedores</strong><span>Aquí aparecerán los proveedores utilizados.</span></div></div>}
-          </div>
-        </article>
+        <div className="pdb-analysis-stack">
+          <article className="ed-card pdb-card">
+            <div className="ed-card-head"><div><span className="pdb-card-kicker">CATEGORÍA DE GASTO</span><h2>¿Dónde se concentra la compra?</h2></div></div>
+            <BarList items={categoriaData} onPick={setFiltroCategoria}/>
+          </article>
 
-        <article className="ed-card ed-wide pdb-card pdb-month-card">
-          <div className="ed-card-head"><div><span className="pdb-card-kicker">EVOLUCIÓN</span><h2>Valor de compra por mes</h2></div><strong>Últimos 12 meses con actividad</strong></div>
-          <div className="pdb-month-bars">
-            {monthlyData.length ? monthlyData.map(([month,value]) => {
-              const [y,m] = month.split('-');
-              const label = new Intl.DateTimeFormat('es-PE',{month:'short'}).format(new Date(Number(y), Number(m)-1, 1)).replace('.','');
-              return <button type="button" key={month} title={`${month}: ${money(value)}`} onClick={() => { setFechaDesde(`${month}-01`); const last = new Date(Number(y), Number(m), 0).getDate(); setFechaHasta(`${month}-${String(last).padStart(2,'0')}`); }}>
-                <i style={{height:`${Math.max(6,(value/maxMonth)*100)}%`}}/><span>{label}</span><small>{money(value)}</small>
-              </button>;
-            }) : <div className="pdb-empty-chart"><div><strong>S/. 0.00</strong><span>La evolución mensual aparecerá cuando registres la primera compra.</span></div></div>}
-          </div>
-        </article>
+          <article className="ed-card pdb-card">
+            <div className="ed-card-head"><div><span className="pdb-card-kicker">PROVEEDORES</span><h2>Top proveedores</h2></div></div>
+            <div className="pdb-provider-list">
+              {proveedorData.length ? proveedorData.map(([label, data], i) => <div className="pdb-provider-row" key={label}>
+                <span className="pdb-rank">{String(i+1).padStart(2,'0')}</span>
+                <div><strong>{label}</strong><small>{data.count} compra{data.count === 1 ? '' : 's'}</small></div>
+                <b>{money(data.value)}</b>
+              </div>) : <div className="pdb-empty-chart"><div><strong>0 proveedores</strong><span>Aquí aparecerán los proveedores utilizados.</span></div></div>}
+            </div>
+          </article>
 
-        <article className="ed-card ed-wide pdb-card">
+          <article className="ed-card pdb-card">
           <div className="ed-card-head"><div><span className="pdb-card-kicker">ACTIVIDAD RECIENTE</span><h2>Últimas compras</h2></div><button type="button" className="pdb-link-button" onClick={() => onOpenPurchases({})}>Ver registro completo</button></div>
           <div className="pdb-recent-table">
             {recent.length ? recent.map(c => <div className="pdb-recent-row" key={c.id}>
@@ -336,6 +399,7 @@ export function PurchaseDashboard({ onOpenPurchases = () => {} }) {
             </div>) : <div className="pdb-empty-chart"><div><strong>0 compras registradas</strong><span>Las compras recientes aparecerán aquí automáticamente.</span></div></div>}
           </div>
         </article>
+        </div>
       </section>
     </>}
   </div>;

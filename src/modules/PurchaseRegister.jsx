@@ -13,7 +13,7 @@ const IGV_RATE = 0.18;
 const money = value => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
 const id = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const TIPOS_COMPROBANTE = ['SIN COMPROBANTE','FACTURA','BOLETA','RECIBO POR HONORARIOS','OTRO'];
-const emptyProveedorRapido = { nombre: '', nombre_comercial: '', ruc_documento: '', productos: '', contactos: [{ nombre: '', telefono: '' }], condicion_pago: 'CONTADO', plazo_dias: 0 };
+const emptyProveedorRapido = { nombre: '', nombre_comercial: '', ruc_documento: '', productos: '', contactos: [{ nombre: '', telefono: '' }], condicion_pago: 'CONTADO', plazo_dias: '' };
 const emptyFiles = { pdf: null, xml: null, ctz: null };
 const emptyForm = {
   fecha_compra: new Date().toISOString().slice(0, 10),
@@ -171,8 +171,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
 
   const guardarProveedorRapido = async e => {
     e.preventDefault();
-    if (!proveedorRapido.nombre.trim() || !proveedorRapido.ruc_documento.trim() || !proveedorRapido.productos.trim()) {
-      return alert('Completa razón social, RUC / Documento y producto/servicio del proveedor.');
+    if (!String(proveedorRapido.nombre || '').trim() || !String(proveedorRapido.productos || '').trim()) {
+      return alert('Completa razón social y producto/servicio del proveedor.');
     }
     if (proveedorRapido.condicion_pago === 'CREDITO' && Number(proveedorRapido.plazo_dias) <= 0) return alert('Indica el plazo de crédito.');
     setGuardandoProveedor(true);
@@ -180,14 +180,14 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       const contactosValidos = (proveedorRapido.contactos || []).map(c => ({ nombre: String(c.nombre || '').trim(), telefono: String(c.telefono || '').trim() })).filter(c => c.nombre || c.telefono);
       const contactoPrincipal = contactosValidos[0] || { nombre: '', telefono: '' };
       const payload = {
-        nombre: proveedorRapido.nombre.trim(),
+        nombre: String(proveedorRapido.nombre || '').trim(),
         nombre_comercial: String(proveedorRapido.nombre_comercial || '').trim() || null,
-        ruc_documento: proveedorRapido.ruc_documento.trim(),
-        productos: proveedorRapido.productos.trim(),
+        ruc_documento: String(proveedorRapido.ruc_documento || '').trim() || null,
+        productos: String(proveedorRapido.productos || '').trim(),
         contacto_nombre: contactoPrincipal.nombre || null,
         telefono: contactoPrincipal.telefono || null,
         condicion_pago: proveedorRapido.condicion_pago,
-        plazo_dias: proveedorRapido.condicion_pago === 'CONTADO' ? 0 : Math.trunc(Number(proveedorRapido.plazo_dias) || 0),
+        plazo_dias: proveedorRapido.condicion_pago === 'CONTADO' ? null : Math.trunc(Number(proveedorRapido.plazo_dias) || 0),
         estado: true
       };
       const { data: proveedorCreado, error } = await supabase.from('proveedores').insert([payload]).select('id,nombre,nombre_comercial,ruc_documento').single();
@@ -520,9 +520,9 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       {mostrarNuevoProveedor && <div className="quick-provider-card" onClick={e => e.stopPropagation()}>
         <div className="quick-client-head"><strong>Registrar proveedor sin salir de Compras</strong><button type="button" className="btn-muted" onClick={() => setMostrarNuevoProveedor(false)}>Cerrar</button></div>
         <div className="form-grid-2"><div className="form-row"><label>Razón social *</label><input value={proveedorRapido.nombre} onChange={e => setProveedorRapido({...proveedorRapido, nombre:e.target.value})}/></div><div className="form-row"><label>Nombre comercial</label><input value={proveedorRapido.nombre_comercial} onChange={e => setProveedorRapido({...proveedorRapido, nombre_comercial:e.target.value})} placeholder="Nombre con el que se conoce al proveedor"/></div></div>
-        <div className="form-grid-2"><div className="form-row"><label>RUC / Documento *</label><input value={proveedorRapido.ruc_documento} onChange={e => setProveedorRapido({...proveedorRapido, ruc_documento:e.target.value})} placeholder="RUC, DNI u otro documento"/></div><div className="form-row"><label>Producto / Servicio *</label><input value={proveedorRapido.productos} onChange={e => setProveedorRapido({...proveedorRapido, productos:e.target.value})}/></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>RUC / Documento</label><input value={proveedorRapido.ruc_documento || ''} onChange={e => setProveedorRapido({...proveedorRapido, ruc_documento:e.target.value})} placeholder="RUC, DNI u otro documento (opcional)"/></div><div className="form-row"><label>Producto / Servicio *</label><input value={proveedorRapido.productos} onChange={e => setProveedorRapido({...proveedorRapido, productos:e.target.value})}/></div></div>
         <div className="quick-provider-contacts"><div className="contactos-head"><div><strong>Contactos</strong><small>Nombre y teléfono del contacto.</small></div><button type="button" className="btn-muted" onClick={() => setProveedorRapido(prev => ({...prev, contactos:[...(prev.contactos || []), {nombre:'',telefono:''}]}))}><FestosIcon name="Plus" size={15}/> Agregar contacto</button></div>{(proveedorRapido.contactos || []).map((ct, index) => <div className="form-grid-2 quick-provider-contact-row" key={index}><div className="form-row"><label>Nombre{index === 0 ? '' : ` ${index + 1}`}</label><input value={ct.nombre} onChange={e => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.map((x,i) => i === index ? {...x,nombre:e.target.value} : x)}))} placeholder="Nombre del contacto"/></div><div className="form-row"><label>Teléfono{index === 0 ? '' : ` ${index + 1}`}</label><div className="quick-provider-phone-line"><input value={ct.telefono} onChange={e => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.map((x,i) => i === index ? {...x,telefono:e.target.value} : x)}))} placeholder="+51 999 999 999"/>{index > 0 && <button type="button" className="contact-remove-btn" onClick={() => setProveedorRapido(prev => ({...prev, contactos:prev.contactos.filter((_,i) => i !== index)}))}>×</button>}</div></div></div>)}</div>
-        <div className="form-grid-2"><div className="form-row"><label>Condición de pago</label><select value={proveedorRapido.condicion_pago} onChange={e => setProveedorRapido({...proveedorRapido, condicion_pago:e.target.value, plazo_dias:e.target.value==='CONTADO'?0:proveedorRapido.plazo_dias})}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días)</label><input type="number" min="0" disabled={proveedorRapido.condicion_pago==='CONTADO'} value={proveedorRapido.plazo_dias} onChange={e => setProveedorRapido({...proveedorRapido, plazo_dias:e.target.value})}/></div></div>
+        <div className="form-grid-2"><div className="form-row"><label>Condición de pago</label><select value={proveedorRapido.condicion_pago} onChange={e => setProveedorRapido({...proveedorRapido, condicion_pago:e.target.value, plazo_dias:e.target.value==='CONTADO'?'':proveedorRapido.plazo_dias})}><option value="CONTADO">CONTADO</option><option value="CREDITO">CRÉDITO</option></select></div><div className="form-row"><label>Plazo (días)</label><input type="number" min="1" disabled={proveedorRapido.condicion_pago==='CONTADO'} value={proveedorRapido.plazo_dias ?? ''} onChange={e => setProveedorRapido({...proveedorRapido, plazo_dias:e.target.value})}/></div></div>
         <button type="button" className="btn-primary btn-small" disabled={guardandoProveedor} onClick={guardarProveedorRapido}>{guardandoProveedor ? 'Guardando...' : 'Registrar y seleccionar proveedor'}</button>
       </div>}
 

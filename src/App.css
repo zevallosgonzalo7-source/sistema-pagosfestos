@@ -6145,3 +6145,195 @@ input:focus,select:focus,textarea:focus{
   .purchase-dashboard .pdb-executive-metric{min-height:92px}
   .purchase-dashboard .pdb-executive-value>strong{font-size:39px}
 }
+
+/* ===== FESTOS V29.37 · CAJA ===== */
+.cash-page{display:grid;gap:18px;padding-bottom:32px;color:#18383d}.cash-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:22px;padding:24px 26px;border:1px solid rgba(34,66,72,.12);border-radius:24px;background:linear-gradient(135deg,#fff,#f5f9f8);box-shadow:0 18px 40px rgba(34,66,72,.08)}.cash-eyebrow,.cash-panel-head span,.cash-modal-head span{display:block;font-size:11px;font-weight:850;letter-spacing:.14em;color:#729095}.cash-hero h2{margin:5px 0 6px;font-size:30px;color:#224248}.cash-hero p{margin:0;max-width:760px;color:#6c8084;line-height:1.55}.cash-primary,.cash-secondary{border:0;border-radius:13px;padding:11px 16px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}.cash-primary{background:#224248;color:#fff;box-shadow:0 9px 20px rgba(34,66,72,.16)}.cash-secondary{background:#f3f7f7;color:#36565b;border:1px solid #dfe9e8}.cash-error{padding:12px 15px;border-radius:14px;background:#fff8db;border:1px solid #f4d35e;color:#6b5b00}.cash-accounts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.cash-account-card{position:relative;padding:22px;border-radius:22px;background:#224248;color:#fff;cursor:pointer;border:2px solid transparent;box-shadow:0 16px 32px rgba(34,66,72,.14);transition:.2s}.cash-account-card:nth-child(2){background:#31565d}.cash-account-card:hover,.cash-account-card.active{transform:translateY(-2px);border-color:#8db5aa}.cash-account-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.cash-account-top>span{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:850;letter-spacing:.08em}.cash-account-top button{width:34px;height:34px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer}.cash-account-card>small{color:#c7d9d7}.cash-account-card>strong{display:block;font-size:31px;margin:4px 0 20px}.cash-account-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.cash-account-stats span{padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.08)}.cash-account-stats b,.cash-account-stats small{display:block}.cash-account-stats b{font-size:13px}.cash-account-stats small{margin-top:3px;color:#bdd1cf;font-size:10px}.cash-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.cash-summary-strip>div{background:#fff;border:1px solid #e3ebeb;border-radius:18px;padding:16px 18px}.cash-summary-strip small{display:block;color:#789095;font-size:10px;font-weight:850;letter-spacing:.09em}.cash-summary-strip strong{display:block;margin-top:5px;font-size:20px;color:#224248}.cash-panel{background:#fff;border:1px solid #e2ebeb;border-radius:22px;overflow:hidden;box-shadow:0 12px 32px rgba(34,66,72,.06)}.cash-panel-head{padding:20px 22px 15px;display:flex;justify-content:space-between;align-items:center;gap:15px}.cash-panel-head h3{margin:4px 0 0;font-size:20px}.cash-panel-head>small{color:#839498}.cash-filters{display:grid;grid-template-columns:minmax(280px,2fr) repeat(5,minmax(135px,1fr));gap:10px;padding:0 22px 18px}.cash-filters input,.cash-filters select{height:44px;border:1px solid #dbe6e7;border-radius:12px;background:#fff;padding:0 11px;color:#28474c;outline:none}.cash-search{position:relative}.cash-search svg{position:absolute;left:13px;top:13px;color:#799194}.cash-search input{width:100%;padding-left:40px}.cash-table-wrap{overflow:auto;border-top:1px solid #edf2f2}.cash-table{width:100%;border-collapse:collapse;min-width:960px}.cash-table th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#7c9296;text-align:left;background:#f8faf9;padding:12px 14px}.cash-table td{padding:14px;border-top:1px solid #eef3f3;vertical-align:middle;font-size:13px}.cash-table td strong,.cash-table td small,.cash-linked small{display:block}.cash-table td small,.cash-linked small{margin-top:3px;color:#839599}.cash-account-pill,.cash-type{display:inline-flex;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:850}.cash-account-pill{background:#eef5f4;color:#365c61}.cash-type.in{background:#e9f8ef;color:#20744a}.cash-type.out{background:#fff3e6;color:#a15d11}.cash-money{font-weight:850;white-space:nowrap}.cash-money.in{color:#20744a}.cash-money.out{color:#9c5e19}.cash-empty{text-align:center!important;padding:34px!important;color:#829599}.cash-empty strong,.cash-empty span{display:block}.cash-purchase-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0 22px 22px}.cash-purchase-grid article{border:1px solid #e5ecec;border-radius:16px;padding:15px}.cash-purchase-grid article>span{font-size:10px;color:#799094;font-weight:800}.cash-purchase-grid article>strong{display:block;margin:4px 0 12px}.cash-purchase-grid article>div{display:flex;justify-content:space-between;padding-top:8px;border-top:1px dashed #e5ecec}.cash-purchase-grid small{color:#84979a}.cash-empty-card{grid-column:1/-1;padding:24px;text-align:center;border:1px dashed #d9e4e3;border-radius:16px;color:#7e9295}.cash-modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(15,33,36,.48);backdrop-filter:blur(5px);display:grid;place-items:center;padding:20px}.cash-modal{width:min(780px,96vw);max-height:90vh;overflow:auto;background:#fff;border-radius:24px;padding:22px;box-shadow:0 30px 80px rgba(16,41,45,.28)}.cash-modal-small{width:min(520px,96vw)}.cash-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.cash-modal-head h3{margin:4px 0 0;font-size:22px}.cash-modal-head button{border:0;background:#f2f6f6;width:36px;height:36px;border-radius:11px;cursor:pointer;color:#34555a}.cash-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.cash-form-grid label{display:grid;gap:6px;color:#567075;font-size:12px;font-weight:750}.cash-form-grid input,.cash-form-grid select,.cash-form-grid textarea{width:100%;border:1px solid #d9e5e5;border-radius:12px;padding:11px 12px;background:#fff;color:#244348;font:inherit;outline:none}.cash-span-2{grid-column:1/-1}.cash-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.cash-linked{font-weight:750}.cash-linked small{font-weight:500}@media(max-width:1050px){.cash-filters{grid-template-columns:repeat(3,1fr)}.cash-search{grid-column:1/-1}.cash-purchase-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.cash-hero{flex-direction:column}.cash-primary{width:100%}.cash-accounts-grid,.cash-summary-strip,.cash-purchase-grid,.cash-form-grid{grid-template-columns:1fr}.cash-span-2{grid-column:auto}.cash-filters{grid-template-columns:1fr}.cash-search{grid-column:auto}.cash-panel-head{align-items:flex-start;flex-direction:column}.cash-account-card>strong{font-size:27px}.cash-modal{padding:18px;border-radius:20px}}
+
+
+/* FESTOS V29.37.3 — Dashboard Proyectos estilo Compras + compactación Dashboard Compras */
+/* Dashboard Proyectos: mismo lenguaje visual del resumen ejecutivo de Compras */
+.ed-page .ed-kpi-grid.ed-summary-band{
+  grid-template-columns:minmax(270px,1.08fr) minmax(0,1.75fr)!important;
+  grid-template-rows:auto!important;
+  grid-template-areas:"main metrics"!important;
+  gap:26px!important;
+  min-height:285px!important;
+  padding:28px!important;
+  border-radius:22px!important;
+  background:linear-gradient(145deg,#23464b 0%,#2d575d 100%)!important;
+  box-shadow:0 18px 42px rgba(34,66,72,.18)!important;
+  overflow:hidden!important;
+  position:relative!important;
+}
+.ed-page .ed-kpi-grid.ed-summary-band::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 88% 14%,rgba(255,255,255,.10),transparent 28%),linear-gradient(115deg,transparent 0 63%,rgba(255,255,255,.025) 63% 100%);
+}
+.ed-page .ed-summary-band .ed-kpi-main{
+  grid-area:main!important;grid-column:auto!important;grid-row:auto!important;
+  position:relative!important;z-index:1!important;align-self:stretch!important;
+  justify-content:center!important;padding:18px 8px!important;
+}
+.ed-page .ed-summary-band .ed-kpi-main>strong{font-size:clamp(35px,4.2vw,55px)!important;line-height:1!important;letter-spacing:-.045em!important}
+.ed-page .ed-summary-band .ed-kpi-main .ed-kpi-label span{color:rgba(255,255,255,.90)!important;font-size:10px!important;letter-spacing:.10em!important}
+.ed-page .ed-summary-band .ed-kpi-main>small{margin-top:8px!important;color:rgba(255,255,255,.66)!important;font-size:11px!important}
+.ed-page .ed-summary-band .ed-kpi:not(.ed-kpi-main){
+  position:relative!important;z-index:1!important;
+  min-height:118px!important;padding:18px!important;
+  border:1px solid rgba(255,255,255,.13)!important;
+  border-radius:16px!important;background:rgba(255,255,255,.075)!important;
+  color:#fff!important;box-shadow:none!important;backdrop-filter:blur(3px);
+  display:flex!important;flex-direction:column!important;justify-content:center!important;gap:6px!important;
+}
+.ed-page .ed-summary-band .ed-kpi:not(.ed-kpi-main) .ed-kpi-label span{color:rgba(255,255,255,.67)!important;font-size:9px!important;letter-spacing:.10em!important}
+.ed-page .ed-summary-band .ed-kpi:not(.ed-kpi-main)>strong{color:#fff!important;font-size:clamp(22px,2.2vw,31px)!important;letter-spacing:-.035em!important;white-space:nowrap!important}
+.ed-page .ed-summary-band .ed-kpi:not(.ed-kpi-main)>small{color:rgba(255,255,255,.60)!important;font-size:10px!important;line-height:1.35!important}
+.ed-page .ed-summary-band .ed-kpi:nth-child(2),
+.ed-page .ed-summary-band .ed-kpi:nth-child(3),
+.ed-page .ed-summary-band .ed-kpi:nth-child(4),
+.ed-page .ed-summary-band .ed-kpi:nth-child(5){grid-column:auto!important;grid-row:auto!important}
+.ed-page .ed-summary-band{--summary-gap:10px}
+.ed-page .ed-summary-band .ed-kpi-main ~ .ed-kpi{grid-area:auto!important}
+/* Las 4 métricas se convierten en un bloque 2x2 usando subgrid visual con posiciones explícitas */
+.ed-page .ed-summary-band .ed-kpi:nth-child(2){grid-column:2!important;grid-row:1!important;margin-right:calc(50% + 5px)!important}
+.ed-page .ed-summary-band .ed-kpi:nth-child(3){grid-column:2!important;grid-row:1!important;margin-left:calc(50% + 5px)!important}
+.ed-page .ed-summary-band .ed-kpi:nth-child(4){grid-column:2!important;grid-row:2!important;margin-right:calc(50% + 5px)!important}
+.ed-page .ed-summary-band .ed-kpi:nth-child(5){grid-column:2!important;grid-row:2!important;margin-left:calc(50% + 5px)!important}
+
+/* Dashboard Compras: dos columnas independientes para evitar huecos entre tarjetas de distinta altura */
+.purchase-dashboard .pdb-analysis-masonry{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;margin-bottom:14px;
+}
+.purchase-dashboard .pdb-analysis-stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.purchase-dashboard .pdb-analysis-masonry .pdb-card{
+  min-width:0;min-height:0!important;height:auto!important;
+  border:1px solid rgba(34,66,72,.08)!important;border-radius:20px!important;
+  background:linear-gradient(180deg,#fff 0%,#fbfdfd 100%)!important;
+  box-shadow:0 14px 34px rgba(34,66,72,.055)!important;padding:20px!important;overflow:hidden;
+}
+.purchase-dashboard .pdb-wide-grid{margin-top:0!important}
+@media(max-width:980px){
+  .ed-page .ed-kpi-grid.ed-summary-band{grid-template-columns:1fr!important;grid-template-areas:none!important;min-height:0!important;gap:10px!important}
+  .ed-page .ed-summary-band .ed-kpi-main{grid-column:1!important;grid-row:auto!important;min-height:140px!important}
+  .ed-page .ed-summary-band .ed-kpi:nth-child(n+2){grid-column:1!important;grid-row:auto!important;margin:0!important}
+  .purchase-dashboard .pdb-analysis-masonry{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .ed-page .ed-kpi-grid.ed-summary-band{padding:20px!important;border-radius:19px!important}
+  .ed-page .ed-summary-band .ed-kpi:not(.ed-kpi-main){min-height:92px!important}
+  .ed-page .ed-summary-band .ed-kpi-main>strong{font-size:39px!important}
+  .purchase-dashboard .pdb-analysis-masonry .pdb-card{padding:16px!important;border-radius:17px!important}
+}
+
+/* ============================================================
+   FESTOS V29.37.5 · COTIZACIONES — ACCIÓN LATERAL TIPO PROYECTOS
+   La tarjeta abre directamente el listado. La creación aparece como
+   un único emergente lateral compacto, sin desplegable inferior.
+   ============================================================ */
+.sidebar-launcher-wrap:has(.sidebar-launcher-icon.tone-cotizaciones){
+  overflow:visible;
+  z-index:6;
+}
+.quote-launcher-side-action{
+  position:absolute;
+  top:50%;
+  right:calc(100% + 10px);
+  transform:translateY(-50%) translateX(8px);
+  z-index:120;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
+}
+.sidebar-launcher-wrap:hover .quote-launcher-side-action,
+.sidebar-launcher-wrap:focus-within .quote-launcher-side-action{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(-50%) translateX(0);
+}
+.quote-launcher-side-action button{
+  border:1px solid rgba(34,66,72,.12);
+  border-radius:14px;
+  min-height:44px;
+  padding:9px 12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  white-space:nowrap;
+  background:rgba(255,255,255,.98);
+  color:#29464b;
+  box-shadow:0 14px 30px rgba(15,23,42,.14);
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+.quote-launcher-side-action button:hover{
+  background:#f2f8f7;
+  border-color:rgba(34,66,72,.20);
+}
+@media(max-width:700px){
+  .quote-launcher-side-action{
+    right:auto;
+    left:8px;
+    top:auto;
+    bottom:8px;
+    transform:none;
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+  }
+  .quote-launcher-side-action button{
+    min-height:34px;
+    width:34px;
+    padding:0;
+    justify-content:center;
+    border-radius:11px;
+  }
+  .quote-launcher-side-action span{display:none;}
+}
+
+/* ============================================================
+   FESTOS V29.37.6 · HOTFIX VISUAL
+   1) Cotizaciones abre el formulario como panel lateral, igual a Proyectos.
+   2) Dashboard Compras usa dos columnas de flujo independiente; elimina
+      el hueco vertical entre LOB/Top proveedores y Evolución.
+   ============================================================ */
+.quote-editor-overlay{
+  position:fixed;inset:0;z-index:520;
+  display:flex;justify-content:flex-end;align-items:stretch;
+  background:rgba(17,37,41,.24);backdrop-filter:blur(7px);
+  animation:overlayIn .18s ease;
+}
+.quote-editor-drawer{
+  width:min(980px,96vw);height:100dvh;overflow-y:auto;overscroll-behavior:contain;
+  padding:28px;background:#f8fbfa;border-left:1px solid rgba(34,66,72,.10);
+  box-shadow:-22px 0 60px rgba(15,23,42,.18);
+  animation:sheetIn .28s cubic-bezier(.2,.8,.2,1);
+}
+.quote-editor-drawer>.section-header{margin-bottom:16px}
+.quote-editor-drawer>.form-card{margin:0;border-radius:22px;box-shadow:0 15px 38px rgba(34,66,72,.07)}
+.quote-editor-header .btn-secondary{min-width:96px}
+@media(max-width:700px){
+  .quote-editor-overlay{align-items:flex-end}
+  .quote-editor-drawer{width:100vw;height:94dvh;padding:16px;border-left:0;border-radius:20px 20px 0 0}
+  .quote-editor-drawer>.form-card{border-radius:17px}
+}
+
+/* Sin huecos: cada columna acomoda sus propias tarjetas en vertical. */
+.purchase-dashboard .pdb-analysis-masonry{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:14px!important;align-items:start!important;margin-bottom:14px!important;
+}
+.purchase-dashboard .pdb-analysis-stack{
+  display:flex!important;flex-direction:column!important;gap:14px!important;
+  align-self:start!important;min-height:0!important;height:auto!important;
+}
+.purchase-dashboard .pdb-analysis-stack>.pdb-card{
+  flex:0 0 auto!important;min-height:0!important;height:auto!important;margin:0!important;
+}
+.purchase-dashboard .pdb-analysis-stack .pdb-month-card{min-height:300px!important}
+@media(max-width:980px){
+  .purchase-dashboard .pdb-analysis-masonry{grid-template-columns:1fr!important}
+}
