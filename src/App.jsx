@@ -11,6 +11,7 @@ import { ExecutiveDashboard } from './modules/ExecutiveDashboard';
 import { OperationsCenter } from './modules/OperationsCenter';
 import { PurchaseRegister } from './modules/PurchaseRegister';
 import { PurchaseDashboard } from './modules/PurchaseDashboard';
+import { HomeModule } from './modules/HomeModule';
 import { CashModule } from './modules/CashModule';
 import { GestionRoles } from './modules/RolesModule';
 import { PERMISOS_VACIOS } from './permissions';
@@ -41,6 +42,89 @@ function saludoPorHora() {
   if (hora < 12) return 'Buenos días';
   if (hora < 19) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+function cargoParaVoz(cargo = '') {
+  const limpio = String(cargo || '').trim();
+  const clave = limpio.toUpperCase();
+  if (clave === 'DESARROLLADOR SOFTWARE') return 'desarrollador de software';
+  if (clave === 'HEAD ADMIN') return 'Head Admin';
+  if (clave === 'ADMIN') return 'administrador';
+  if (clave === 'OPERADORA COMERCIAL') return 'operadora comercial';
+  return limpio ? limpio.toLocaleLowerCase('es-PE') : 'usuario de FESTOS';
+}
+
+function primerNombreParaVoz(nombre = '', usuario = '') {
+  const base = String(nombre || usuario || 'usuario').trim();
+  const primero = base.split(/\s+/)[0] || 'usuario';
+  return primero.charAt(0).toLocaleUpperCase('es-PE') + primero.slice(1).toLocaleLowerCase('es-PE');
+}
+
+async function reproducirBienvenidaVoz(perfil) {
+  if (typeof window === 'undefined' || !perfil) return;
+  const id = perfil.user_id || perfil.usuario || perfil.email || 'usuario';
+  const storageKey = `festos_bienvenida_voz_${id}`;
+  try {
+    if (sessionStorage.getItem(storageKey) === '1') return;
+  } catch (e) { /* sessionStorage no disponible */ }
+
+  const nombre = primerNombreParaVoz(perfil.nombre, perfil.usuario);
+  const cargo = cargoParaVoz(perfil.rol_label);
+  const saludo = saludoPorHora();
+  const texto = `${saludo}, ${nombre}. Bienvenido a FESTOS Gestión. Tienes acceso como ${cargo}. Tu espacio de trabajo está listo.`;
+
+  const marcarReproducida = () => {
+    try { sessionStorage.setItem(storageKey, '1'); } catch (e) { /* no disponible */ }
+  };
+
+  const fallbackNavegador = () => {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      const utterance = new SpeechSynthesisUtterance(texto);
+      utterance.lang = 'es-PE';
+      utterance.rate = 0.96;
+      utterance.pitch = 1;
+      utterance.volume = 0.95;
+      const voces = window.speechSynthesis.getVoices();
+      const voz = voces.find(v => /^es-PE$/i.test(v.lang))
+        || voces.find(v => /^es(-|_)/i.test(v.lang))
+        || null;
+      if (voz) utterance.voice = voz;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      marcarReproducida();
+    } catch (err) {
+      console.warn('No se pudo reproducir la bienvenida por voz:', err);
+    }
+  };
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error('Sesión no disponible para generar la bienvenida.');
+
+    const response = await fetch('/api/festos-welcome-voice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ saludo, nombre, cargo }),
+    });
+
+    if (!response.ok) throw new Error(`TTS ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.volume = 0.95;
+    audio.preload = 'auto';
+    audio.onended = () => URL.revokeObjectURL(url);
+    audio.onerror = () => URL.revokeObjectURL(url);
+    await audio.play();
+    marcarReproducida();
+  } catch (err) {
+    console.warn('FESTOS TTS IA no disponible; se usará la voz local.', err);
+    fallbackNavegador();
+  }
 }
 
 function FestosWelcomeOverlay({ nombre, cargo, correo, foto, onClose }) {
@@ -447,6 +531,8 @@ function App() {
     setPerfilServidor(data);
     setUsuarioLogueado(String(data.usuario || '').trim().toLowerCase());
     setAuthEmail(data.email || authUser.email || '');
+    setVista('inicio');
+    reproducirBienvenidaVoz(data);
     return true;
   };
 
@@ -507,13 +593,11 @@ function App() {
     setPerfilFoto(fotoGuardada || (esGonzalo ? fotoLegacy : '') || '');
   }, [usuarioLogueado, perfilServidor?.nombre]);
 
-  // Bienvenida animada: se muestra una sola vez por sesión autenticada.
-  // Funciona tanto al iniciar sesión como al abrir FESTOS con una sesión vigente.
+  // Inicio es ahora la bienvenida oficial. Cada sesión autenticada aterriza aquí.
   useEffect(() => {
-    if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return undefined;
-    setMostrarBienvenida(true);
-    const timer = window.setTimeout(() => setMostrarBienvenida(false), 5000);
-    return () => window.clearTimeout(timer);
+    if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return;
+    setMostrarBienvenida(false);
+    setVista('inicio');
   }, [authReady, usuarioLogueado, perfilServidor?.activo]);
 
   // Resumen de agenda compartida al entrar: aparece 5 s después de la bienvenida
@@ -585,6 +669,18 @@ function App() {
     window.addEventListener('offline', offline);
     return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); };
   }, []);
+
+  // UX global: ESC cierra el overlay/modal activo cuando este admite cierre por fondo.
+  useEffect(() => {
+    const cerrarOverlayConEscape = (event) => {
+      if (event.key !== 'Escape') return;
+      if (perfilMenuAbierto) setPerfilMenuAbierto(false);
+      const overlay = document.querySelector('.quote-editor-overlay, .modal-overlay');
+      if (overlay instanceof HTMLElement) overlay.click();
+    };
+    window.addEventListener('keydown', cerrarOverlayConEscape);
+    return () => window.removeEventListener('keydown', cerrarOverlayConEscape);
+  }, [perfilMenuAbierto]);
 
   // --- SIDEBAR (única navegación de la app) ---
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -753,6 +849,11 @@ function App() {
   const cerrarSesion = async () => {
     setPerfilMenuAbierto(false);
     setMostrarBienvenida(false);
+    try {
+      const idVoz = perfilServidor?.user_id || perfilServidor?.usuario || perfilServidor?.email || usuarioLogueado;
+      if (idVoz) sessionStorage.removeItem(`festos_bienvenida_voz_${idVoz}`);
+      window.speechSynthesis?.cancel?.();
+    } catch (e) { /* almacenamiento/voz no disponible */ }
     try { await supabase.auth.signOut(); } catch (err) { console.error('Error cerrando sesión:', err); }
     setPerfilServidor(null);
     setAuthEmail('');
@@ -775,11 +876,17 @@ function App() {
     }
   };
 
+  const rolActual = String(perfilServidor?.rol_label || '').trim().toUpperCase();
   const misPermisos = perfilServidor
-    ? { ...PERMISOS_VACIOS, ...(perfilServidor.permisos || {}), rol_label: perfilServidor.rol_label || 'Usuario' }
+    ? {
+        ...PERMISOS_VACIOS,
+        ...(perfilServidor.permisos || {}),
+        rol_label: perfilServidor.rol_label || 'Usuario',
+        gestionar_roles: ['HEAD ADMIN', 'DESARROLLADOR SOFTWARE'].includes(rolActual) || !!perfilServidor?.permisos?.gestionar_roles,
+      }
     : PERMISOS_VACIOS;
 
-  const [vista, setVista] = useState('analisis');
+  const [vista, setVista] = useState('inicio');
   const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
   const [cashMenuOpen, setCashMenuOpen] = useState(false);
   const [quotesMenuOpen, setQuotesMenuOpen] = useState(false);
@@ -870,7 +977,7 @@ function App() {
       roles: misPermisos.gestionar_roles,
     };
     if (vista in requiereVer && !requiereVer[vista]) {
-      setVista('analisis');
+      setVista('inicio');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista, usuarioLogueado, perfilServidor]);
@@ -1255,6 +1362,7 @@ function App() {
   };
 
   const itemsNav = [
+    { id: 'inicio', icono: 'House', label: 'Inicio' },
     { id: 'analisis', icono: 'LayoutDashboard', label: 'Dashboard' },
     { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global' },
     // Módulos temporalmente ocultos del menú lateral.
@@ -1271,6 +1379,7 @@ function App() {
 
 
   const accesosBase = useMemo(() => ([
+    { id: 'inicio', icono: 'House', label: 'Inicio', actionLabel: 'Abrir', actionId: 'inicio', tone: 'inicio', activeIds: ['inicio'], obligatorio: true },
     { id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones', actionLabel: 'Abrir', actionId: 'cotizaciones', tone: 'cotizaciones', visible: misPermisos.ver_cotizaciones, activeIds: ['cotizaciones'], obligatorio: true },
     { id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos', actionLabel: 'Abrir', actionId: 'proyectos', tone: 'proyectos', visible: misPermisos.ver_proyectos, activeIds: ['proyectos'], obligatorio: true },
     { id: 'clientes', icono: 'Users', label: 'Clientes', actionLabel: misPermisos.gestionar_clientes ? 'Gestionar' : 'Ver', tone: 'clientes', visible: misPermisos.ver_clientes, activeIds: ['clientes'], obligatorio: true },
@@ -1280,7 +1389,7 @@ function App() {
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras', actionLabel: 'Abrir', tone: 'proveedores', activeIds: ['compras'] },
     { id: 'caja', icono: 'CreditCard', label: 'Caja', actionLabel: 'Tesorería', tone: 'dashboard', activeIds: ['caja_ibk', 'caja_chica'] },
     { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
-    { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V31.pdf', tone: 'manual' },
+    { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V32.pdf', tone: 'manual' },
     { id: 'roles', icono: 'ShieldCheck', label: 'Roles y permisos', actionLabel: 'Abrir', tone: 'roles', visible: misPermisos.gestionar_roles, activeIds: ['roles'] },
   ].filter(item => item.visible !== false)), [misPermisos]);
 
@@ -1462,7 +1571,7 @@ function App() {
         permisos={misPermisos}
       />
 
-      {mostrarBienvenida && (
+      {false && mostrarBienvenida && (
         <FestosWelcomeOverlay
           nombre={nombreCompletoUsuario(perfilNombre || perfilServidor?.nombre || usuarioLogueado).toUpperCase()}
           cargo={perfilServidor?.rol_label || cargoUsuario(usuarioLogueado)}
@@ -1647,8 +1756,8 @@ function App() {
 
           {/* MODAL / FORMULARIO FLOTANTE DE EDICIÓN Y SUBIDA DE COMPROBANTE */}
           {pagoEditando && (
-            <div className="modal-overlay">
-              <form onSubmit={guardarEdicionConArchivo} className="glass-card modal-card">
+            <div className="modal-overlay" onClick={() => setPagoEditando(null)}>
+              <form onSubmit={guardarEdicionConArchivo} className="glass-card modal-card" onClick={e => e.stopPropagation()}>
                 <h3 className="section-title"><FestosIcon name="Pencil" size={21} /> Editar Registro y Comprobante</h3>
 
                 <div className="form-row">
@@ -1680,6 +1789,17 @@ function App() {
           )}
 
           {/* VISTA: INICIO */}
+          {vista === 'inicio' && (
+            <HomeModule
+              usuario={usuarioLogueado}
+              perfil={{ ...perfilServidor, nombre: perfilNombre || perfilServidor?.nombre }}
+              permisos={misPermisos}
+              onNavigate={irAVista}
+              onNewQuote={() => irAVista('nueva-cotizacion')}
+              onNewProject={() => irAVista('nuevo-proyecto')}
+            />
+          )}
+
           {vista === 'operaciones' && (
             <OperationsCenter usuario={usuarioLogueado} permisos={misPermisos} onNavigate={irAVista} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
           )}

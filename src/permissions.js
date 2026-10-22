@@ -78,7 +78,7 @@ export const PERMISOS_DEFECTO = {
     ver_cotizaciones: true,
     gestionar_cotizaciones: true,
     aprobar_cotizaciones: true,
-    gestionar_roles: false,
+    gestionar_roles: true,
   },
   mar: {
     rol_label: 'OPERADORA COMERCIAL',

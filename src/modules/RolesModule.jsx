@@ -38,17 +38,22 @@ function BloquePermisos({ usuario, permisos, esGonzalo, guardando, onGuardar }) 
         <div key={grupo} className="role-permisos-group">
           <span className="role-group-title">{grupo}</span>
           <div className="role-permisos-grid">
-            {campos.map(campo => (
-              <label key={campo.key} className={`checkbox-label role-permiso-item ${esGonzalo ? 'disabled' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={esGonzalo ? true : !!borrador[campo.key]}
+            {campos.map(campo => {
+              const activo = esGonzalo ? true : !!borrador[campo.key];
+              return (
+                <button
+                  type="button"
+                  key={campo.key}
+                  className={`role-permiso-switch ${activo ? 'is-on' : ''} ${esGonzalo || !editando ? 'is-locked' : ''}`}
                   disabled={esGonzalo || !editando}
-                  onChange={() => alternar(campo.key)}
-                />
-                {campo.label}
-              </label>
-            ))}
+                  onClick={() => alternar(campo.key)}
+                  aria-pressed={activo}
+                >
+                  <span className="role-permiso-copy"><strong>{campo.label}</strong><small>{activo ? 'Permitido' : 'Sin acceso'}</small></span>
+                  <span className="role-switch-track" aria-hidden="true"><i /></span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -144,7 +149,7 @@ export function GestionRoles({ usuarioActual, onNotify, onAudit, onCambio }) {
       setUsuarios(data || []);
     } catch (err) {
       console.error(err);
-      setErrorSistema('No se pudo cargar los perfiles seguros. Verifica que V29_01_AUTH_PROFILES_PREPARAR.sql esté ejecutado y que tu cuenta sea HEAD ADMIN.');
+      setErrorSistema('No se pudo cargar los perfiles seguros. Verifica que la migración de permisos V29.38 esté ejecutada y que tu cuenta sea HEAD ADMIN o DESARROLLADOR SOFTWARE.');
     } finally {
       setCargandoLista(false);
     }
@@ -198,7 +203,7 @@ export function GestionRoles({ usuarioActual, onNotify, onAudit, onCambio }) {
         <div>
           <h3 className="section-title"><FestosIcon name="ShieldCheck" size={21} /> Roles y Permisos</h3>
           <p className="panel-note">
-            V29 Security Lite: las cuentas se autentican por correo con Supabase Auth. Aquí el HEAD ADMIN controla
+            V29 Security Lite: las cuentas se autentican por correo con Supabase Auth. Aquí HEAD ADMIN y DESARROLLADOR SOFTWARE pueden controlar
             si una cuenta FESTOS está activa y qué operaciones puede realizar.
           </p>
         </div>
