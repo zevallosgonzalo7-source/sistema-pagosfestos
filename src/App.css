@@ -6980,3 +6980,49 @@ input:focus,select:focus,textarea:focus{
 .quote-attachment-upload-btn.secondary{background:#f1f7f5;color:#286756;border:1px solid #d7ebe4;box-shadow:none}
 .quote-attachment-upload-btn.secondary:hover{background:#e5f3ee}
 @media(max-width:850px){.quote-attachments-zone{grid-template-columns:1fr}.quote-attachment-panel{padding:12px}}
+
+/* ============================================================
+   FESTOS V29.41.8 — COTIZACIONES: ITEMS + ADJUNTOS COLAPSABLES
+   ============================================================ */
+.quote-attachments-shell{margin:14px 0 16px;border:1px solid rgba(34,66,72,.10);border-radius:18px;background:rgba(255,255,255,.58);overflow:hidden;box-shadow:0 10px 24px rgba(31,58,64,.045)}
+.quote-attachments-collapse{width:100%;border:0;background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(247,250,249,.86));display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;color:#21464b;cursor:pointer;font-weight:850;text-align:left}
+.quote-attachments-collapse>span:first-child{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;letter-spacing:-.01em}
+.quote-attachments-chevron{display:grid;place-items:center;color:#6f898e;transition:transform .2s ease}.quote-attachments-chevron.open{transform:rotate(180deg)}
+.quote-attachments-shell .quote-attachments-zone{margin:0;padding:0 12px 12px}
+.quote-attachments-shell.is-collapsed .quote-attachments-collapse{border-radius:18px}
+.quote-detail-item{grid-template-columns:58px minmax(180px,1fr) 110px 125px 95px!important}
+.quote-detail-item-qty{width:48px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:11px;background:#eff7f4;border:1px solid #dbece6;color:#214f46;text-align:center}
+.quote-detail-item-qty span{font-size:8px!important;letter-spacing:.08em;color:#6a8881!important}
+.quote-detail-item-qty strong{font-size:14px!important;line-height:1;color:#1e594c!important}
+.quote-detail-item-name small{font-size:9px;color:#5f777b;font-weight:700}
+@media(max-width:900px){.quote-detail-item{grid-template-columns:52px minmax(150px,1fr) 95px 105px 80px!important}}
+@media(max-width:700px){
+  .quote-detail-item{grid-template-columns:50px minmax(0,1fr)!important}
+  .quote-detail-item-qty{grid-column:1;grid-row:1/3;width:44px;align-self:start}
+  .quote-detail-item-name{grid-column:2}
+  .quote-detail-item>div:nth-child(3),.quote-detail-item>div:nth-child(4),.quote-detail-item>div:nth-child(5){grid-column:2!important;display:flex!important;flex-direction:row!important;justify-content:space-between!important;align-items:center!important;border-top:1px solid rgba(13,148,136,.06)!important;padding-top:6px!important;text-align:left!important}
+  .quote-attachments-shell .quote-attachments-zone{padding:0 9px 9px}
+}
+
+/* ============================================================
+   FESTOS V29.41.8 — COTIZACIONES: SUPERFICIES BLANCAS
+   ============================================================ */
+.quote-detail-item{
+  background:#fff!important;
+  border-color:rgba(34,66,72,.10)!important;
+  box-shadow:0 5px 14px rgba(31,58,64,.035)!important;
+}
+.quote-detail-item-qty{
+  background:#fff!important;
+  border-color:#dfe9e6!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),0 3px 9px rgba(31,58,64,.035)!important;
+}
+.quote-attachments-shell{
+  background:#fff!important;
+}
+.quote-attachments-collapse{
+  background:#fff!important;
+}
+.quote-attachment-panel{
+  background:#fff!important;
+}
