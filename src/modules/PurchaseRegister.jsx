@@ -35,6 +35,13 @@ const emptyForm = {
   ctz_path: ''
 };
 
+const PURCHASE_DRAFT_VERSION = 1;
+const purchaseDraftKey = usuario => `festos_compra_borrador_v${PURCHASE_DRAFT_VERSION}_${String(usuario || 'anon').toLowerCase()}`;
+const formTieneContenido = form => !![
+  form?.ceco, form?.lob, form?.categoria_gasto, form?.project_id, form?.proyecto_texto,
+  form?.descripcion, form?.proveedor_id, form?.monto_base, form?.numero_documento, form?.observaciones
+].some(value => String(value || '').trim());
+
 const normalizeText = (value = '') => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const esCostoDirecto = value => normalizeText(value) === 'costos directos';
 
@@ -71,6 +78,64 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   const [guardandoProveedor, setGuardandoProveedor] = useState(false);
   const [procesandoPdf, setProcesandoPdf] = useState(false);
   const [estadoLecturaPdf, setEstadoLecturaPdf] = useState('');
+  const [borradorCompra, setBorradorCompra] = useState(null);
+  const [borradorRecuperado, setBorradorRecuperado] = useState(false);
+
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(purchaseDraftKey(usuario));
+      const draft = raw ? JSON.parse(raw) : null;
+      setBorradorCompra(draft?.form && formTieneContenido(draft.form) ? draft : null);
+    } catch (error) {
+      console.warn('No se pudo leer el borrador de compra:', error);
+      setBorradorCompra(null);
+    }
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!modal || editando) return undefined;
+    if (!formTieneContenido(form)) return undefined;
+    const timer = window.setTimeout(() => {
+      const draft = {
+        version: PURCHASE_DRAFT_VERSION,
+        form,
+        updatedAt: new Date().toISOString(),
+        teniaAdjuntosLocales: !!(archivos.pdf || archivos.xml || archivos.ctz)
+      };
+      try {
+        localStorage.setItem(purchaseDraftKey(usuario), JSON.stringify(draft));
+        setBorradorCompra(draft);
+      } catch (error) {
+        console.warn('No se pudo guardar el borrador de compra:', error);
+      }
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [form, archivos.pdf, archivos.xml, archivos.ctz, modal, editando, usuario]);
+
+  const limpiarBorradorCompra = () => {
+    try { localStorage.removeItem(purchaseDraftKey(usuario)); } catch (error) { /* storage no disponible */ }
+    setBorradorCompra(null);
+    setBorradorRecuperado(false);
+  };
+
+  const continuarBorrador = () => {
+    if (!borradorCompra?.form) return;
+    setEditando(null);
+    setForm({ ...emptyForm, ...borradorCompra.form });
+    setArchivos(emptyFiles);
+    setEstadoLecturaPdf(borradorCompra.teniaAdjuntosLocales ? 'Borrador recuperado. Por seguridad del navegador, vuelve a seleccionar los archivos adjuntos.' : 'Borrador recuperado automáticamente.');
+    setMostrarNuevoProveedor(false);
+    setProveedorRapido(emptyProveedorRapido);
+    setBorradorRecuperado(true);
+    setModal(true);
+  };
+
+  const descartarBorrador = () => {
+    limpiarBorradorCompra();
+    setForm({ ...emptyForm, fecha_compra: new Date().toISOString().slice(0, 10) });
+    setArchivos(emptyFiles);
+  };
 
   const cargar = async () => {
     const [c, p, pr, lobRes, cecoRes, gastoRes, generalRes] = await Promise.all([
@@ -132,6 +197,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
 
   const abrirNuevo = () => {
     setEditando(null);
+    setBorradorRecuperado(false);
     setForm({ ...emptyForm, fecha_compra: new Date().toISOString().slice(0, 10) });
     setArchivos(emptyFiles);
     setEstadoLecturaPdf('');
@@ -417,6 +483,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       setEditando(null);
       setForm(emptyForm);
       setArchivos(emptyFiles);
+      if (!editando) limpiarBorradorCompra();
       await cargar();
     } catch (err) {
       console.error(err);
@@ -443,8 +510,17 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   return <div className="purchase-register-module">
     <div className="section-header">
       <div><h3 className="section-title"><FestosIcon name="ClipboardList" size={21}/> Registro de compras</h3><p className="panel-note">Registra todo lo que se compra. Los pagos y movimientos de caja se controlan por separado.</p></div>
-      <button className="btn-primary" onClick={abrirNuevo}><FestosIcon name="Plus" size={16}/> Nueva compra</button>
+      <div className="purchase-header-actions">
+        {borradorCompra && <button type="button" className="btn-secondary purchase-continue-btn" onClick={continuarBorrador}><FestosIcon name="RefreshCw" size={16}/> Continuar registro</button>}
+        <button className="btn-primary" onClick={abrirNuevo}><FestosIcon name="Plus" size={16}/> Nueva compra</button>
+      </div>
     </div>
+
+    {borradorCompra && <div className="purchase-draft-banner">
+      <div className="purchase-draft-icon"><FestosIcon name="History" size={20}/></div>
+      <div className="purchase-draft-copy"><strong>Tienes un registro de compra pendiente</strong><span>Guardado automáticamente {borradorCompra.updatedAt ? new Date(borradorCompra.updatedAt).toLocaleString('es-PE', { dateStyle:'short', timeStyle:'short' }) : ''}. Puedes continuar exactamente donde lo dejaste.</span></div>
+      <div className="purchase-draft-actions"><button type="button" className="btn-primary btn-small" onClick={continuarBorrador}>Continuar</button><button type="button" className="btn-muted btn-small" onClick={descartarBorrador}>Descartar</button></div>
+    </div>}
 
     <div className="glass-card form-card purchase-toolbar">
       <div className="toolbar-search-row"><input className="search-input" placeholder="Buscar compra, proveedor, proyecto, código..." value={busqueda} onChange={e => setBusqueda(e.target.value)}/></div>
@@ -525,7 +601,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
     </div>
 
     {modal && <div className="modal-overlay" onClick={() => !cargando && setModal(false)}><form className="glass-card modal-card business-modal purchase-modal" onSubmit={guardar} onClick={e => e.stopPropagation()}>
-      <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18}/> Editar compra</> : <><FestosIcon name="Plus" size={18}/> Registrar compra</>}</h4><p className="panel-note">Completa la información de la compra.</p></div><button type="button" className="modal-close-btn" onClick={() => setModal(false)}>×</button></div>
+      <div className="modal-head"><div><h4 className="panel-title icon-heading">{editando ? <><FestosIcon name="Pencil" size={18}/> Editar compra</> : <><FestosIcon name="Plus" size={18}/> Registrar compra</>}</h4><p className="panel-note">{editando ? 'Actualiza la información de la compra.' : 'Tu avance se guarda automáticamente como borrador.'}</p></div><button type="button" className="modal-close-btn" onClick={() => setModal(false)}>×</button></div>
 
       <div className="form-row"><label>Fecha de compra *</label><input type="date" value={form.fecha_compra} onChange={e => setForm({...form, fecha_compra:e.target.value})} required/></div>
       <div className="form-row"><label>Fecha de control</label><input type="date" value={form.fecha_control || ''} onChange={e => setForm({...form, fecha_control:e.target.value})}/></div>
@@ -564,7 +640,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       </div>
 
       <div className="form-row"><label>Observaciones</label><textarea rows="3" value={form.observaciones} onChange={e => setForm({...form, observaciones:e.target.value})} placeholder="Datos adicionales, OC, referencia, etc."/></div>
-      <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar compra'}</button><button type="button" className="btn-secondary" onClick={() => setModal(false)}>Cancelar</button></div>
+      <div className="modal-actions"><button className="btn-primary" disabled={cargando}>{cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Registrar compra'}</button><button type="button" className="btn-secondary" onClick={() => setModal(false)}>{editando ? 'Cancelar' : 'Salir y continuar después'}</button></div>
     </form></div>}
   </div>;
 }

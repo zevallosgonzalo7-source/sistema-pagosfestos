@@ -333,7 +333,7 @@ function ModalComision({ empleado, periodo, onClose, onSaved }) {
   );
 }
 
-function DocumentoRow({ documento, onDownload }) {
+function DocumentoRow({ documento, onDownload, onDelete, canDelete = false, deleting = false }) {
   const tipoLabel = documento?.tipo === 'RXH' ? 'Recibo por honorarios' : documento?.tipo || 'Documento';
   return (
     <div className="payroll-doc-row">
@@ -342,9 +342,23 @@ function DocumentoRow({ documento, onDownload }) {
         <strong>{documento.nombre_archivo}</strong>
         <small>{tipoLabel}{documento.periodo ? ` · ${periodoLabel(documento.periodo)}` : ''}</small>
       </div>
-      <button type="button" className="btn-icon-soft" onClick={() => onDownload(documento)}>
-        <FestosIcon name="Download" size={17} />
-      </button>
+      <div className="payroll-doc-actions">
+        <button type="button" className="btn-icon-soft" onClick={() => onDownload(documento)} title="Descargar adjunto" aria-label={`Descargar ${documento.nombre_archivo || 'documento'}`}>
+          <FestosIcon name="Download" size={17} />
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            className="btn-icon-soft payroll-doc-delete"
+            onClick={() => onDelete(documento)}
+            disabled={deleting}
+            title="Eliminar adjunto"
+            aria-label={`Eliminar ${documento.nombre_archivo || 'documento'}`}
+          >
+            <FestosIcon name="Trash2" size={17} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -361,6 +375,7 @@ export function PayrollModule({ usuario, puedeGestionar = false }) {
   const [dbReady, setDbReady] = useState(true);
   const [loading, setLoading] = useState(true);
   const [subiendoDocumento, setSubiendoDocumento] = useState(false);
+  const [eliminandoDocumentoId, setEliminandoDocumentoId] = useState(null);
   const [docForm, setDocForm] = useState({ tipo: 'RXH', periodo: periodoActual(), file: null });
 
   const cargar = async () => {
@@ -474,6 +489,32 @@ export function PayrollModule({ usuario, puedeGestionar = false }) {
       URL.revokeObjectURL(url);
     } catch (err) {
       alert(`No se pudo descargar el adjunto. ${err?.message || ''}`);
+    }
+  };
+
+
+  const eliminarDocumento = async (documento) => {
+    if (!puedeGestionar || !documento?.id) return;
+    const nombre = documento.nombre_archivo || 'este documento';
+    const confirmado = window.confirm(`¿Eliminar "${nombre}"?\n\nEsta acción eliminará el adjunto de Planilla y no se puede deshacer.`);
+    if (!confirmado) return;
+
+    setEliminandoDocumentoId(documento.id);
+    try {
+      if (documento.storage_path) {
+        const { error: storageError } = await supabase.storage.from(RXH_BUCKET).remove([documento.storage_path]);
+        if (storageError) throw storageError;
+      }
+
+      const { error: dbError } = await supabase.from('planilla_documentos').delete().eq('id', documento.id);
+      if (dbError) throw dbError;
+
+      setDocumentos((actuales) => actuales.filter((item) => item.id !== documento.id));
+    } catch (err) {
+      alert(`No se pudo eliminar el adjunto. ${err?.message || ''}`);
+      await cargar();
+    } finally {
+      setEliminandoDocumentoId(null);
     }
   };
 
@@ -788,7 +829,16 @@ export function PayrollModule({ usuario, puedeGestionar = false }) {
               )}
 
               <div className="payroll-doc-list">
-                {selectedDocs.length ? selectedDocs.map((doc) => <DocumentoRow key={doc.id} documento={doc} onDownload={descargarDocumento} />) : <p className="payroll-empty">Todavía no hay RXH ni adjuntos cargados para este colaborador.</p>}
+                {selectedDocs.length ? selectedDocs.map((doc) => (
+                  <DocumentoRow
+                    key={doc.id}
+                    documento={doc}
+                    onDownload={descargarDocumento}
+                    onDelete={eliminarDocumento}
+                    canDelete={puedeGestionar}
+                    deleting={eliminandoDocumentoId === doc.id}
+                  />
+                )) : <p className="payroll-empty">Todavía no hay RXH ni adjuntos cargados para este colaborador.</p>}
               </div>
             </section>
           </section>

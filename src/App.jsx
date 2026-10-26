@@ -128,29 +128,155 @@ async function reproducirBienvenidaVoz(perfil) {
   }
 }
 
-function FestosWelcomeOverlay({ nombre, cargo, correo, foto, onClose }) {
+async function reproducirChimeFestos() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.38, now + 0.025);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+    master.connect(ctx.destination);
+
+    const notas = [523.25, 659.25, 783.99, 1046.5];
+    notas.forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const inicio = now + index * 0.07;
+      osc.type = index < 2 ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(freq, inicio);
+      gain.gain.setValueAtTime(0.0001, inicio);
+      gain.gain.exponentialRampToValueAtTime(index === 0 ? 0.72 : 0.36, inicio + 0.035);
+      gain.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.48);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(inicio);
+      osc.stop(inicio + 0.55);
+    });
+
+    window.setTimeout(() => ctx.close().catch(() => {}), 1250);
+  } catch (err) {
+    console.debug('Chime FESTOS no disponible.', err);
+  }
+}
+
+let festosCursorFrame = 0;
+function actualizarFondoCursor(event) {
+  const shell = event.currentTarget;
+  const clientX = event.clientX;
+  const clientY = event.clientY;
+  if (festosCursorFrame) cancelAnimationFrame(festosCursorFrame);
+  festosCursorFrame = requestAnimationFrame(() => {
+    const rect = shell.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    shell.style.setProperty('--cursor-x', `${x}%`);
+    shell.style.setProperty('--cursor-y', `${y}%`);
+    festosCursorFrame = 0;
+  });
+}
+
+function FestosWelcomeOverlay({ nombre, cargo, correo, onClose }) {
+  const [saliendo, setSaliendo] = useState(false);
+
+  const moverIntro = (event) => {
+    const root = event.currentTarget;
+    const rect = root.getBoundingClientRect();
+    const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+    root.style.setProperty('--intro-rx', `${(-ny * 8).toFixed(2)}deg`);
+    root.style.setProperty('--intro-ry', `${(nx * 14).toFixed(2)}deg`);
+    root.style.setProperty('--intro-tx', `${(nx * 12).toFixed(2)}px`);
+    root.style.setProperty('--intro-ty', `${(ny * 8).toFixed(2)}px`);
+    root.style.setProperty('--intro-screen-x', `${(-nx * 7).toFixed(2)}px`);
+    root.style.setProperty('--intro-screen-y', `${(-ny * 5).toFixed(2)}px`);
+  };
+
+  const resetIntro = (event) => {
+    const root = event.currentTarget;
+    root.style.setProperty('--intro-rx', '0deg');
+    root.style.setProperty('--intro-ry', '0deg');
+    root.style.setProperty('--intro-tx', '0px');
+    root.style.setProperty('--intro-ty', '0px');
+    root.style.setProperty('--intro-screen-x', '0px');
+    root.style.setProperty('--intro-screen-y', '0px');
+  };
+
+  const entrar = async () => {
+    if (saliendo) return;
+    setSaliendo(true);
+    reproducirChimeFestos();
+    window.setTimeout(() => onClose?.(), 420);
+  };
+
   return (
-    <div className="festos-welcome-overlay" role="dialog" aria-modal="true" aria-label="Bienvenida a FESTOS" onClick={onClose}>
-      <div className="festos-welcome-orbit orbit-a" aria-hidden="true" />
-      <div className="festos-welcome-orbit orbit-b" aria-hidden="true" />
-      <div className="festos-welcome-beam" aria-hidden="true" />
-      <div className="festos-welcome-card" onClick={e => e.stopPropagation()}>
-        <div className="festos-welcome-shine" aria-hidden="true" />
-        <div className="festos-welcome-brand">
-          <img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="FESTOS" />
-          <span>GESTIÓN EMPRESARIAL</span>
+    <div
+      className={`festos-premium-intro${saliendo ? ' is-leaving' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Bienvenida a FESTOS"
+      onPointerMove={moverIntro}
+      onPointerLeave={resetIntro}
+      onClick={entrar}
+    >
+      <div className="festos-intro-whiteblur blur-a" aria-hidden="true" />
+      <div className="festos-intro-whiteblur blur-b" aria-hidden="true" />
+      <div className="festos-intro-whiteblur blur-c" aria-hidden="true" />
+      <div className="festos-intro-aurora aurora-a" aria-hidden="true" />
+      <div className="festos-intro-aurora aurora-b" aria-hidden="true" />
+      <div className="festos-intro-grid" aria-hidden="true" />
+      <div className="festos-intro-stage">
+        <div className="festos-intro-copy">
+          <div className="festos-intro-kicker">GESTIÓN EMPRESARIAL</div>
+          <div className="festos-intro-wordmark"><span>F</span>ESTOS</div>
+          <div className="festos-intro-subtitle">OPERACIONES Y ADMINISTRACIÓN</div>
+          <div className="festos-intro-userline">
+            <span>{saludoPorHora()}</span>
+            <strong>{nombre}</strong>
+            <small>{cargo}{correo ? ` · ${correo}` : ''}</small>
+          </div>
         </div>
-        <div className="festos-welcome-avatar">
-          {foto ? <img src={foto} alt="Perfil" /> : <FestosIcon name="UserRound" size={34} strokeWidth={1.6} />}
-          <span className="festos-welcome-status" />
+
+        <div className="festos-intro-device-wrap" aria-hidden="true">
+          <div className="festos-intro-device-glow" />
+          <div className="festos-intro-logo-orbit">
+            <img src={`${import.meta.env.BASE_URL}festos-app-icon.png`} alt="" />
+          </div>
+          <div className="festos-intro-phone">
+            <div className="festos-intro-phone-top"><i/><b/></div>
+            <div className="festos-intro-screen">
+              <div className="intro-mini-topbar">
+                <div className="intro-mini-brand"><span>F</span><strong>FESTOS</strong></div>
+                <div className="intro-mini-avatar">RZ</div>
+              </div>
+              <div className="intro-mini-hero">
+                <small>BIENVENIDO</small>
+                <strong>Tu espacio está listo</strong>
+                <span>Gestión empresarial en tiempo real</span>
+              </div>
+              <div className="intro-mini-kpis">
+                <div><i>12</i><span>Cotizaciones</span></div>
+                <div><i>38</i><span>Compras</span></div>
+                <div><i>9</i><span>Proyectos</span></div>
+              </div>
+              <div className="intro-mini-list">
+                <div className="intro-mini-list-head"><strong>Actividad reciente</strong><span>Hoy</span></div>
+                <p><i className="dot green"/><span>Proyecto actualizado</span><b>PRY-056</b></p>
+                <p><i className="dot teal"/><span>Compra registrada</span><b>F001-248</b></p>
+                <p><i className="dot gold"/><span>Cotización aprobada</span><b>COT-091</b></p>
+              </div>
+            </div>
+          </div>
         </div>
-        <span className="festos-welcome-greeting">{saludoPorHora()}</span>
-        <h1>BIENVENID@ A FESTOS GESTIÓN</h1>
-        <h2>{nombre}</h2>
-        <div className="festos-welcome-role"><FestosIcon name="ShieldCheck" size={17} /> {cargo}</div>
-        <div className="festos-welcome-mail"><FestosIcon name="Mail" size={15} /> {correo}</div>
-        <div className="festos-welcome-progress"><span /></div>
-        <small>Preparando tu espacio de trabajo seguro</small>
+      </div>
+      <div className="festos-intro-enter" aria-hidden="true">
+        <span>HAZ CLIC PARA ENTRAR</span>
+        <i>↗</i>
       </div>
     </div>
   );
@@ -533,7 +659,6 @@ function App() {
     setUsuarioLogueado(String(data.usuario || '').trim().toLowerCase());
     setAuthEmail(data.email || authUser.email || '');
     if (irInicio) setVista('inicio');
-    if (reproducirVoz) reproducirBienvenidaVoz(data);
     return true;
   };
 
@@ -600,12 +725,8 @@ function App() {
     setPerfilFoto(fotoGuardada || (esGonzalo ? fotoLegacy : '') || '');
   }, [usuarioLogueado, perfilServidor?.nombre]);
 
-  // La vista Inicio se fuerza únicamente en un acceso real o al cargar la app.
-  // Los refrescos de sesión de Supabase no deben sacar al usuario del módulo actual.
-  useEffect(() => {
-    if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return;
-    setMostrarBienvenida(false);
-  }, [authReady, usuarioLogueado, perfilServidor?.activo]);
+  // La intro premium permanece visible hasta que el usuario haga clic.
+  // No se cierra por temporizador ni por refrescos silenciosos de sesión.
 
   // Resumen de agenda compartida al entrar: aparece 5 s después de la bienvenida
   // y se oculta automáticamente luego de 5 s. Solo muestra actividades vigentes
@@ -646,14 +767,9 @@ function App() {
     };
   }, [authReady, usuarioLogueado, perfilServidor?.activo]);
 
-  // Tema visual persistente. V27 permite alternar entre claro y oscuro
-  // sin cambiar la identidad verde petróleo de FESTOS.
-  const [modoOscuro, setModoOscuro] = useState(() => {
-    try { return localStorage.getItem('festos_tema') === 'dark'; } catch (e) { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('festos_tema', modoOscuro ? 'dark' : 'light'); } catch (e) { /* no-op */ }
-  }, [modoOscuro]);
+  // FESTOS V29.41.3: tema claro único. Se retiró el modo oscuro para reducir
+  // complejidad visual y mantener una sola identidad premium consistente.
+  const modoOscuro = false;
 
   const [busquedaGlobalAbierta, setBusquedaGlobalAbierta] = useState(false);
   const [enLinea, setEnLinea] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -781,11 +897,12 @@ function App() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      const ok = await cargarPerfilAutenticado(data.user, { irInicio: true, reproducirVoz: true });
+      const ok = await cargarPerfilAutenticado(data.user, { irInicio: true, reproducirVoz: false });
       if (!ok) {
         await supabase.auth.signOut();
         return;
       }
+      setMostrarBienvenida(true);
       setInputUser('');
       setInputPass('');
     } catch (err) {
@@ -1507,7 +1624,7 @@ function App() {
 
   /* -------------------- PANTALLA DE LOGIN -------------------- */
   if (!authReady) {
-    return <div className="login-screen"><div className="login-center"><div className="login-card"><div className="login-brand"><div className="login-brand-logo"><img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="Festos" className="login-brand-img" /></div><div className="login-brand-copy"><strong>FESTOS GESTIÓN EMPRESARIAL</strong><span>VALIDANDO SESIÓN SEGURA</span></div></div></div></div></div>;
+    return <div className="login-screen"><div className="login-center"><div className="login-card"><div className="login-brand premium-wordmark login-wordmark"><div className="premium-wordmark-mark" aria-hidden="true">F</div><div><strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong><small>VALIDANDO SESIÓN SEGURA</small></div></div></div></div></div>;
   }
 
   if (!usuarioLogueado) {
@@ -1520,13 +1637,11 @@ function App() {
 
         <div className="login-center">
           <form onSubmit={manejarLogin} className="login-card">
-            <div className="login-brand">
-              <div className="login-brand-logo">
-                <img src={`${import.meta.env.BASE_URL}festoslogo-header.png`} alt="Festos" className="login-brand-img" />
-              </div>
-              <div className="login-brand-copy">
-                <strong>FESTOS GESTIÓN EMPRESARIAL</strong>
-                <span>OPERACIONES Y ADMINISTRACIÓN</span>
+            <div className="login-brand premium-wordmark login-wordmark">
+              <div className="premium-wordmark-mark" aria-hidden="true">F</div>
+              <div>
+                <strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong>
+                <small>OPERACIONES Y ADMINISTRACIÓN</small>
               </div>
             </div>
 
@@ -1569,7 +1684,15 @@ function App() {
 
   /* -------------------- APP AUTENTICADA -------------------- */
   return (
-    <div className="app-shell" data-theme={modoOscuro ? 'dark' : 'light'}>
+    <div
+      className="app-shell"
+      data-theme="light"
+      onMouseMove={actualizarFondoCursor}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.setProperty('--cursor-x', '50%');
+        e.currentTarget.style.setProperty('--cursor-y', '18%');
+      }}
+    >
       <div className="ambient-bg" aria-hidden="true">
         <div className="ambient-logo" />
         <div className="ambient-glow" />
@@ -1582,12 +1705,11 @@ function App() {
         permisos={misPermisos}
       />
 
-      {false && mostrarBienvenida && (
+      {mostrarBienvenida && (
         <FestosWelcomeOverlay
           nombre={nombreCompletoUsuario(perfilNombre || perfilServidor?.nombre || usuarioLogueado).toUpperCase()}
           cargo={perfilServidor?.rol_label || cargoUsuario(usuarioLogueado)}
           correo={authEmail}
-          foto={perfilFoto}
           onClose={() => setMostrarBienvenida(false)}
         />
       )}
@@ -1614,8 +1736,12 @@ function App() {
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-brand">
-          <img src={`${import.meta.env.BASE_URL}festoslogo-Photoroom.png`} alt="Festos" />
+        <div className="sidebar-brand sidebar-wordmark premium-wordmark">
+          <div className="premium-wordmark-mark" aria-hidden="true">F</div>
+          <div>
+            <strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong>
+            <small>OPERACIONES Y ADMINISTRACIÓN</small>
+          </div>
         </div>
 
         <div className="sidebar-scroll-area">
@@ -1685,10 +1811,10 @@ function App() {
                 <span></span><span></span><span></span>
               </span>
             </button>
-            <div className="topbar-brand">
-              <div className="topbar-brand-copy">
-                <strong>FESTOS GESTIÓN EMPRESARIAL</strong>
-                <span>OPERACIONES Y ADMINISTRACIÓN</span>
+            <div className="topbar-brand premium-wordmark topbar-wordmark">
+              <div>
+                <strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong>
+                <small>OPERACIONES Y ADMINISTRACIÓN</small>
               </div>
             </div>
           </div>
@@ -1701,10 +1827,6 @@ function App() {
             <span className={`connection-chip ${enLinea ? 'online' : 'offline'}`} title={enLinea ? 'Hay conectividad de red. La confirmación de guardado depende de Supabase.' : 'Sin conexión a Internet'}>
               <i /> {enLinea ? 'Red disponible' : 'Sin conexión'}
             </span>
-
-            <button type="button" className="theme-toggle" onClick={() => setModoOscuro(v => !v)} title={modoOscuro ? 'Usar tema claro' : 'Usar tema oscuro'} aria-label="Cambiar tema">
-              <span><FestosIcon name={modoOscuro ? 'Sun' : 'Moon'} size={18} /></span>
-            </button>
 
             <CentroNotificaciones
               notificaciones={notificaciones}
