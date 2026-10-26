@@ -1082,12 +1082,17 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
   };
   const cambiarModo = modo => { if (modo === 'directo') setValorVentaDirecto(subtotalItems); setForm(prev => ({ ...prev, modo })); };
   const guardar = async (estado = 'Borrador') => {
+    const modoActual = String(form.modo || 'detallado').trim().toLowerCase();
+    const esDirecto = modoActual === 'directo';
+    const esDetallado = !esDirecto;
+
     if (estado === 'Aprobado' && !puedeAprobar) return alert('No tienes permiso para aprobar cotizaciones.');
     if (!form.client_id) return alert('Selecciona un cliente.');
     if (!form.proyecto_nombre.trim()) return alert('Escribe el nombre del proyecto. La cotización no puede guardarse sin proyecto.');
     if (!form.lob) return alert('Selecciona la categoría general de la cotización.');
-    if (form.modo === 'detallado' && !form.items.some(i => i.descripcion.trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.');
-    if (form.modo === 'directo' && num(valorVentaDirecto) <= 0) return alert('Ingresa el Valor venta total de la cotización directa.');
+    // V29.41.9: los ítems SOLO son obligatorios en Detallado. Directo nunca valida ítems.
+    if (esDetallado && !form.items.some(i => String(i.descripcion || '').trim() && itemTotal(i) > 0)) return alert('Agrega al menos un ítem con descripción y valor.');
+    if (esDirecto && num(valorVentaDirecto) <= 0) return alert('Ingresa el Valor venta total de la cotización directa.');
 
     setCargando(true);
     try {
@@ -1110,18 +1115,21 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
         costo_estimado: costo,
         ganancia_estimada: ganancia,
         margen,
-        modo: form.modo,
+        modo: modoActual,
         updated_by: usuario
       };
 
       let quoteId = editando?.id;
-      const itemsPayload = (form.modo === 'directo' ? [] : form.items)
-        .filter(i => i.descripcion.trim())
+      // V29.41.10: en modo Directo los ítems son OPCIONALES, no inexistentes.
+      // Si ya existen ítems de costo interno, se conservan y se vuelven a guardar.
+      // Una cotización Directa nueva puede seguir guardándose con 0 ítems.
+      const itemsPayload = form.items
+        .filter(i => String(i.descripcion || '').trim())
         .map((i, index) => ({
           orden: index + 1,
           descripcion: i.descripcion.trim(),
           categoria: null,
-          modo: form.modo,
+          modo: modoActual,
           cantidad: num(i.cantidad),
           valor_unitario: num(i.valor_unitario),
           valor_total: itemTotal(i),
@@ -1141,8 +1149,9 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
           p_items: itemsPayload
         });
         if (syncError) throw syncError;
+        const preservedItems = Boolean(syncResult?.preserved_items ?? syncResult?.[0]?.preserved_items);
         const savedCount = Number(syncResult?.item_count ?? syncResult?.[0]?.item_count ?? itemsPayload.length);
-        if (savedCount !== itemsPayload.length) {
+        if (!preservedItems && savedCount !== itemsPayload.length) {
           throw new Error(`La cotización guardó ${savedCount} ítems, pero se esperaban ${itemsPayload.length}.`);
         }
       } else {
