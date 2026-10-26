@@ -2232,6 +2232,7 @@ function App() {
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
               puedeAprobar={!!misPermisos.aprobar_cotizaciones}
+              puedeGestionar={!!misPermisos.gestionar_cotizaciones}
             />
           )}
 

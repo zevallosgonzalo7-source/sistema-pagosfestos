@@ -6946,3 +6946,37 @@ input:focus,select:focus,textarea:focus{
 .payroll-doc-delete:hover:not(:disabled){color:#9f3232!important;background:rgba(185,74,74,.11)!important;border-color:rgba(185,74,74,.24)!important;transform:translateY(-1px) scale(1.04)}
 .payroll-doc-delete:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
 @media(max-width:720px){.payroll-doc-actions{gap:5px}.payroll-doc-actions .btn-icon-soft{width:36px;height:36px}}
+
+/* ============================================================
+   FESTOS V29.41.6 — COTIZACIONES · PROFORMA + ADJUNTOS
+   ============================================================ */
+.quote-attachments-zone{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 16px}
+.quote-attachment-panel{border:1px solid rgba(34,66,72,.10);background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(246,250,249,.92));border-radius:18px;padding:14px;box-shadow:0 10px 24px rgba(31,58,64,.055);min-width:0}
+.quote-proforma-panel{background:linear-gradient(145deg,rgba(232,248,242,.96),rgba(255,255,255,.96));border-color:rgba(34,119,92,.16)}
+.quote-attachment-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+.quote-attachment-head h5{margin:2px 0 2px;color:#173d42;font-size:.92rem;letter-spacing:-.015em}
+.quote-attachment-head p{margin:0;color:#7c8f93;font-size:.72rem;line-height:1.35}
+.quote-attachment-kicker{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:.59rem;font-weight:850;color:#68a591}
+.quote-attachment-count{flex:0 0 auto;border:1px solid rgba(34,66,72,.11);background:#fff;border-radius:999px;padding:5px 8px;color:#617b80;font-size:.66rem;font-weight:850}
+.quote-attachment-count.complete{background:#e7f7ef;color:#187a57;border-color:#cceadb}
+.quote-attachment-empty{display:flex;align-items:center;gap:10px;min-height:58px;border:1px dashed rgba(34,66,72,.14);border-radius:14px;padding:10px 11px;color:#759095;background:rgba(255,255,255,.56)}
+.quote-attachment-empty>svg{flex:0 0 auto;color:#55a38c}
+.quote-attachment-empty span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.quote-attachment-empty strong{font-size:.76rem;color:#35555a}
+.quote-attachment-empty small{font-size:.65rem;line-height:1.25}
+.quote-attachment-list{display:flex;flex-direction:column;gap:7px}
+.quote-attachment-file{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:8px;border:1px solid rgba(34,66,72,.09);border-radius:13px;padding:8px;background:rgba(255,255,255,.82)}
+.quote-attachment-file-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:#e7f5f0;color:#247861}
+.quote-attachment-file-copy{min-width:0;display:flex;flex-direction:column;gap:1px}
+.quote-attachment-file-copy strong{font-size:.71rem;color:#29484e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quote-attachment-file-copy small{font-size:.6rem;color:#8a9b9f}
+.quote-attachment-icon-btn{width:30px;height:30px;border:0;border-radius:9px;background:#f2f6f6;color:#42666c;display:grid;place-items:center;cursor:pointer;transition:transform .18s ease,background .18s ease,color .18s ease}
+.quote-attachment-icon-btn:hover{transform:translateY(-1px) scale(1.04);background:#e5f1ee;color:#17634e}
+.quote-attachment-icon-btn.danger:hover{background:#fff0ef;color:#bd4942}
+.quote-attachment-icon-btn:disabled{opacity:.45;cursor:not-allowed}
+.quote-file-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.quote-attachment-upload-btn{margin-top:9px;min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:11px;padding:7px 11px;background:#245f52;color:#fff;font-size:.69rem;font-weight:850;cursor:pointer;box-shadow:0 7px 15px rgba(36,95,82,.12);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.quote-attachment-upload-btn:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(36,95,82,.18);background:#1d5448}
+.quote-attachment-upload-btn.secondary{background:#f1f7f5;color:#286756;border:1px solid #d7ebe4;box-shadow:none}
+.quote-attachment-upload-btn.secondary:hover{background:#e5f3ee}
+@media(max-width:850px){.quote-attachments-zone{grid-template-columns:1fr}.quote-attachment-panel{padding:12px}}
