@@ -35,10 +35,3 @@ public/voice-assets/ready.json
 /dist-electron/
 
 /out/
-
-# FESTOS - archivos privados/locales
-.env
-FACTURAS.zip
-zips/
-resultado_carga*.csv
-manifiesto_carga.csv

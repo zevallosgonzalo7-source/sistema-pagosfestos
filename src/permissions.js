@@ -22,6 +22,8 @@ export const CAMPOS_PERMISOS = [
   { key: 'ver_cotizaciones', label: 'Ver el apartado de Cotizaciones', grupo: 'Cotizaciones' },
   { key: 'gestionar_cotizaciones', label: 'Crear y editar cotizaciones (borrador / en revisión)', grupo: 'Cotizaciones' },
   { key: 'aprobar_cotizaciones', label: 'Aprobar cotizaciones', grupo: 'Cotizaciones' },
+  { key: 'ver_planilla', label: 'Ver el módulo de Planilla', grupo: 'Planilla' },
+  { key: 'gestionar_planilla', label: 'Gestionar empleados, pagos y comisiones', grupo: 'Planilla' },
   { key: 'gestionar_roles', label: 'Gestionar roles y permisos del equipo', grupo: 'Administración' },
 ];
 
@@ -48,6 +50,8 @@ export const PERMISOS_DEFECTO = {
     ver_cotizaciones: true,
     gestionar_cotizaciones: true,
     aprobar_cotizaciones: true,
+    ver_planilla: true,
+    gestionar_planilla: true,
     gestionar_roles: true,
   },
   jesus: {
@@ -61,6 +65,8 @@ export const PERMISOS_DEFECTO = {
     ver_cotizaciones: true,
     gestionar_cotizaciones: true,
     aprobar_cotizaciones: true,
+    ver_planilla: false,
+    gestionar_planilla: false,
     gestionar_roles: false,
   },
   // Nota: no se especificaron permisos concretos para Rodrigo, así que
@@ -78,6 +84,8 @@ export const PERMISOS_DEFECTO = {
     ver_cotizaciones: true,
     gestionar_cotizaciones: true,
     aprobar_cotizaciones: true,
+    ver_planilla: true,
+    gestionar_planilla: true,
     gestionar_roles: true,
   },
   mar: {
@@ -91,6 +99,8 @@ export const PERMISOS_DEFECTO = {
     ver_cotizaciones: true,
     gestionar_cotizaciones: true, // puede crear/editar, pero no aprobar
     aprobar_cotizaciones: false,
+    ver_planilla: false,
+    gestionar_planilla: false,
     gestionar_roles: false,
   },
 };
@@ -107,6 +117,8 @@ export const PERMISOS_VACIOS = {
   ver_cotizaciones: false,
   gestionar_cotizaciones: false,
   aprobar_cotizaciones: false,
+  ver_planilla: false,
+  gestionar_planilla: false,
   gestionar_roles: false,
 };
 

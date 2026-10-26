@@ -13,6 +13,7 @@ import { PurchaseRegister } from './modules/PurchaseRegister';
 import { PurchaseDashboard } from './modules/PurchaseDashboard';
 import { HomeModule } from './modules/HomeModule';
 import { CashModule } from './modules/CashModule';
+import { PayrollModule } from './modules/PayrollModule';
 import { GestionRoles } from './modules/RolesModule';
 import { PERMISOS_VACIOS } from './permissions';
 import { FestosIcon } from './FestosIcon';
@@ -495,7 +496,7 @@ function App() {
   const [agendaLoginItems, setAgendaLoginItems] = useState([]);
   const [mostrarAgendaLogin, setMostrarAgendaLogin] = useState(false);
 
-  const cargarPerfilAutenticado = async (authUser) => {
+  const cargarPerfilAutenticado = async (authUser, { irInicio = false, reproducirVoz = false } = {}) => {
     if (!authUser?.id) {
       setUsuarioLogueado('');
       setAuthEmail('');
@@ -531,8 +532,8 @@ function App() {
     setPerfilServidor(data);
     setUsuarioLogueado(String(data.usuario || '').trim().toLowerCase());
     setAuthEmail(data.email || authUser.email || '');
-    setVista('inicio');
-    reproducirBienvenidaVoz(data);
+    if (irInicio) setVista('inicio');
+    if (reproducirVoz) reproducirBienvenidaVoz(data);
     return true;
   };
 
@@ -540,10 +541,10 @@ function App() {
     let activo = true;
     try { localStorage.removeItem('festos_sesion_usuario'); } catch (e) { /* legacy cleanup */ }
 
-    const sincronizar = async (session) => {
+    const sincronizar = async (session, opciones = {}) => {
       if (!activo) return;
       try {
-        if (session?.user) await cargarPerfilAutenticado(session.user);
+        if (session?.user) await cargarPerfilAutenticado(session.user, opciones);
         else {
           setUsuarioLogueado('');
           setAuthEmail('');
@@ -554,13 +555,19 @@ function App() {
       }
     };
 
+    // Al abrir/recargar FESTOS con una sesión válida, aterriza en Inicio.
     supabase.auth.getSession().then(({ data, error }) => {
       if (error) console.error('No se pudo recuperar la sesión de Supabase Auth:', error);
-      sincronizar(data?.session || null);
+      sincronizar(data?.session || null, { irInicio: true, reproducirVoz: false });
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      window.setTimeout(() => sincronizar(session), 0);
+    // IMPORTANTE: Supabase puede emitir SIGNED_IN/TOKEN_REFRESHED al volver a una
+    // pestaña. Esos eventos solo refrescan el perfil; NO deben cambiar la vista.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      window.setTimeout(() => {
+        if (event === 'SIGNED_OUT' || !session) sincronizar(null);
+        else sincronizar(session, { irInicio: false, reproducirVoz: false });
+      }, 0);
     });
 
     return () => {
@@ -593,11 +600,11 @@ function App() {
     setPerfilFoto(fotoGuardada || (esGonzalo ? fotoLegacy : '') || '');
   }, [usuarioLogueado, perfilServidor?.nombre]);
 
-  // Inicio es ahora la bienvenida oficial. Cada sesión autenticada aterriza aquí.
+  // La vista Inicio se fuerza únicamente en un acceso real o al cargar la app.
+  // Los refrescos de sesión de Supabase no deben sacar al usuario del módulo actual.
   useEffect(() => {
     if (!authReady || !usuarioLogueado || !perfilServidor?.activo) return;
     setMostrarBienvenida(false);
-    setVista('inicio');
   }, [authReady, usuarioLogueado, perfilServidor?.activo]);
 
   // Resumen de agenda compartida al entrar: aparece 5 s después de la bienvenida
@@ -774,7 +781,7 @@ function App() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      const ok = await cargarPerfilAutenticado(data.user);
+      const ok = await cargarPerfilAutenticado(data.user, { irInicio: true, reproducirVoz: true });
       if (!ok) {
         await supabase.auth.signOut();
         return;
@@ -975,6 +982,7 @@ function App() {
       proyectos: misPermisos.ver_proyectos,
       cotizaciones: misPermisos.ver_cotizaciones,
       roles: misPermisos.gestionar_roles,
+      planilla: misPermisos.ver_planilla,
     };
     if (vista in requiereVer && !requiereVer[vista]) {
       setVista('inicio');
@@ -1372,6 +1380,7 @@ function App() {
     ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: 'Truck', label: 'Proveedores' }] : []),
     ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos' }] : []),
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras' },
+    ...(misPermisos.ver_planilla ? [{ id: 'planilla', icono: 'Users', label: 'Planilla' }] : []),
     { id: 'caja', icono: 'CreditCard', label: 'Caja' },
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
     ...(misPermisos.gestionar_roles ? [{ id: 'roles', icono: 'ShieldCheck', label: 'Roles y Permisos' }] : []),
@@ -1387,6 +1396,7 @@ function App() {
     // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.
     { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global', actionLabel: 'Agenda', tone: 'operaciones', activeIds: ['operaciones'] },
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras', actionLabel: 'Abrir', tone: 'proveedores', activeIds: ['compras'] },
+    { id: 'planilla', icono: 'Users', label: 'Planilla', actionLabel: 'Equipo', tone: 'planilla', visible: misPermisos.ver_planilla, activeIds: ['planilla'] },
     { id: 'caja', icono: 'CreditCard', label: 'Caja', actionLabel: 'Tesorería', tone: 'dashboard', activeIds: ['caja_ibk', 'caja_chica'] },
     { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
     { id: 'manual', icono: 'BookOpen', label: 'Manual', actionLabel: 'Leer', actionHref: '/Manual_Usuario_FESTOS_V32.pdf', tone: 'manual' },
@@ -1472,7 +1482,8 @@ function App() {
         dashboard: true, analisis: true, analisis_ventas: false, operaciones: true,
         clientes: misPermisos.ver_clientes, proveedores: misPermisos.ver_proveedores,
         proyectos: misPermisos.ver_proyectos, cotizaciones: misPermisos.ver_cotizaciones,
-        roles: misPermisos.gestionar_roles, perfil: true, notificaciones: true,
+        roles: misPermisos.gestionar_roles,
+      planilla: misPermisos.ver_planilla, perfil: true, notificaciones: true,
       };
       if (!Object.prototype.hasOwnProperty.call(allowed, parsed.target) || !allowed[parsed.target]) return feedbackVoz('No tienes permiso para abrir ese apartado.');
       if (parsed.target === 'perfil') { setPerfilModalAbierto(true); return feedbackVoz('He abierto tu perfil.'); }
@@ -1813,6 +1824,10 @@ function App() {
 
           {vista === 'compras' && (
             <PurchaseRegister usuario={usuarioLogueado} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
+          )}
+
+          {vista === 'planilla' && misPermisos.ver_planilla && (
+            <PayrollModule usuario={usuarioLogueado} puedeGestionar={misPermisos.gestionar_planilla} />
           )}
 
           {(vista === 'caja_ibk' || vista === 'caja_chica') && (

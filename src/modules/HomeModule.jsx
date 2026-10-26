@@ -83,6 +83,7 @@ export function HomeModule({ usuario, perfil, permisos, onNavigate, onNewQuote, 
     permisos?.gestionar_proyectos && permisos?.ver_proyectos && { label: 'Nuevo Proyecto', icon: 'FolderKanban', tone: 'amber', onClick: onNewProject },
     permisos?.ver_clientes && { label: 'Clientes', icon: 'Users', tone: 'purple', onClick: () => onNavigate('clientes') },
     permisos?.ver_proveedores && { label: 'Proveedores', icon: 'Building2', tone: 'teal', onClick: () => onNavigate('proveedores') },
+    permisos?.ver_planilla && { label: 'Planilla', icon: 'Users', tone: 'green', onClick: () => onNavigate('planilla') },
     { label: 'Dashboard', icon: 'ChartNoAxesColumnIncreasing', tone: 'gray', onClick: () => onNavigate('analisis') },
   ].filter(Boolean);
 
