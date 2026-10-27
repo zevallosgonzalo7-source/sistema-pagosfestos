@@ -119,7 +119,7 @@ const buildSheetXml = (rows, widths = []) => `<?xml version="1.0" encoding="UTF-
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${excelRowsXml(rows)}</sheetData><autoFilter ref="A1:${String.fromCharCode(64 + Math.max(1, widths.length))}${rows.length}"/></worksheet>`;
 
 const xlsxStylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="4" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Aptos Display"/></font><font><b/><sz val="11"/><color rgb="FF224248"/><name val="Aptos"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF224248"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F0F0"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDEDEA"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F5F5"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE8CC"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD0DBDC"/></left><right style="thin"><color rgb="FFD0DBDC"/></right><top style="thin"><color rgb="FFD0DBDC"/></top><bottom style="thin"><color rgb="FFD0DBDC"/></bottom><diagonal/></border><border><left style="medium"><color rgb="FF224248"/></left><right style="medium"><color rgb="FF224248"/></right><top style="medium"><color rgb="FF224248"/></top><bottom style="medium"><color rgb="FF224248"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="4" fontId="0" fillId="3" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="165" fontId="2" fillId="3" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="5" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs></styleSheet>`;
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="4" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="#,##0.00"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Aptos"/></font><font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Aptos Display"/></font><font><b/><sz val="11"/><color rgb="FF224248"/><name val="Aptos"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Aptos"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF224248"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8F0F0"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDEDEA"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F5F5"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F5F5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD0DBDC"/></left><right style="thin"><color rgb="FFD0DBDC"/></right><top style="thin"><color rgb="FFD0DBDC"/></top><bottom style="thin"><color rgb="FFD0DBDC"/></bottom><diagonal/></border><border><left style="medium"><color rgb="FF224248"/></left><right style="medium"><color rgb="FF224248"/></right><top style="medium"><color rgb="FF224248"/></top><bottom style="medium"><color rgb="FF224248"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="2" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="4" fontId="0" fillId="3" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="165" fontId="2" fillId="3" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="5" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs></styleSheet>`;
 
 
 const quoteTemplateStylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -140,7 +140,7 @@ const quoteTemplateStylesXml = `<?xml version="1.0" encoding="UTF-8" standalone=
   <fills count="5">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFE7EB48"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF224248"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FF000000"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
@@ -233,7 +233,7 @@ export const exportarListadoFiltradoExcel = async ({ nombreModulo, nombreArchivo
   });
 
   const dark = 'FF111111';
-  const lime = 'FFE7EB48';
+  const brand = 'FF224248';
   const gray = 'FFD9D9D9';
   const white = 'FFFFFFFF';
   const soft = 'FFF4F4F4';
@@ -249,36 +249,14 @@ export const exportarListadoFiltradoExcel = async ({ nombreModulo, nombreArchivo
   const lastCol = columnas.length;
   const lastColLetter = xlsxColName(lastCol);
 
-  ws.mergeCells(`A1:B2`);
-  if (lastCol >= 5) ws.mergeCells(`C1:${xlsxColName(Math.max(3, lastCol - 2))}2`);
-  if (lastCol >= 3) ws.mergeCells(`${xlsxColName(Math.max(3, lastCol - 1))}1:${lastColLetter}2`);
-  ws.getCell('A1').value = 'MARKETING POWER SAC';
-  ws.getCell('C1').value = nombreModulo.toUpperCase();
-  ws.getCell(`${xlsxColName(Math.max(3, lastCol - 1))}1`).value = 'FESTOS';
-  ['A1', 'C1', `${xlsxColName(Math.max(3, lastCol - 1))}1`].forEach(addr => {
-    const c = ws.getCell(addr);
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
-    c.font = { bold: true, size: 16, color: { argb: dark } };
-    c.alignment = { vertical: 'middle', horizontal: addr === 'A1' ? 'left' : 'center' };
-  });
-  ws.getRow(1).height = 24;
-  ws.getRow(2).height = 24;
-
-  try {
-    let logoResponse = await fetch('/logo-festos.png');
-    if (!logoResponse.ok) logoResponse = await fetch('/festoslogo-header.png');
-    if (logoResponse.ok) {
-      const logoBuffer = await logoResponse.arrayBuffer();
-      const imageId = wb.addImage({ buffer: logoBuffer, extension: 'png' });
-      ws.addImage(imageId, {
-        tl: { col: Math.max(0, lastCol - 2.15), row: 0.08 },
-        ext: { width: 112, height: 42 },
-        editAs: 'oneCell'
-      });
-    }
-  } catch (logoError) {
-    console.warn('No se pudo insertar el logo de FESTOS en el Excel:', logoError);
-  }
+  ws.mergeCells(`A1:${lastColLetter}2`);
+  const reportTitle = ws.getCell('A1');
+  reportTitle.value = `REPORTE DE ${String(nombreModulo || '').toUpperCase()}`;
+  reportTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: brand } };
+  reportTitle.font = { bold: true, size: 17, color: { argb: white } };
+  reportTitle.alignment = { vertical: 'middle', horizontal: 'left' };
+  ws.getRow(1).height = 25;
+  ws.getRow(2).height = 25;
 
   const headerRow = 4;
   columnas.forEach((col, index) => {
@@ -311,7 +289,6 @@ export const exportarListadoFiltradoExcel = async ({ nombreModulo, nombreArchivo
     const title = ws.getCell(`A${cursor}`);
     title.value = resumen.titulo || 'RESUMEN';
     title.font = { bold: true, color: { argb: dark } };
-    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
     cursor += 1;
     (resumen.items || []).forEach(item => {
       ws.getCell(`A${cursor}`).value = item.label;
@@ -327,7 +304,6 @@ export const exportarListadoFiltradoExcel = async ({ nombreModulo, nombreArchivo
   const filtersTitle = ws.getCell(`A${cursor}`);
   filtersTitle.value = 'FILTROS APLICADOS';
   filtersTitle.font = { bold: true, color: { argb: dark } };
-  filtersTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
   cursor += 1;
 
   const filtrosVisibles = filtros.filter(item => item && item.value && item.value !== 'TODOS' && item.value !== 'TODAS' && item.value !== '');
@@ -671,7 +647,7 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
 }
 
 
-export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, filtroDesdeDashboard = null, solicitudNuevo = false, onConsumirNuevo = () => {}, voiceCommand = null, onVoiceFeedback = () => {}, onOpenQuote = () => {} }) {
+export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, filtroDesdeDashboard = null, solicitudNuevo = false, onConsumirNuevo = () => {}, voiceCommand = null, onVoiceFeedback = () => {}, onOpenQuote = () => {}, onInvoiceProject = () => {} }) {
   const [clientes, setClientes] = useState([]);
   const [proyectos, setProyectos] = useState([]);
   const [comprasProyecto, setComprasProyecto] = useState([]);
@@ -919,7 +895,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
               <button type="button" className="quote-more-btn" onClick={e => { e.stopPropagation(); setMenuAbierto(menuAbierto === p.id ? null : p.id); }}><FestosIcon name="MoreVertical" size={18} /></button>
               {menuAbierto === p.id && <div className="quote-action-menu" onClick={e => e.stopPropagation()}>
                 <button onClick={() => { setMenuAbierto(null); setDetalleAbierto(abierto ? null : p.id); }}><FestosIcon name="Eye" size={16} /> <span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span></button>
-                {puedeGestionar && <button onClick={() => editar(p)}><FestosIcon name="Pencil" size={16} /> <span>Editar proyecto</span></button>}
+                {puedeGestionar && <button onClick={() => { setMenuAbierto(null); onInvoiceProject(p); }}><FestosIcon name="ReceiptText" size={16} /> <span>Facturar proyecto</span></button>}{puedeGestionar && <button onClick={() => editar(p)}><FestosIcon name="Pencil" size={16} /> <span>Editar proyecto</span></button>}
                 {puedeEliminarProyecto && <button className="danger" onClick={() => eliminarProyecto(p)}><FestosIcon name="Trash2" size={16} /> <span>Eliminar proyecto</span></button>}
               </div>}
             </div>
@@ -928,6 +904,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
           {abierto && <div className="business-detail-grid">
             <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>Categoría</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Compras registradas</span><strong>{money(comprasPorProyecto[p.id] || 0)}</strong></div><div><span>Utilidad real preliminar</span><strong>{money(venta - (comprasPorProyecto[p.id] || 0))}</strong></div><div><span>Ejecutivo comercial</span><strong>{nombreCompletoUsuario(ejecutivo, ejecutivo)}</strong></div><div><span>Fecha de pedido</span><strong>{fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</strong></div>
             {fechasHabilitadas && <div><span>Fecha de entrega</span><strong>{p.fecha_entrega || 'Sin registrar'}</strong></div>}<div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>
+            {puedeGestionar && <button type="button" className="business-detail-wide project-invoice-link" onClick={() => onInvoiceProject(p)}><span>Registro de Ventas</span><strong>{p.facturacion_estado || 'NO FACTURADO'} · Facturado {money(p.total_facturado || 0)}</strong><small>Registrar una nueva factura para este proyecto.</small><i aria-hidden="true"><FestosIcon name="ChevronRight" size={16}/></i></button>}
             {q && <button type="button" className="business-detail-wide project-quote-summary project-quote-link" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenQuote(q); }} title={`Abrir ${q.codigo} en Cotizaciones`} aria-label={`Abrir cotización ${q.codigo}`}><span>Cotización vinculada</span><strong>{q.codigo} · {q.estado} · Categoría: {q.lob || '—'} · Valor venta {money(q.subtotal)}</strong><small>{q.descripcion || 'Sin notas adicionales.'}</small><i className="project-quote-link-arrow" aria-hidden="true"><FestosIcon name="ChevronRight" size={16}/></i></button>}
           </div>}
         </article>;
@@ -1640,7 +1617,7 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
       ];
 
       const dark = 'FF111111';
-      const lime = 'FFE7EB48';
+      const brand = 'FF224248';
       const gray = 'FFD9D9D9';
       const white = 'FFFFFFFF';
       const moneyFmt = '"S/ "#,##0.00';
@@ -1675,25 +1652,17 @@ export function Cotizaciones({ usuario, onNotify, onAudit, puedeAprobar = true, 
         valueCell.alignment = { vertical: 'middle', wrapText: true, horizontal: opts.numeric ? 'right' : 'left' };
         ['A','B','C','D'].forEach(col => { ws.getCell(`${col}${row}`).border = border; });
         if (opts.numeric) valueCell.numFmt = opts.percent ? pctFmt : moneyFmt;
-        if (opts.highlight) valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
         ws.getRow(row).height = opts.height || 20;
       };
 
-      // Cabecera idéntica en estructura a la referencia V29.29.
-      ws.mergeCells('A1:B2');
-      ws.mergeCells('C1:F2');
-      ws.mergeCells('G1:H2');
-      ws.getCell('A1').value = 'MARKETING POWER SAC';
-      ws.getCell('C1').value = q.codigo || 'COTIZACIÓN FESTOS';
-      ws.getCell('G1').value = 'FESTOS';
-      ['A1','C1','G1'].forEach(addr => {
-        const c = ws.getCell(addr);
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lime } };
-        c.font = { bold: true, size: 16, color: { argb: dark } };
-        c.alignment = { vertical: 'middle', horizontal: addr === 'C1' ? 'center' : (addr === 'G1' ? 'center' : 'left') };
-      });
-      ws.getRow(1).height = 24;
-      ws.getRow(2).height = 24;
+      // Estándar global FESTOS: sin franja amarilla; solo el nombre del reporte destacado.
+      ws.mergeCells('A1:H2');
+      ws.getCell('A1').value = 'REPORTE DE COTIZACIÓN';
+      ws.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: brand } };
+      ws.getCell('A1').font = { bold: true, size: 17, color: { argb: white } };
+      ws.getCell('A1').alignment = { vertical: 'middle', horizontal: 'left' };
+      ws.getRow(1).height = 25;
+      ws.getRow(2).height = 25;
 
       section(3, 'DATOS DE COTIZACIÓN');
       labelValue(4, 'Última actualización', updated);

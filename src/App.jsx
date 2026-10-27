@@ -11,6 +11,7 @@ import { ExecutiveDashboard } from './modules/ExecutiveDashboard';
 import { OperationsCenter } from './modules/OperationsCenter';
 import { PurchaseRegister } from './modules/PurchaseRegister';
 import { PurchaseDashboard } from './modules/PurchaseDashboard';
+import { SalesRegister } from './modules/SalesRegister';
 import { HomeModule } from './modules/HomeModule';
 import { CashModule } from './modules/CashModule';
 import { PayrollModule } from './modules/PayrollModule';
@@ -1017,6 +1018,7 @@ function App() {
   const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
   const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
   const [cotizacionDesdeProyecto, setCotizacionDesdeProyecto] = useState(null);
+  const [proyectoDesdeVentas, setProyectoDesdeVentas] = useState(null);
   const [voiceCommand, setVoiceCommand] = useState(null);
   const [proyectosDesdeDashboard, setProyectosDesdeDashboard] = useState(null);
   const puedeRegistrarCliente = !!misPermisos.gestionar_clientes && ['HEAD ADMIN', 'ADMIN', 'DESARROLLADOR SOFTWARE'].includes(String(perfilServidor?.rol_label || '').trim().toUpperCase());
@@ -1498,6 +1500,7 @@ function App() {
     ...(misPermisos.ver_proveedores ? [{ id: 'proveedores', icono: 'Truck', label: 'Proveedores' }] : []),
     ...(misPermisos.ver_proyectos ? [{ id: 'proyectos', icono: 'FolderKanban', label: 'Proyectos' }] : []),
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras' },
+    { id: 'ventas', icono: 'ReceiptText', label: 'Reg. Ventas' },
     ...(misPermisos.ver_planilla ? [{ id: 'planilla', icono: 'Users', label: 'Planilla' }] : []),
     { id: 'caja', icono: 'CreditCard', label: 'Caja' },
     ...(misPermisos.ver_cotizaciones ? [{ id: 'cotizaciones', icono: 'FileText', label: 'Cotizaciones' }] : []),
@@ -1514,6 +1517,7 @@ function App() {
     // Dashboard de Ventas temporalmente oculto del launcher. Su lógica permanece intacta.
     { id: 'operaciones', icono: 'CalendarDays', label: 'Calendario global', actionLabel: 'Agenda', tone: 'operaciones', activeIds: ['operaciones'] },
     { id: 'compras', icono: 'ClipboardList', label: 'Registro de compras', actionLabel: 'Abrir', tone: 'proveedores', activeIds: ['compras'] },
+    { id: 'ventas', icono: 'ReceiptText', label: 'Reg. Ventas', actionLabel: 'Facturación', tone: 'cotizaciones', activeIds: ['ventas'] },
     { id: 'planilla', icono: 'Users', label: 'Planilla', actionLabel: 'Equipo', tone: 'planilla', visible: misPermisos.ver_planilla, activeIds: ['planilla'] },
     { id: 'caja', icono: 'CreditCard', label: 'Caja', actionLabel: 'Tesorería', tone: 'dashboard', activeIds: ['caja_ibk', 'caja_chica'] },
     { id: 'proveedores', icono: 'Truck', label: 'Proveedores', actionLabel: misPermisos.gestionar_proveedores ? 'Gestionar' : 'Ver', tone: 'proveedores', visible: misPermisos.ver_proveedores, activeIds: ['proveedores'] },
@@ -1949,6 +1953,17 @@ function App() {
             <PurchaseRegister usuario={usuarioLogueado} onNotify={agregarNotificacion} onAudit={registrarAuditoria} />
           )}
 
+          {vista === 'ventas' && (
+            <SalesRegister
+              usuario={usuarioLogueado}
+              puedeGestionar={!!misPermisos.gestionar_proyectos}
+              proyectoSolicitado={proyectoDesdeVentas}
+              onConsumirProyecto={() => setProyectoDesdeVentas(null)}
+              onNotify={agregarNotificacion}
+              onAudit={registrarAuditoria}
+            />
+          )}
+
           {vista === 'planilla' && misPermisos.ver_planilla && (
             <PayrollModule usuario={usuarioLogueado} puedeGestionar={misPermisos.gestionar_planilla} />
           )}
@@ -2219,6 +2234,7 @@ function App() {
               onAudit={registrarAuditoria}
               puedeGestionar={!!misPermisos.gestionar_proyectos}
               onOpenQuote={(quote) => { if (!misPermisos.ver_cotizaciones) { agregarNotificacion('No tienes permiso para ver Cotizaciones', 'alerta'); return; } setCotizacionDesdeProyecto({ id: quote?.id || null, codigo: quote?.codigo || null }); setVista('cotizaciones'); }}
+              onInvoiceProject={(project) => { setProyectoDesdeVentas({ id: project?.id || null }); setVista('ventas'); }}
             />
           )}
 
