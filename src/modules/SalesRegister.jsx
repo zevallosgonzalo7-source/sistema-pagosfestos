@@ -27,6 +27,8 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
   const [form,setForm]=useState(emptyForm); const [modal,setModal]=useState(false); const [cargando,setCargando]=useState(false);
   const [payForm,setPayForm]=useState(emptyPay); const [payModal,setPayModal]=useState(false); const [guardandoPago,setGuardandoPago]=useState(false);
   const [busqueda,setBusqueda]=useState(''); const [estado,setEstado]=useState('TODOS'); const [detalle,setDetalle]=useState(null); const [alertFilter,setAlertFilter]=useState('');
+  const [desde,setDesde]=useState(''); const [hasta,setHasta]=useState(''); const [clienteFiltro,setClienteFiltro]=useState('TODOS'); const [lobFiltro,setLobFiltro]=useState('TODOS'); const [ejecutivoFiltro,setEjecutivoFiltro]=useState('TODOS');
+  const [editandoId,setEditandoId]=useState(null);
   const [comprasAbiertas,setComprasAbiertas]=useState(false);
   const [errorCarga,setErrorCarga]=useState('');
 
@@ -95,16 +97,109 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
   const montoDet=form.detraccion_aplica?precio*pctDet/100:0;
   const pagoEsperado=Math.max(precio-(Number(form.retencion)||0)-montoDet,0);
 
-  const abrir=()=>{setForm(emptyForm);setComprasAbiertas(false);setModal(true)};
+  const abrir=()=>{setEditandoId(null);setForm(emptyForm);setComprasAbiertas(false);setModal(true)};
+  const abrirEditar=(v)=>{
+    const links=v.venta_proyectos||[];
+    setEditandoId(v.id);
+    setForm({
+      ...emptyForm,
+      project_id:v.project_id||links[0]?.project_id||'',
+      fecha_factura:v.fecha_factura||today(),
+      fecha_control:v.fecha_control||v.fecha_factura||today(),
+      tipo_documento:v.tipo_documento||'FACTURA',
+      numero_documento:v.numero_documento||'',
+      precio_venta:String(Number(v.precio_venta)||0),
+      retencion:String(Number(v.retencion)||0),
+      detraccion_aplica:!!v.detraccion_aplica||Number(v.detraccion||0)>0,
+      porcentaje_detraccion:String(Number(v.porcentaje_detraccion)||12),
+      porcentaje_comision:String(Number(v.porcentaje_comision)||0),
+      observaciones:v.observaciones||''
+    });
+    setComprasAbiertas(false); setModal(true);
+  };
+  const esFuncionNoDisponible=(err)=>{
+    const msg=String(err?.message||'').toLowerCase();
+    return err?.code==='PGRST202'||msg.includes('schema cache')||msg.includes('could not find the function');
+  };
+  const recalcularFacturacionLocal=async(projectId)=>{
+    if(!projectId) return;
+    try{
+      const [{data:links=[]},{data:directas=[]},{data:proy}]=await Promise.all([
+        supabase.from('venta_proyectos').select('venta_id,precio_venta_asignado').eq('project_id',projectId),
+        supabase.from('ventas').select('id,precio_venta,fecha_factura').eq('project_id',projectId),
+        supabase.from('proyectos').select('id,valor_base,valor_venta,estado').eq('id',projectId).maybeSingle()
+      ]);
+      const linkedIds=new Set((links||[]).map(x=>x.venta_id));
+      const totalLinks=(links||[]).reduce((s,x)=>s+(Number(x.precio_venta_asignado)||0),0);
+      const directasSinLink=(directas||[]).filter(x=>!linkedIds.has(x.id));
+      const totalDirecto=directasSinLink.reduce((s,x)=>s+(Number(x.precio_venta)||0),0);
+      const total=totalLinks+totalDirecto;
+      const objetivo=(Number(proy?.valor_base)||Number(proy?.valor_venta)||0)*1.18;
+      const estadoFact=total<=0.01?'NO FACTURADO':(objetivo>0&&total>=objetivo-0.01?'FACTURADO':'PARCIAL');
+      const idsVentas=Array.from(new Set([...(links||[]).map(x=>x.venta_id),...(directas||[]).map(x=>x.id)]));
+      let ultima=null;
+      if(idsVentas.length){ const {data:fechas=[]}=await supabase.from('ventas').select('fecha_factura').in('id',idsVentas).order('fecha_factura',{ascending:false}).limit(1); ultima=fechas?.[0]?.fecha_factura||null; }
+      const cambios={total_facturado:total,facturacion_estado:estadoFact,fecha_ultima_factura:ultima};
+      if(proy?.estado==='FACTURADO'&&estadoFact!=='FACTURADO') cambios.estado='FINALIZADO';
+      if(estadoFact==='FACTURADO') cambios.estado='FACTURADO';
+      await supabase.from('proyectos').update(cambios).eq('id',projectId);
+    }catch(e){ console.warn('No se pudo recalcular facturación local',projectId,e); }
+  };
+  const eliminarVenta=async(v)=>{
+    if(!puedeGestionar) return;
+    if(!window.confirm(`¿Eliminar ${v.tipo_documento||'venta'} ${v.numero_documento}?\n\nSe eliminarán también sus cobros vinculados y se recalculará la facturación de los proyectos.`)) return;
+    try{
+      const projectIds=Array.from(new Set([v.project_id,...(v.venta_proyectos||[]).map(x=>x.project_id)].filter(Boolean)));
+      const {error}=await supabase.rpc('eliminar_venta_festos',{p_venta_id:v.id});
+      if(error){
+        if(!esFuncionNoDisponible(error)) throw error;
+        const {error:deleteError}=await supabase.from('ventas').delete().eq('id',v.id);
+        if(deleteError) throw deleteError;
+        for(const pid of projectIds) await recalcularFacturacionLocal(pid);
+      }
+      onNotify(`Venta ${v.numero_documento} eliminada`,'nuevo'); onAudit('Eliminación',`Registro de venta ${v.numero_documento}`);
+      setDetalle(null); await cargar();
+    }catch(err){ console.error(err); alert(`No se pudo eliminar la venta. ${err.message||''}`); }
+  };
   const guardar=async e=>{
     e.preventDefault(); if(!form.project_id||!form.fecha_factura||!form.numero_documento.trim()||precio<=0) return alert('Completa proyecto, fecha, número de comprobante y precio de venta.');
     setCargando(true);
     try{
-      const {data,error}=await supabase.rpc('registrar_venta_festos',{p_project_id:form.project_id,p_fecha_factura:form.fecha_factura,p_fecha_control:form.fecha_control||form.fecha_factura,p_tipo_documento:form.tipo_documento,p_numero_documento:form.numero_documento.trim(),p_precio_venta:precio,p_retencion:Number(form.retencion)||0,p_detraccion_aplica:!!form.detraccion_aplica,p_porcentaje_detraccion:Number(form.porcentaje_detraccion)||12,p_porcentaje_comision:form.porcentaje_comision===''?null:Number(form.porcentaje_comision),p_observaciones:form.observaciones.trim()||null,p_created_by:usuario||null});
+      const payload={p_fecha_factura:form.fecha_factura,p_fecha_control:form.fecha_control||form.fecha_factura,p_tipo_documento:form.tipo_documento,p_numero_documento:form.numero_documento.trim(),p_precio_venta:precio,p_retencion:Number(form.retencion)||0,p_detraccion_aplica:!!form.detraccion_aplica,p_porcentaje_detraccion:Number(form.porcentaje_detraccion)||12,p_porcentaje_comision:form.porcentaje_comision===''?null:Number(form.porcentaje_comision),p_observaciones:form.observaciones.trim()||null};
+      let data=null; let error=null;
+      if(editandoId){
+        ({data,error}=await supabase.rpc('editar_venta_festos',{p_venta_id:editandoId,...payload}));
+        if(error&&esFuncionNoDisponible(error)){
+          const actual=ventas.find(x=>x.id===editandoId);
+          const pagosVenta=cobros.filter(x=>x.venta_id===editandoId);
+          const pagado=pagosVenta.filter(x=>x.tipo==='PAGO_COMERCIAL').reduce((s,x)=>s+(Number(x.monto)||0),0);
+          const detPagada=pagosVenta.filter(x=>x.tipo==='DETRACCION').reduce((s,x)=>s+(Number(x.monto)||0),0);
+          const valor=Number((precio/1.18).toFixed(2));
+          const costo=Number(actual?.costo)||0;
+          const utilidad=Number((valor-costo).toFixed(2));
+          const margen=valor>0?Number(((utilidad/valor)*100).toFixed(4)):0;
+          const det=form.detraccion_aplica?Number((precio*(Number(form.porcentaje_detraccion)||12)/100).toFixed(2)):0;
+          const pagoEsp=Math.max(Number((precio-(Number(form.retencion)||0)-det).toFixed(2)),0);
+          if(pagado>pagoEsp+0.01) throw new Error('El nuevo precio dejaría pagos comerciales por encima del saldo permitido.');
+          if(detPagada>det+0.01) throw new Error('La nueva detracción sería menor a la detracción ya pagada.');
+          const saldoCom=Math.max(Number((pagoEsp-pagado).toFixed(2)),0);
+          const saldoDet=Math.max(Number((det-detPagada).toFixed(2)),0);
+          const plazo=Number(actual?.plazo_dias)||0;
+          const pctCom=form.porcentaje_comision===''?(Number(actual?.porcentaje_comision)||0):(Number(form.porcentaje_comision)||0);
+          const cambios={fecha_factura:form.fecha_factura,fecha_control:form.fecha_control||form.fecha_factura,tipo_documento:String(form.tipo_documento||'FACTURA').toUpperCase(),numero_documento:form.numero_documento.trim(),valor_venta:valor,precio_venta:precio,utilidad,margen,fecha_vencimiento:datePlus(form.fecha_factura,plazo),retencion:Number(form.retencion)||0,detraccion:det,detraccion_aplica:!!form.detraccion_aplica,porcentaje_detraccion:form.detraccion_aplica?(Number(form.porcentaje_detraccion)||12):0,pago_comercial_esperado:pagoEsp,saldo_comercial:saldoCom,saldo_detraccion:saldoDet,saldo:saldoCom+saldoDet,estado_detraccion:det<=0?'NO APLICA':(saldoDet<=0.01?'PAGADA':'PENDIENTE'),porcentaje_comision:pctCom,comision:Number((valor*pctCom/100).toFixed(2)),observaciones:form.observaciones.trim()||null,updated_at:new Date().toISOString()};
+          const {data:updated,error:updateError}=await supabase.from('ventas').update(cambios).eq('id',editandoId).select('id').single();
+          if(updateError) throw updateError;
+          const pids=Array.from(new Set([actual?.project_id,...(actual?.venta_proyectos||[]).map(x=>x.project_id)].filter(Boolean)));
+          if(pids.length) await supabase.from('compras').update({fecha_control:form.fecha_control||form.fecha_factura}).in('project_id',pids);
+          data={ok:true,venta_id:updated?.id||editandoId,saldo:saldoCom+saldoDet}; error=null;
+        }
+      }else{
+        ({data,error}=await supabase.rpc('registrar_venta_festos',{p_project_id:form.project_id,...payload,p_created_by:usuario||null}));
+      }
       if(error) throw error;
-      onNotify('Venta registrada y cobranza programada','nuevo'); onAudit('Creación',`Registro de venta ${form.numero_documento} · ${proyecto?.nombre||''} · ${money(precio)}`);
-      setModal(false); setForm(emptyForm); await cargar();
-      alert(`Venta registrada. Vence: ${data?.fecha_vencimiento||fechaVencimiento}. Pago comercial esperado: ${money(data?.pago_comercial_esperado??pagoEsperado)}${Number(data?.detraccion||0)>0?` · Detracción: ${money(data.detraccion)}`:''}.`);
+      onNotify(editandoId?'Venta actualizada':'Venta registrada y cobranza programada','nuevo'); onAudit(editandoId?'Edición':'Creación',`Registro de venta ${form.numero_documento} · ${proyecto?.nombre||''} · ${money(precio)}`);
+      const eraEdicion=!!editandoId; setModal(false); setForm(emptyForm); setEditandoId(null); await cargar();
+      if(!eraEdicion) alert(`Venta registrada. Vence: ${data?.fecha_vencimiento||fechaVencimiento}. Pago comercial esperado: ${money(data?.pago_comercial_esperado??pagoEsperado)}${Number(data?.detraccion||0)>0?` · Detracción: ${money(data.detraccion)}`:''}.`);
     }catch(err){console.error(err);alert(`No se pudo registrar la venta. ${err.message||''}`)}finally{setCargando(false)}
   };
 
@@ -136,8 +231,16 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
     if(alertFilter==='VENCIDAS') alertaOk=st==='VENCIDO';
     if(alertFilter==='DETRACCION') alertaOk=Number(v.saldo_detraccion||0)>0.01;
     if(alertFilter==='POR_VENCER'){const d=daysUntil(v.fecha_vencimiento); alertaOk=Number(v.saldo_comercial??v.saldo??0)>0.01&&d!=null&&d>=0&&d<=7;}
-    return(!q||texto.includes(q))&&(estado==='TODOS'||estado===st)&&alertaOk;
-  }),[ventas,busqueda,estado,alertFilter]);
+    const fechaOk=(!desde||String(v.fecha_factura||'')>=desde)&&(!hasta||String(v.fecha_factura||'')<=hasta);
+    const clienteOk=clienteFiltro==='TODOS'||String(v.clientes?.id||v.client_id||'')===clienteFiltro;
+    const lobOk=lobFiltro==='TODOS'||String(v.lob||'')===lobFiltro;
+    const ejecutivoOk=ejecutivoFiltro==='TODOS'||String(v.ejecutivo||'')===ejecutivoFiltro;
+    return(!q||texto.includes(q))&&(estado==='TODOS'||estado===st)&&alertaOk&&fechaOk&&clienteOk&&lobOk&&ejecutivoOk;
+  }),[ventas,busqueda,estado,alertFilter,desde,hasta,clienteFiltro,lobFiltro,ejecutivoFiltro]);
+  const opcionesClientes=useMemo(()=>Array.from(new Map(ventas.filter(v=>v.clientes?.id).map(v=>[v.clientes.id,v.clientes])).values()).sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''))),[ventas]);
+  const opcionesLob=useMemo(()=>Array.from(new Set(ventas.map(v=>v.lob).filter(Boolean))).sort(),[ventas]);
+  const opcionesEjecutivo=useMemo(()=>Array.from(new Set(ventas.map(v=>v.ejecutivo).filter(Boolean))).sort(),[ventas]);
+  const limpiarFiltros=()=>{setBusqueda('');setEstado('TODOS');setAlertFilter('');setDesde('');setHasta('');setClienteFiltro('TODOS');setLobFiltro('TODOS');setEjecutivoFiltro('TODOS');};
   const kpi=useMemo(()=>({precio:filtradas.reduce((s,v)=>s+(Number(v.precio_venta)||0),0),cobrado:filtradas.reduce((s,v)=>s+(Number(v.pagado)||0),0),saldoCom:filtradas.reduce((s,v)=>s+(Number(v.saldo_comercial??v.saldo)||0),0),saldoDet:filtradas.reduce((s,v)=>s+(Number(v.saldo_detraccion)||0),0)}),[filtradas]);
 
   const exportarVentas = async () => {
@@ -173,6 +276,9 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
         filtros: [
           { label: 'Búsqueda', value: busqueda },
           { label: 'Estado', value: estado },
+          { label: 'Desde', value: desde || '—' }, { label: 'Hasta', value: hasta || '—' },
+          { label: 'Cliente', value: clienteFiltro==='TODOS'?'TODOS':opcionesClientes.find(x=>x.id===clienteFiltro)?.nombre||clienteFiltro },
+          { label: 'LOB', value: lobFiltro }, { label: 'Ejecutivo', value: ejecutivoFiltro },
           { label: 'Alerta', value: alertFilter || 'TODAS' }
         ],
         resumen: {
@@ -206,18 +312,19 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
       {alertas.detracciones.length>0 && <button type="button" className={`sales-alert-chip warning ${alertFilter==='DETRACCION'?'active':''}`} onClick={()=>setAlertFilter(alertFilter==='DETRACCION'?'':'DETRACCION')}><FestosIcon name="AlertTriangle" size={15}/><strong>{alertas.detracciones.length}</strong><span>detracción{alertas.detracciones.length===1?'':'es'} pendiente{alertas.detracciones.length===1?'':'s'}</span><small>{money(alertas.detracciones.reduce((s,v)=>s+(Number(v.saldo_detraccion)||0),0))}</small></button>}
       {alertFilter && <button type="button" className="sales-alert-clear" onClick={()=>setAlertFilter('')}><FestosIcon name="X" size={14}/> Quitar alerta</button>}
     </div>}
-    <div className="glass-card sales-toolbar"><input className="search-input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar factura, cliente o proyecto..."/><select value={estado} onChange={e=>setEstado(e.target.value)}><option>TODOS</option><option>PENDIENTE</option><option>PARCIAL</option><option>VENCIDO</option><option>PENDIENTE DETRACCIÓN</option><option>COBRADO</option></select></div>
+    <div className="glass-card sales-toolbar sales-toolbar-pro"><div className="sales-search-wide"><input className="search-input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar factura, cliente o proyecto..."/></div><div className="sales-filter-grid"><label><span>Desde</span><input type="date" value={desde} onChange={e=>setDesde(e.target.value)}/></label><label><span>Hasta</span><input type="date" value={hasta} onChange={e=>setHasta(e.target.value)}/></label><label><span>Cliente</span><select value={clienteFiltro} onChange={e=>setClienteFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesClientes.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label><label><span>LOB</span><select value={lobFiltro} onChange={e=>setLobFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesLob.map(x=><option key={x} value={x}>{x}</option>)}</select></label><label><span>Ejecutivo</span><select value={ejecutivoFiltro} onChange={e=>setEjecutivoFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesEjecutivo.map(x=><option key={x} value={x}>{nombreCompletoUsuario(x,x)}</option>)}</select></label><label><span>Estado</span><select value={estado} onChange={e=>setEstado(e.target.value)}><option>TODOS</option><option>PENDIENTE</option><option>PARCIAL</option><option>VENCIDO</option><option>PENDIENTE DETRACCIÓN</option><option>COBRADO</option></select></label></div><div className="sales-filter-actions"><span>{filtradas.length} venta{filtradas.length===1?'':'s'} visible{filtradas.length===1?'':'s'}</span><button type="button" className="btn-secondary" onClick={limpiarFiltros}><FestosIcon name="RotateCcw" size={15}/> Limpiar filtros</button></div></div>
 
     {errorCarga&&<div className="glass-card sales-load-error"><strong>No se pudo cargar Registro de Ventas</strong><span>{errorCarga}</span><button type="button" className="btn-secondary" onClick={cargar}>Reintentar</button></div>}
     <div className="sales-list">{filtradas.length===0?<div className="glass-card empty-card">No hay ventas para este filtro.</div>:filtradas.map(v=>{const st=estadoVenta(v);const abierto=detalle===v.id;const pagosVenta=cobros.filter(c=>c.venta_id===v.id);const d=daysUntil(v.fecha_vencimiento);return <article key={v.id} className="glass-card sales-card"><button type="button" className="sales-card-main" onClick={()=>setDetalle(abierto?null:v.id)}><div><small>{v.fecha_factura} · {v.tipo_documento}</small><strong>{v.numero_documento}</strong><span>{v.clientes?.nombre||'—'} · {(v.venta_proyectos||[]).length>1?`${v.venta_proyectos.length} proyectos`:v.proyectos?.nombre||'—'}</span></div><div><small>POR REGULARIZAR</small><strong>{money(v.saldo)}</strong><span className={`sales-status st-${statusClass(st)}`}>{st}</span></div></button>{abierto&&<div className="sales-open-detail">
       <div className="sales-detail"><div><span>LOB</span><strong>{v.lob||'—'}</strong></div><div><span>Ejecutivo</span><strong>{nombreCompletoUsuario(v.ejecutivo,v.ejecutivo||'—')}</strong></div><div><span>Precio venta</span><strong>{money(v.precio_venta)}</strong></div><div><span>Valor venta</span><strong>{money(v.valor_venta)}</strong></div><div><span>Costo</span><strong>{money(v.costo)}</strong></div><div><span>Utilidad</span><strong>{money(v.utilidad)}</strong></div><div><span>Condición</span><strong>{v.condicion_pago||'CONTADO'} · {v.plazo_dias||0} días</strong></div><div><span>Vencimiento</span><strong>{v.fecha_vencimiento||'—'} {d!=null&&d<0?`· ${Math.abs(d)} días vencido`:d!=null&&d<=7?`· vence en ${d} días`:''}</strong></div><div><span>F. control</span><strong>{v.fecha_control||'—'}</strong></div></div>
       <div className="sales-collection-grid"><section><header><div><span>Pago comercial</span><strong>{money(v.pagado)} / {money(v.pago_comercial_esperado??(Number(v.precio_venta)-Number(v.detraccion||0)-Number(v.retencion||0)))}</strong></div><b>{money(v.saldo_comercial??v.saldo)} pendiente</b></header>{puedeGestionar&&Number(v.saldo_comercial??v.saldo)>0.01&&<button type="button" className="btn-secondary" onClick={()=>abrirPago(v,'PAGO_COMERCIAL')}>Registrar pago</button>}</section>
       <section className={Number(v.detraccion||0)>0?'has-detraction':''}><header><div><span>Detracción {Number(v.porcentaje_detraccion||0)>0?`${Number(v.porcentaje_detraccion).toFixed(1)}%`:''}</span><strong>{money(v.detraccion_pagada)} / {money(v.detraccion)}</strong></div><b>{v.estado_detraccion||'NO APLICA'}</b></header>{puedeGestionar&&Number(v.saldo_detraccion||0)>0.01&&<button type="button" className="btn-secondary" onClick={()=>abrirPago(v,'DETRACCION')}>Registrar detracción</button>}</section></div>
+      {puedeGestionar&&<div className="sales-record-actions"><button type="button" className="btn-secondary" onClick={()=>abrirEditar(v)}><FestosIcon name="Pencil" size={15}/> Editar venta</button><button type="button" className="btn-danger" onClick={()=>eliminarVenta(v)}><FestosIcon name="Trash2" size={15}/> Eliminar</button></div>}
       <div className="sales-history"><h5>Historial de pagos</h5>{pagosVenta.length===0?<p className="panel-note">Todavía no hay pagos registrados.</p>:pagosVenta.map(c=><div key={c.id} className="sales-history-row"><span>{c.fecha_pago}</span><strong>{c.tipo==='DETRACCION'?'Detracción':'Pago comercial'}</strong><span>{c.medio_pago||'—'}</span><b>{money(c.monto)}</b></div>)}</div>
     </div>}</article>})}</div>
 
-    {modal&&<div className="sales-editor-overlay" onClick={()=>!cargando&&setModal(false)}><aside className="sales-editor-drawer" onClick={e=>e.stopPropagation()}><div className="section-header sales-editor-header"><div><h3 className="section-title"><FestosIcon name="ReceiptText" size={21}/> Registrar venta</h3><p className="panel-note">El plazo se toma automáticamente de Clientes y queda guardado como histórico.</p></div><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}><FestosIcon name="ArrowLeft" size={16}/> Volver</button></div><form className="glass-card form-card sales-editor-form" onSubmit={guardar}>
-      <div className="form-row"><label>Proyecto *</label><SearchableSelect value={form.project_id} onChange={value=>setForm(f=>({...f,project_id:value}))} placeholder="Selecciona un proyecto..." ariaLabel="Seleccionar proyecto a facturar" options={[{value:'',label:'Selecciona un proyecto...'},...proyectos.map(p=>({value:p.id,label:`${p.codigo||''} · ${p.nombre}`,searchText:`${p.codigo||''} ${p.nombre||''} ${p.clientes?.nombre||''}`}))]}/></div>
+    {modal&&<div className="sales-editor-overlay" onClick={()=>!cargando&&setModal(false)}><aside className="sales-editor-drawer" onClick={e=>e.stopPropagation()}><div className="section-header sales-editor-header"><div><h3 className="section-title"><FestosIcon name="ReceiptText" size={21}/> {editandoId?'Editar venta':'Registrar venta'}</h3><p className="panel-note">{editandoId?'Actualiza los datos del comprobante sin perder su historial de cobros.':'El plazo se toma automáticamente de Clientes y queda guardado como histórico.'}</p></div><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}><FestosIcon name="ArrowLeft" size={16}/> Volver</button></div><form className="glass-card form-card sales-editor-form" onSubmit={guardar}>
+      <div className="form-row"><label>Proyecto *</label><SearchableSelect value={form.project_id} onChange={value=>!editandoId&&setForm(f=>({...f,project_id:value}))} placeholder="Selecciona un proyecto..." ariaLabel="Seleccionar proyecto a facturar" options={[{value:'',label:'Selecciona un proyecto...'},...proyectos.map(p=>({value:p.id,label:`${p.codigo||''} · ${p.nombre}`,searchText:`${p.codigo||''} ${p.nombre||''} ${p.clientes?.nombre||''}`}))]}/></div>
       {proyecto&&<><div className="sales-impact"><div><span>Cliente</span><strong>{proyecto.clientes?.nombre||'—'}</strong></div><div><span>Condición</span><strong>{condicion}</strong></div><div><span>Plazo</span><strong>{plazo} días</strong></div><div><span>LOB</span><strong>{proyecto.lob||'—'}</strong></div><div><span>Compras vinculadas</span><strong>{comprasProyecto.length}</strong></div><div><span>Costo real</span><strong>{money(costoReal)}</strong></div></div>
       <section className="sales-linked-purchases">
         <button type="button" className="sales-linked-purchases-toggle" onClick={()=>setComprasAbiertas(v=>!v)} aria-expanded={comprasAbiertas}>
@@ -245,7 +352,7 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
       <div className="form-grid-2"><div className="form-row"><label>Retención</label><input type="number" min="0" step="0.01" value={form.retencion} onChange={e=>setForm({...form,retencion:e.target.value})}/></div><div className="form-row"><label>% Comisión</label><input type="number" min="0" step="0.01" value={form.porcentaje_comision} onChange={e=>setForm({...form,porcentaje_comision:e.target.value})} placeholder={String(proyecto?.ejecutivo||'').toUpperCase()==='MAR'?'Ej. 3':'0'}/></div></div>
       <div className="sales-impact-warning"><FestosIcon name="RefreshCw" size={17}/><div><strong>Impacto al confirmar</strong><span>Se guardará el plazo del cliente ({plazo} días), el vencimiento ({fechaVencimiento||'—'}), se actualizarán {comprasProyecto.length} compras y se separará el pago comercial de la detracción.</span></div></div>
       <div className="form-row"><label>Observaciones</label><textarea rows="2" value={form.observaciones} onChange={e=>setForm({...form,observaciones:e.target.value})}/></div>
-      <div className="modal-actions sales-editor-actions"><button className="btn-primary" disabled={cargando}>{cargando?'Registrando...':'Confirmar venta'}</button><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}>Cancelar</button></div>
+      <div className="modal-actions sales-editor-actions"><button className="btn-primary" disabled={cargando}>{cargando?(editandoId?'Guardando...':'Registrando...'):(editandoId?'Guardar cambios':'Confirmar venta')}</button><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}>Cancelar</button></div>
     </form></aside></div>}
 
     {payModal&&<div className="modal-overlay" onClick={()=>!guardandoPago&&setPayModal(false)}><form className="glass-card modal-card sales-pay-modal" onSubmit={guardarPago} onClick={e=>e.stopPropagation()}><div className="modal-head"><div><h4 className="panel-title">{payForm.tipo==='DETRACCION'?'Registrar detracción':'Registrar pago'}</h4><p className="panel-note">El historial queda vinculado a la factura.</p></div><button type="button" className="modal-close-btn" onClick={()=>setPayModal(false)}>×</button></div><div className="form-grid-2"><div className="form-row"><label>Fecha *</label><input type="date" value={payForm.fecha_pago} onChange={e=>setPayForm({...payForm,fecha_pago:e.target.value})}/></div><div className="form-row"><label>Monto *</label><input type="number" min="0" step="0.01" value={payForm.monto} onChange={e=>setPayForm({...payForm,monto:e.target.value})}/></div></div><div className="form-row"><label>Medio de pago</label><select value={payForm.medio_pago} onChange={e=>setPayForm({...payForm,medio_pago:e.target.value})}><option>TRANSFERENCIA</option><option>DEPÓSITO</option><option>CHEQUE</option><option>EFECTIVO</option><option>OTRO</option></select></div><div className="form-row"><label>Referencia / operación</label><input value={payForm.referencia} onChange={e=>setPayForm({...payForm,referencia:e.target.value})}/></div><div className="form-row"><label>Observaciones</label><textarea rows="2" value={payForm.observaciones} onChange={e=>setPayForm({...payForm,observaciones:e.target.value})}/></div><div className="modal-actions"><button className="btn-primary" disabled={guardandoPago}>{guardandoPago?'Guardando...':'Registrar'}</button><button type="button" className="btn-secondary" onClick={()=>setPayModal(false)}>Cancelar</button></div></form></div>}

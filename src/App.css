@@ -7212,3 +7212,18 @@ input:focus,select:focus,textarea:focus{
 /* FESTOS V29.42.5 — acciones cabecera Registro de Ventas */
 .sales-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:720px){.sales-head-actions{width:100%;justify-content:stretch}.sales-head-actions>button{flex:1;min-width:0}}
+
+/* FESTOS V29.42.7 — filtros + editar/eliminar Registro de Ventas */
+.sales-toolbar-pro{display:grid!important;grid-template-columns:1fr!important;gap:14px!important;padding:16px!important}
+.sales-search-wide{min-width:0}
+.sales-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end}
+.sales-filter-grid label{display:grid;gap:6px;min-width:0}
+.sales-filter-grid label>span{font-size:.68rem;font-weight:800;letter-spacing:.055em;text-transform:uppercase;color:#71878a}
+.sales-filter-grid input,.sales-filter-grid select{width:100%;min-height:44px;border:1px solid #d9e6e7;border-radius:13px;background:#fff;padding:0 12px;color:#203d42;font:inherit;min-width:0}
+.sales-filter-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:2px;border-top:1px solid #edf2f2}
+.sales-filter-actions>span{font-size:.78rem;font-weight:700;color:#71878a}
+.sales-record-actions{display:flex;justify-content:flex-end;gap:9px;padding:12px 18px;border-top:1px solid #e8efef;background:#fbfdfd}
+.sales-record-actions .btn-danger{min-height:40px;border-radius:12px;padding:0 14px;display:inline-flex;align-items:center;gap:7px}
+@media(max-width:1180px){.sales-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.sales-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-filter-actions{align-items:flex-start;flex-direction:column}.sales-filter-actions .btn-secondary{width:100%}}
+@media(max-width:460px){.sales-filter-grid{grid-template-columns:1fr}}
