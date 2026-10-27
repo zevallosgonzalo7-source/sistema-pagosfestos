@@ -35,8 +35,3 @@ public/voice-assets/ready.json
 /dist-electron/
 
 /out/
-
-.env
-.env.*
-!.env.example
-zips/

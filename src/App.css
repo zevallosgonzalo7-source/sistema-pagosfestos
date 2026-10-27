@@ -7026,3 +7026,122 @@ input:focus,select:focus,textarea:focus{
 .quote-attachment-panel{
   background:#fff!important;
 }
+
+
+/* FESTOS V29.41.11 — IGV seleccionable + cotización vinculada clickeable */
+.purchase-igv-rate-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 12px;padding:10px 12px;border:1px solid rgba(34,66,72,.10);border-radius:15px;background:#fff}
+.purchase-igv-rate-label{font-size:.76rem;font-weight:850;color:#647b80;text-transform:uppercase;letter-spacing:.045em}
+.purchase-igv-toggle{display:inline-flex;padding:3px;border:1px solid #dbe7e5;border-radius:12px;background:#f6faf9;box-shadow:inset 0 1px 2px rgba(24,55,60,.04)}
+.purchase-igv-toggle button{min-width:66px;border:0;border-radius:9px;background:transparent;color:#5e7478;padding:7px 13px;font-weight:850;cursor:pointer;transition:transform .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease}
+.purchase-igv-toggle button:hover{transform:translateY(-1px)}
+.purchase-igv-toggle button.is-active{background:#224248;color:#fff;box-shadow:0 7px 16px rgba(34,66,72,.16)}
+.purchase-igv-rate-row>small{color:#839398;font-size:.72rem}
+.project-quote-link{position:relative;width:100%;border:1px solid transparent;text-align:left;font:inherit;cursor:pointer;padding-right:52px!important;transition:transform .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease}
+.project-quote-link:hover{transform:translateY(-2px) scale(1.003);background:#f7fcfa!important;border-color:#cde5dc!important;box-shadow:0 12px 25px rgba(34,66,72,.08)}
+.project-quote-link:active{transform:translateY(0) scale(.998)}
+.project-quote-link-arrow{position:absolute;right:18px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#e9f6f1;color:#24705d;font-style:normal;transition:transform .2s ease,background .2s ease}
+.project-quote-link:hover .project-quote-link-arrow{transform:translate(4px,-50%);background:#d9efe7}
+@media(max-width:720px){.purchase-igv-rate-row{align-items:flex-start}.purchase-igv-rate-row>small{width:100%}.project-quote-link{padding-right:46px!important}}
+
+
+/* FESTOS V29.41.12.2 — COTIZACIÓN VINCULADA: MISMO DISEÑO, TODO CLICKEABLE */
+.project-quote-link{appearance:none;-webkit-appearance:none;display:block!important;width:100%;position:relative;text-align:left;font:inherit;color:inherit!important;background:inherit!important;border:0!important;border-radius:0!important;padding:0 44px 0 0!important;cursor:pointer!important;text-decoration:none!important;transition:transform .18s ease,background-color .18s ease,box-shadow .18s ease}
+.project-quote-link:hover{transform:translateY(-1px);background:rgba(34,66,72,.025)!important;box-shadow:inset 0 0 0 1px rgba(34,66,72,.06)}
+.project-quote-link:active{transform:translateY(0) scale(.998)}
+.project-quote-link:focus-visible{outline:2px solid rgba(34,66,72,.28);outline-offset:3px}
+.project-quote-link>span,.project-quote-link>strong,.project-quote-link>small{display:block}
+.project-quote-link-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:rgba(34,66,72,.06);color:#315d63;transition:transform .18s ease,background .18s ease}
+.project-quote-link:hover .project-quote-link-arrow{transform:translate(3px,-50%);background:rgba(34,66,72,.11)}
+@media(max-width:720px){.project-quote-link{padding-right:38px!important}.project-quote-link-arrow{right:10px}}
+
+/* ============================================================
+   FESTOS V29.41.13 — COTIZACIONES FILTROS + EXPORT ORDENADOS
+   ============================================================ */
+.quote-list-shell .quote-filter-row{
+  display:grid!important;
+  grid-template-columns:minmax(360px,1.35fr) minmax(240px,.9fr) minmax(210px,.8fr)!important;
+  align-items:end!important;
+  gap:14px!important;
+  padding:16px!important;
+  border:1px solid #e4ecec!important;
+  border-radius:18px!important;
+  background:#f8fbfb!important;
+}
+.quote-list-shell .quote-filter-row .date-filter-group{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  width:100%!important;
+}
+.quote-list-shell .quote-filter-row>.business-payment-filter,
+.quote-list-shell .quote-filter-row>.quote-status-filter,
+.quote-list-shell .quote-filter-row .searchable-select-control,
+.quote-list-shell .quote-filter-row .date-filter-group input{
+  width:100%!important;
+  min-width:0!important;
+  height:50px!important;
+  min-height:50px!important;
+  box-sizing:border-box!important;
+}
+.quote-list-shell .quote-filter-actions-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  margin-top:14px!important;
+  padding:12px 2px 4px!important;
+  position:relative!important;
+  z-index:2!important;
+}
+.quote-list-shell .quote-filter-actions-row>span{
+  font-weight:750!important;
+  color:#6b8186!important;
+  white-space:nowrap!important;
+}
+.quote-filter-action-buttons{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  margin-left:auto!important;
+}
+.quote-filter-action-buttons .btn-filter-clear,
+.quote-filter-action-buttons .btn-export{
+  position:static!important;
+  inset:auto!important;
+  transform:none!important;
+  margin:0!important;
+  min-height:44px!important;
+  height:44px!important;
+  padding:0 16px!important;
+  border-radius:12px!important;
+  white-space:nowrap!important;
+}
+.quote-filter-action-buttons .btn-filter-clear{
+  background:#f2f7f6!important;
+  border:1px solid #dbe7e4!important;
+  color:#45636a!important;
+}
+.quote-filter-action-buttons .btn-export{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+}
+.quote-record-list{margin-top:8px!important;position:relative!important;z-index:1!important}
+@media(max-width:1100px){
+  .quote-list-shell .quote-filter-row{grid-template-columns:1fr 1fr!important}
+  .quote-list-shell .quote-filter-row .date-filter-group{grid-column:1/-1!important}
+}
+@media(max-width:720px){
+  .quote-list-shell .quote-filter-row{grid-template-columns:1fr!important;padding:12px!important}
+  .quote-list-shell .quote-filter-row .date-filter-group{grid-column:auto!important;grid-template-columns:1fr 1fr!important}
+  .quote-list-shell .quote-filter-actions-row{align-items:stretch!important;flex-direction:column!important}
+  .quote-filter-action-buttons{width:100%!important;margin-left:0!important}
+  .quote-filter-action-buttons .btn-filter-clear,.quote-filter-action-buttons .btn-export{flex:1!important}
+}
+@media(max-width:460px){
+  .quote-list-shell .quote-filter-row .date-filter-group{grid-template-columns:1fr!important}
+  .quote-filter-action-buttons{flex-direction:column!important}
+  .quote-filter-action-buttons .btn-filter-clear,.quote-filter-action-buttons .btn-export{width:100%!important}
+}

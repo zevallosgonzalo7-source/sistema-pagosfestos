@@ -10,6 +10,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const IGV_RATE = 0.18;
+const IGV_RATE_REDUCIDO = 0.105;
 const money = value => `S/. ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
 const id = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const TIPOS_COMPROBANTE = ['SIN COMPROBANTE','FACTURA','BOLETA','RECIBO POR HONORARIOS','OTRO'];
@@ -27,6 +28,7 @@ const emptyForm = {
   proveedor_id: '',
   proveedor_nombre: '',
   monto_base: '',
+  igv_rate: IGV_RATE,
   tipo_comprobante: 'SIN COMPROBANTE',
   numero_documento: '',
   observaciones: '',
@@ -207,7 +209,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
   };
 
   const editar = c => {
-    const base = c.monto_base != null ? Number(c.monto_base) : (c.aplicar_igv ? Number(c.monto || 0) / (1 + IGV_RATE) : Number(c.monto || 0));
+    const tasaGuardada = Number(c.igv_rate ?? IGV_RATE) || IGV_RATE;
+    const base = c.monto_base != null ? Number(c.monto_base) : (c.aplicar_igv ? Number(c.monto || 0) / (1 + tasaGuardada) : Number(c.monto || 0));
     setEditando(c);
     setForm({
       ...emptyForm,
@@ -217,6 +220,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
       proveedor_id: c.proveedor_id || '',
       proveedor_nombre: c.proveedor_nombre || c.proveedores?.nombre || '',
       monto_base: base ? String(Number(base.toFixed(2))) : '',
+      igv_rate: tasaGuardada,
       ceco: c.ceco || '',
       lob: c.lob || '',
       fecha_control: c.fecha_control || '',
@@ -424,7 +428,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
     if (!Number.isFinite(base) || base <= 0) return alert('El monto debe ser mayor a 0.');
     const aplicaIgv = ['FACTURA', 'BOLETA'].includes(form.tipo_comprobante);
     const generaCreditoFiscal = form.tipo_comprobante === 'FACTURA';
-    const igvMonto = aplicaIgv ? Number((base * IGV_RATE).toFixed(2)) : 0;
+    const igvRate = Number(form.igv_rate ?? IGV_RATE) === IGV_RATE_REDUCIDO ? IGV_RATE_REDUCIDO : IGV_RATE;
+    const igvMonto = aplicaIgv ? Number((base * igvRate).toFixed(2)) : 0;
     const total = Number((base + igvMonto).toFixed(2));
     setCargando(true);
     try {
@@ -441,6 +446,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
         proveedor_id: form.proveedor_id,
         proveedor_nombre: String(form.proveedor_nombre || '').trim() || null,
         monto_base: base,
+        igv_rate: igvRate,
         aplicar_igv: aplicaIgv,
         genera_credito_fiscal: generaCreditoFiscal,
         igv_monto: igvMonto,
@@ -503,7 +509,8 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
 
   const basePreview = Number(form.monto_base || 0);
   const aplicaIgvPreview = ['FACTURA', 'BOLETA'].includes(form.tipo_comprobante);
-  const igvCalculadoPreview = aplicaIgvPreview ? Number((basePreview * IGV_RATE).toFixed(2)) : 0;
+  const igvRatePreview = Number(form.igv_rate ?? IGV_RATE) === IGV_RATE_REDUCIDO ? IGV_RATE_REDUCIDO : IGV_RATE;
+  const igvCalculadoPreview = aplicaIgvPreview ? Number((basePreview * igvRatePreview).toFixed(2)) : 0;
   const creditoFiscalPreview = form.tipo_comprobante === 'FACTURA' ? igvCalculadoPreview : 0;
   const totalPreview = Number((basePreview + igvCalculadoPreview).toFixed(2));
 
@@ -624,7 +631,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
 
       <div className="purchase-amount-block">
         <div className="form-row"><label>Valor compra (S/.) *</label><input type="number" min="0.01" step="0.01" value={form.monto_base} onChange={e => setForm({...form, monto_base:e.target.value})} placeholder="0.00" required/></div>
-        <div className="purchase-amount-summary"><div><span>Valor compra</span><strong>{money(basePreview)}</strong></div><div><span>Crédito fiscal</span><strong>{money(creditoFiscalPreview)}</strong><small>{form.tipo_comprobante === 'FACTURA' ? 'IGV 18% a favor' : form.tipo_comprobante === 'BOLETA' ? 'Boleta incluye IGV, sin crédito fiscal' : 'No aplica'}</small></div><div className="purchase-total-highlight"><span>Precio de compra</span><strong>{money(totalPreview)}</strong><small>{aplicaIgvPreview ? 'Incluye IGV 18%' : 'Sin IGV automático'}</small></div></div>
+        <div className="purchase-igv-rate-row"><span className="purchase-igv-rate-label">Tasa IGV</span><div className="purchase-igv-toggle" role="group" aria-label="Seleccionar tasa de IGV"><button type="button" className={igvRatePreview === IGV_RATE ? 'is-active' : ''} onClick={() => setForm(f => ({...f, igv_rate: IGV_RATE}))}>18%</button><button type="button" className={igvRatePreview === IGV_RATE_REDUCIDO ? 'is-active' : ''} onClick={() => setForm(f => ({...f, igv_rate: IGV_RATE_REDUCIDO}))}>10.5%</button></div><small>{aplicaIgvPreview ? 'Se aplica al cálculo de esta compra.' : 'Se guardará para cuando el comprobante aplique IGV.'}</small></div><div className="purchase-amount-summary"><div><span>Valor compra</span><strong>{money(basePreview)}</strong></div><div><span>Crédito fiscal</span><strong>{money(creditoFiscalPreview)}</strong><small>{form.tipo_comprobante === 'FACTURA' ? `IGV ${(igvRatePreview * 100).toFixed(1).replace('.0','')}% a favor` : form.tipo_comprobante === 'BOLETA' ? `Boleta incluye IGV ${(igvRatePreview * 100).toFixed(1).replace('.0','')}%, sin crédito fiscal` : 'No aplica'}</small></div><div className="purchase-total-highlight"><span>Precio de compra</span><strong>{money(totalPreview)}</strong><small>{aplicaIgvPreview ? `Incluye IGV ${(igvRatePreview * 100).toFixed(1).replace('.0','')}%` : 'Sin IGV automático'}</small></div></div>
       </div>
 
       <div className="form-row"><label>Tipo de comprobante</label><select value={form.tipo_comprobante} onChange={e => setForm({...form, tipo_comprobante:e.target.value})}>{TIPOS_COMPROBANTE.map(x => <option key={x}>{x}</option>)}</select></div>

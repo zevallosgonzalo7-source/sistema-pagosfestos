@@ -1016,6 +1016,7 @@ function App() {
   const [quotesMenuOpen, setQuotesMenuOpen] = useState(false);
   const [nuevoProyectoSolicitado, setNuevoProyectoSolicitado] = useState(false);
   const [nuevaCotizacionSolicitada, setNuevaCotizacionSolicitada] = useState(false);
+  const [cotizacionDesdeProyecto, setCotizacionDesdeProyecto] = useState(null);
   const [voiceCommand, setVoiceCommand] = useState(null);
   const [proyectosDesdeDashboard, setProyectosDesdeDashboard] = useState(null);
   const puedeRegistrarCliente = !!misPermisos.gestionar_clientes && ['HEAD ADMIN', 'ADMIN', 'DESARROLLADOR SOFTWARE'].includes(String(perfilServidor?.rol_label || '').trim().toUpperCase());
@@ -2217,6 +2218,7 @@ function App() {
               onNotify={agregarNotificacion}
               onAudit={registrarAuditoria}
               puedeGestionar={!!misPermisos.gestionar_proyectos}
+              onOpenQuote={(quote) => { if (!misPermisos.ver_cotizaciones) { agregarNotificacion('No tienes permiso para ver Cotizaciones', 'alerta'); return; } setCotizacionDesdeProyecto({ id: quote?.id || null, codigo: quote?.codigo || null }); setVista('cotizaciones'); }}
             />
           )}
 
@@ -2233,6 +2235,8 @@ function App() {
               onAudit={registrarAuditoria}
               puedeAprobar={!!misPermisos.aprobar_cotizaciones}
               puedeGestionar={!!misPermisos.gestionar_cotizaciones}
+              cotizacionSolicitadaId={cotizacionDesdeProyecto}
+              onConsumirCotizacionSolicitada={() => setCotizacionDesdeProyecto(null)}
             />
           )}
 
