@@ -463,7 +463,7 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
       {filtrados.length === 0 ? <p className="empty-hint">No hay clientes con los filtros actuales.</p> : filtrados.map(c => {
         const abierto = detalleAbierto === c.id;
         return <article className={`business-pro-card ${abierto ? 'is-open' : ''}`} key={c.id}>
-          <div className="business-pro-main">
+          <div className="business-pro-main compact-click-target" role="button" tabIndex={0} onClick={()=>setDetalleAbierto(abierto ? null : c.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setDetalleAbierto(abierto ? null : c.id);}}}>
             <div className="business-identity">
               <span className={`business-status-dot ${c.estado ? 'status-active' : 'status-inactive'}`} />
               <div><div className="business-code">{c.codigo || 'CLIENTE'}</div><h4>{c.nombre}</h4><div className="business-subline"><span>{c.tipo_documento} {c.ruc}</span><span>•</span><span>{c.categoria || 'Sin categoría'}</span><span>•</span><span>{String(c.tipo_pago || '').toUpperCase()}{String(c.tipo_pago || '').toUpperCase() === 'CREDITO' ? ' · ' + String(c.plazo_dias || 0) + ' días' : ''}</span>{c.agente_retenedor&&<><span>•</span><span>Agente retenedor</span></>}</div></div>
@@ -478,7 +478,7 @@ export function Clientes({ onNotify, onAudit, puedeGestionar = true }) {
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
+          
           {abierto && <div className="business-detail-grid">
             <div><span>Documento</span><strong>{c.tipo_documento} {c.ruc}</strong></div><div><span>Categoría</span><strong>{c.categoria || 'Sin categoría'}</strong></div><div><span>Condición de pago</span><strong>{String(c.tipo_pago || '').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(c.tipo_pago || '').toUpperCase() === 'CREDITO' ? `${c.plazo_dias} días` : 'Inmediato'}</strong></div><div><span>Agente retenedor</span><strong>{c.agente_retenedor?'SÍ':'NO'}</strong></div><div><span>Estado</span><strong>{c.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{c.created_at ? new Date(c.created_at).toLocaleString('es-PE') : '—'}</strong></div>
           </div>}
@@ -612,7 +612,7 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
       {filtrados.length === 0 ? <p className="empty-hint">No hay proveedores con los filtros actuales.</p> : filtrados.map(p => {
         const abierto = detalleAbierto === p.id;
         return <article className={`business-pro-card ${abierto ? 'is-open' : ''}`} key={p.id}>
-          <div className="business-pro-main">
+          <div className="business-pro-main compact-click-target" role="button" tabIndex={0} onClick={()=>setDetalleAbierto(abierto ? null : p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setDetalleAbierto(abierto ? null : p.id);}}}>
             <div className="business-identity">
               <span className={`business-status-dot ${p.estado ? 'status-active' : 'status-inactive'}`} />
               <div><div className="business-code">{p.codigo || 'PROVEEDOR'}</div><h4>{p.nombre_comercial || p.nombre}</h4><div className="business-subline"><span>{p.nombre_comercial ? p.nombre : 'Sin nombre comercial'}</span><span>•</span><span>{p.ruc_documento || 'Sin documento'}</span><span>•</span><span>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</span>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' && <span className="payment-term-badge"><FestosIcon name="Clock3" size={14} /> {Number(p.plazo_dias) || 0} días</span>}</div></div>
@@ -627,7 +627,7 @@ export function Proveedores({ onNotify, onAudit, puedeGestionar = true }) {
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
+          
           {abierto && <div className="business-detail-grid">
             <div><span>Razón social</span><strong>{p.nombre || '—'}</strong></div><div><span>Nombre comercial</span><strong>{p.nombre_comercial || '—'}</strong></div><div><span>RUC / Documento</span><strong>{p.ruc_documento || '—'}</strong></div><div><span>Productos</span><strong>{p.productos || '—'}</strong></div><div><span>Nombre de contacto</span><strong>{p.contacto_nombre || '—'}</strong></div><div><span>Teléfono</span><strong>{p.telefono || '—'}</strong></div><div><span>Condición de pago</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase()}</strong></div><div><span>Plazo</span><strong>{String(p.condicion_pago || 'CONTADO').toUpperCase() === 'CREDITO' ? `${Number(p.plazo_dias) || 0} días` : 'Inmediato'}</strong></div><div><span>Estado</span><strong>{p.estado ? 'Activo' : 'Inactivo'}</strong></div><div><span>Fecha de registro</span><strong>{p.created_at ? new Date(p.created_at).toLocaleString('es-PE') : '—'}</strong></div>
             {p.observaciones && <div className="business-detail-wide"><span>Observaciones</span><strong>{p.observaciones}</strong></div>}
@@ -876,7 +876,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
         const ejecutivo = ejecutivoProyecto(p);
         const lobProyecto = categoriaDelProyecto(p);
         return <article className={`business-pro-card project-pro-card project-status-${estado.toLowerCase().replace(/\s+/g, '-')} ${abierto ? 'is-open' : ''}`} key={p.id}>
-          <div className="business-pro-main">
+          <div className="business-pro-main compact-click-target" role="button" tabIndex={0} onClick={()=>setDetalleAbierto(abierto ? null : p.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setDetalleAbierto(abierto ? null : p.id);}}}>
             <div className="business-identity">
               <span className={`business-status-dot project-dot-${estado.toLowerCase().replace(/\s+/g, '-')}`} />
               <div><div className="business-code">{p.codigo || 'PROYECTO'}</div><h4>{p.nombre}</h4><div className="business-subline"><span>Cliente · {p.clientes?.nombre || 'Sin cliente'}</span><span>•</span><span>{estado}</span><span>•</span><span>Ejecutivo comercial · {nombreCompletoUsuario(ejecutivo, ejecutivo)}</span></div></div>
@@ -891,7 +891,7 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
               </div>}
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalleAbierto(abierto ? null : p.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17} /></span></button>
+          
           {abierto && <div className="business-detail-grid">
             <div><span>Cliente</span><strong>{p.clientes?.nombre || '—'}</strong></div><div><span>Estado</span><strong>{estado}</strong></div><div><span>Categoría</span><strong>{lobProyecto}</strong></div><div><span>Valor venta</span><strong>{money(venta)}</strong></div><div><span>Compras registradas</span><strong>{money(comprasPorProyecto[p.id] || 0)}</strong></div><div><span>Utilidad real preliminar</span><strong>{money(venta - (comprasPorProyecto[p.id] || 0))}</strong></div><div><span>Ejecutivo comercial</span><strong>{nombreCompletoUsuario(ejecutivo, ejecutivo)}</strong></div><div><span>Fecha de pedido</span><strong>{fechaProyecto(p) ? new Date(`${fechaProyecto(p)}T12:00:00`).toLocaleDateString('es-PE') : '—'}</strong></div>
             {fechasHabilitadas && <div><span>Fecha de entrega</span><strong>{p.fecha_entrega || 'Sin registrar'}</strong></div>}<div className="business-detail-wide"><span>Descripción</span><strong>{p.descripcion || 'Sin descripción registrada.'}</strong></div>

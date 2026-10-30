@@ -579,7 +579,7 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
         const tieneAdjuntoVisual = tieneAlgunAdjunto(c);
         const adjuntosOk = sinComprobante || tieneAdjuntoVisual;
         return <article className={`business-pro-card purchase-card ${abierto ? 'is-open' : ''}`} key={c.id}>
-          <div className="business-pro-main purchase-card-main-clean">
+          <div className="business-pro-main purchase-card-main-clean compact-click-target" role="button" tabIndex={0} onClick={()=>setDetalle(abierto ? null : c.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setDetalle(abierto ? null : c.id);}}}>
             <div className="business-identity"><span className="business-status-dot status-active"/><div><div className="business-code">{c.codigo || 'COMPRA'}</div><h4>{c.descripcion}</h4>{(c.proyectos || c.proyecto_texto) && <div className="purchase-project-line">{c.proyectos ? `${c.proyectos.codigo || ''} · ${c.proyectos.nombre}` : c.proyecto_texto}</div>}</div></div>
             <div className="purchase-card-tags">
               <div className="purchase-card-tag"><span>Categoría de gasto</span><strong>{c.categoria_gasto || '—'}</strong></div>
@@ -590,7 +590,6 @@ export function PurchaseRegister({ usuario, onNotify = () => {}, onAudit = () =>
               <div className="business-date-value"><span>Valor compra</span><strong>{money(c.monto_base ?? c.monto)}</strong><small>{c.fecha_compra ? new Date(`${c.fecha_compra}T12:00:00`).toLocaleDateString('es-PE') : '—'}</small></div>
             </div>
           </div>
-          <button type="button" className="quote-expand-bar" onClick={() => setDetalle(abierto ? null : c.id)}><span>{abierto ? 'Ocultar detalle' : 'Ver detalle completo'}</span><span className={`quote-expand-chevron ${abierto ? 'open' : ''}`}><FestosIcon name="ChevronDown" size={17}/></span></button>
           {abierto && <div className="purchase-detail-wrap"><div className="business-detail-grid purchase-detail-grid-clean">
             <div><span>Fecha de compra</span><strong>{c.fecha_compra || '—'}</strong></div>
             <div><span>Fecha de control</span><strong>{c.fecha_control || 'Pendiente de Registro de Ventas'}</strong></div>
