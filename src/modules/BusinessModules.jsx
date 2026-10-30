@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { matchVoiceClient } from '../voice/commands';
 import { supabase } from '../supabaseClient';
+import { cotizacionDeProyecto, valorDeProyecto } from '../projectMetrics';
 import { jsPDF } from 'jspdf';
 import { FestosIcon } from '../FestosIcon';
 import { CATEGORIAS_FESTOS, categoriaAnterior, CATEGORIA_PENDIENTE, categoriaDelProyecto, categoriaActual } from '../categories';
@@ -710,19 +711,8 @@ export function Proyectos({ usuario, onNotify, onAudit, puedeGestionar = true, f
     return () => { unsubProyectos(); unsubCotizaciones(); unsubCompras(); };
   }, []);
 
-  const quoteForProject = p => cotizacionesProyecto.find(q =>
-    q.project_id === p.id || (q.proyecto_nombre || '').trim().toLowerCase() === (p.nombre || '').trim().toLowerCase()
-  );
-  // Valor venta FESTOS = VALOR del Excel, antes de IGV.
-  // PRECIO del Excel es el precio con IGV y no se usa como Valor venta.
-  // Para proyectos antiguos, usamos el subtotal de la cotización como respaldo.
-  const valorVenta = p => {
-    const directo = num(p?.valor_base);
-    if (directo > 0) return directo;
-    const propio = num(p?.valor_venta);
-    if (propio > 0) return propio;
-    return num(quoteForProject(p)?.subtotal);
-  };
+  const quoteForProject = p => cotizacionDeProyecto(p, cotizacionesProyecto);
+  const valorVenta = p => valorDeProyecto(p, cotizacionesProyecto);
   const ejecutivoProyecto = p => String(p.ejecutivo || p.created_by || quoteForProject(p)?.created_by || '').trim().toUpperCase() || 'SIN REGISTRO';
   const fechaProyecto = p => String(p?.fecha_pedido || p?.created_at || '').slice(0, 10);
 

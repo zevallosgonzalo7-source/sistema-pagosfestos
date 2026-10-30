@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { cotizacionDeProyecto, valorDeProyecto, costoDeProyecto, utilidadDeProyecto } from '../projectMetrics';
 import { FestosIcon } from '../FestosIcon';
 import { CATEGORIAS_FESTOS, CATEGORIA_PENDIENTE, categoriaActual, categoriaDelProyecto } from '../categories';
 import { dateKey, dashboardDate, dashboardPeriodBounds, isInDashboardRange, localDateKey } from '../dashboardPeriod';
@@ -203,6 +204,8 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
   const [data, setData] = useState({ quotes: [], projects: [], clients: [] });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const requestSequence = useRef(0);
+  const [lastSync, setLastSync] = useState(null);
   const [periodo, setPeriodo] = useState('year');
   const [anio, setAnio] = useState(() => new Date().getFullYear());
   const [mes, setMes] = useState(() => new Date().getMonth() + 1);
@@ -215,7 +218,7 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
 
   const cargar = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
-    setErrorMessage('');
+    const requestId = ++requestSequence.current;
     try {
       const [qRes, pRes, cRes] = await Promise.all([
         supabase.from('cotizaciones').select('*, clientes(nombre)').order('created_at', { ascending: true }),
@@ -224,12 +227,15 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
       ]);
       const firstError = [qRes, pRes, cRes].find(r => r.error);
       if (firstError?.error) throw firstError.error;
+      if (requestId !== requestSequence.current) return;
       setData({ quotes: qRes.data || [], projects: pRes.data || [], clients: cRes.data || [] });
+      setLastSync(new Date());
+      setErrorMessage('');
     } catch (err) {
       console.error('Dashboard general:', err);
-      setErrorMessage(err?.message || 'No se pudieron cargar los datos del Dashboard proyectos.');
+      if (requestId === requestSequence.current) setErrorMessage(err?.message || 'No se pudieron cargar los datos del Dashboard proyectos. Los indicadores podrían estar desactualizados.');
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   };
 
@@ -238,14 +244,17 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
     cargar();
     const channel = supabase.channel('festos-dashboard-categorias-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, () => cargar(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cotizaciones' }, () => cargar(true))
       .subscribe();
     const refrescarAlVolver = () => { if (!document.hidden) cargar(true); };
     const refrescarAlEditar = () => cargar(true);
+    // Sondeo de respaldo cuando Realtime no está habilitado o pierde la conexión.
     const intervalo = window.setInterval(() => { if (!document.hidden) cargar(true); }, 20000);
     window.addEventListener('festos:proyectos-actualizados', refrescarAlEditar);
     document.addEventListener('visibilitychange', refrescarAlVolver);
     window.addEventListener('focus', refrescarAlVolver);
     return () => {
+      requestSequence.current += 1; // invalida consultas que terminan después de desmontar
       supabase.removeChannel(channel);
       window.clearInterval(intervalo);
       window.removeEventListener('festos:proyectos-actualizados', refrescarAlEditar);
@@ -276,29 +285,10 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
     (filtroLob === 'TODOS' || categoriaDelProyecto(p) === filtroLob)
   ), [data.projects, limites, filtroEjecutivo, filtroLob]);
 
-  const quoteForProject = project => data.quotes.find(q =>
-    q.project_id === project.id ||
-    (String(q.proyecto_nombre || '').trim().toLowerCase() && String(q.proyecto_nombre || '').trim().toLowerCase() === String(project.nombre || '').trim().toLowerCase())
-  );
-
-  const projectValue = project => {
-    const valorBase = num(project.valor_base);
-    if (valorBase > 0) return valorBase;
-    const valorVenta = num(project.valor_venta);
-    if (valorVenta > 0) return valorVenta;
-    return num(quoteForProject(project)?.subtotal);
-  };
-  const projectCost = project => {
-    const direct = num(project.costo_estimado);
-    return direct > 0 ? direct : num(quoteForProject(project)?.costo_estimado);
-  };
-  const projectProfit = project => {
-    const direct = num(project.utilidad_proyectada);
-    if (direct !== 0) return direct;
-    const quoteProfit = num(quoteForProject(project)?.ganancia_estimada);
-    if (quoteProfit !== 0) return quoteProfit;
-    return projectValue(project) - projectCost(project);
-  };
+  const quoteForProject = project => cotizacionDeProyecto(project, data.quotes);
+  const projectValue = project => valorDeProyecto(project, data.quotes);
+  const projectCost = project => costoDeProyecto(project, data.quotes);
+  const projectProfit = project => utilidadDeProyecto(project, data.quotes);
 
   const approved = useMemo(() => quotes.filter(q => ['aprobado', 'aprobada'].includes(norm(q.estado))), [quotes]);
   const inReview = useMemo(() => quotes.filter(q => norm(q.estado).includes('revisi')), [quotes]);
@@ -524,6 +514,7 @@ export function ExecutiveDashboard({ onOpenAI, onOpenProjects = () => {}, tipo =
                   <button type="button" onClick={limpiar}>Limpiar filtros</button>
                 </div>
                 <div className="ed-period-context">{periodo === 'all' ? 'Todo el historial disponible' : periodo === 'custom' && !desde && !hasta ? 'Sin límite de fechas' : `${limites.desde || 'Sin fecha inicial'} → ${limites.hasta || 'Hoy'}`} · Fecha de pedido del proyecto{periodo === 'custom' && desde && hasta && desde > hasta ? ' · La fecha inicial debe ser anterior a la final' : ''}</div>
+                <div className="ed-period-context" role="status" aria-live="polite">{errorMessage ? 'Sincronización con error · último dato disponible' : lastSync ? `Datos consultados: ${lastSync.toLocaleTimeString('es-PE')} · sincronización automática y respaldo cada 20 s` : 'Consultando datos...'}</div>
               </section>
               {projects.length === 0 && data.projects.length > 0 && <div className="ed-period-empty" role="status">No hay proyectos con estos filtros. Comprueba las fechas de pedido o selecciona «Todo el historial» para ver todos los registros.</div>}
 

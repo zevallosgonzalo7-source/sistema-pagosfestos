@@ -35,5 +35,9 @@ public/voice-assets/ready.json
 /dist-electron/
 
 /out/
+
+# Credentials (never commit)
 .env
-.env
+.env.*
+!.env.example
+supabase/.temp/
