@@ -7227,3 +7227,44 @@ input:focus,select:focus,textarea:focus{
 @media(max-width:1180px){.sales-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.sales-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-filter-actions{align-items:flex-start;flex-direction:column}.sales-filter-actions .btn-secondary{width:100%}}
 @media(max-width:460px){.sales-filter-grid{grid-template-columns:1fr}}
+
+/* FESTOS V29.42.11 · Reg. Ventas compacto */
+.sales-tax-rules-compact{grid-template-columns:minmax(120px,.75fr) minmax(170px,1fr) minmax(120px,.75fr) minmax(150px,1fr);align-items:center}
+.sales-tax-rules-compact .sales-switch{min-height:auto}
+@media(max-width:900px){.sales-tax-rules-compact{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.sales-tax-rules-compact{grid-template-columns:1fr}}
+
+
+/* ============================================================
+   FESTOS V29.42.13 — LOGO LIMA GLOBAL EN MARCAS F
+   ============================================================ */
+.festos-logo-mark{
+  padding:0!important;
+  overflow:hidden!important;
+  background:#d9ef67!important;
+  border:1px solid rgba(34,66,72,.10)!important;
+  box-shadow:0 10px 24px rgba(34,66,72,.14)!important;
+}
+.festos-logo-mark img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.festos-inline-brand-logo{
+  width:1.02em;
+  height:1.02em;
+  flex:0 0 auto;
+  object-fit:cover;
+  border-radius:.24em;
+  box-shadow:0 24px 58px rgba(27,92,88,.20);
+  transform-origin:center;
+}
+.intro-mini-brand-logo{
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  object-fit:cover;
+  border-radius:7px;
+  box-shadow:0 4px 10px rgba(34,66,72,.12);
+}

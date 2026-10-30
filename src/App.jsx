@@ -234,7 +234,7 @@ function FestosWelcomeOverlay({ nombre, cargo, correo, onClose }) {
       <div className="festos-intro-stage">
         <div className="festos-intro-copy">
           <div className="festos-intro-kicker">GESTIÓN EMPRESARIAL</div>
-          <div className="festos-intro-wordmark"><span>F</span>ESTOS</div>
+          <div className="festos-intro-wordmark"><img src={`${import.meta.env.BASE_URL}favicon.png`} alt="" className="festos-inline-brand-logo" />ESTOS</div>
           <div className="festos-intro-subtitle">OPERACIONES Y ADMINISTRACIÓN</div>
           <div className="festos-intro-userline">
             <span>{saludoPorHora()}</span>
@@ -252,7 +252,7 @@ function FestosWelcomeOverlay({ nombre, cargo, correo, onClose }) {
             <div className="festos-intro-phone-top"><i/><b/></div>
             <div className="festos-intro-screen">
               <div className="intro-mini-topbar">
-                <div className="intro-mini-brand"><span>F</span><strong>FESTOS</strong></div>
+                <div className="intro-mini-brand"><img src={`${import.meta.env.BASE_URL}favicon.png`} alt="" className="intro-mini-brand-logo" /><strong>ESTOS</strong></div>
                 <div className="intro-mini-avatar">RZ</div>
               </div>
               <div className="intro-mini-hero">
@@ -1629,7 +1629,7 @@ function App() {
 
   /* -------------------- PANTALLA DE LOGIN -------------------- */
   if (!authReady) {
-    return <div className="login-screen"><div className="login-center"><div className="login-card"><div className="login-brand premium-wordmark login-wordmark"><div className="premium-wordmark-mark" aria-hidden="true">F</div><div><strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong><small>VALIDANDO SESIÓN SEGURA</small></div></div></div></div></div>;
+    return <div className="login-screen"><div className="login-center"><div className="login-card"><div className="login-brand premium-wordmark login-wordmark"><div className="premium-wordmark-mark festos-logo-mark" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}favicon.png`} alt="" /></div><div><strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong><small>VALIDANDO SESIÓN SEGURA</small></div></div></div></div></div>;
   }
 
   if (!usuarioLogueado) {
@@ -1643,7 +1643,7 @@ function App() {
         <div className="login-center">
           <form onSubmit={manejarLogin} className="login-card">
             <div className="login-brand premium-wordmark login-wordmark">
-              <div className="premium-wordmark-mark" aria-hidden="true">F</div>
+              <div className="premium-wordmark-mark festos-logo-mark" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}favicon.png`} alt="" /></div>
               <div>
                 <strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong>
                 <small>OPERACIONES Y ADMINISTRACIÓN</small>
@@ -1742,7 +1742,7 @@ function App() {
 
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand sidebar-wordmark premium-wordmark">
-          <div className="premium-wordmark-mark" aria-hidden="true">F</div>
+          <div className="premium-wordmark-mark festos-logo-mark" aria-hidden="true"><img src={`${import.meta.env.BASE_URL}favicon.png`} alt="" /></div>
           <div>
             <strong><b>FESTOS</b><span>GESTIÓN EMPRESARIAL</span></strong>
             <small>OPERACIONES Y ADMINISTRACIÓN</small>
