@@ -7274,3 +7274,62 @@ input:focus,select:focus,textarea:focus{
 
 /* V29.42.17: venta multiproyecto y cabecera ejecutiva */
 .sales-card-metrics{display:flex;gap:14px;align-items:center;justify-content:flex-end;flex-wrap:wrap;text-align:right}.sales-card-metrics>div{display:flex;flex-direction:column}.sales-margin-alert{background:#fff4ce;color:#886100;padding:8px 14px;border:1px solid #edcc70;border-radius:12px}.sales-margin-alert small{color:#886100}.sales-project-choice{width:100%;border:1px solid #cbdedc;background:white;border-radius:12px;padding:14px;display:flex;justify-content:space-between;gap:12px;text-align:left;color:#23454b}.sales-project-options{max-height:220px;overflow:auto;border:1px solid #cbdedc;border-radius:12px;padding:8px;background:white}.sales-project-options label{display:flex;gap:9px;align-items:center;padding:8px;cursor:pointer}.sales-allocation{border:1px solid #dce8e7;border-radius:12px;padding:14px;display:grid;gap:10px}.sales-allocation label{display:flex;gap:14px;align-items:center;justify-content:space-between}.sales-allocation input{max-width:145px}.sales-manual-cost{display:flex;align-items:center;gap:8px;padding:10px 0}.sales-detail-files{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 20px}
+
+
+/* V29.42.18: cabecera compacta, margen junto a valor y cobranza visible. */
+.sales-card-main{padding:10px 14px;gap:12px;min-height:72px}
+.sales-card-main>div.sales-card-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-align:right}
+.sales-card-right .sales-card-metrics{display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:nowrap}
+.sales-card-right .sales-card-metrics>div{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.sales-card-right .sales-margin-alert{padding:4px 9px;border-radius:10px}
+.sales-card-payment{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.sales-card-payment .sales-status{padding:3px 9px}
+.sales-card-payment .sales-payment-amounts{font-size:.71rem;color:#687e80;white-space:normal}
+.sales-card-main>div:first-child>strong{font-size:.97rem}
+.sales-card-main>div:first-child>span{font-size:.77rem}
+@media(max-width:620px){.sales-card-main{grid-template-columns:minmax(0,1fr);gap:8px}.sales-card-main>div.sales-card-right{align-items:flex-start;text-align:left}.sales-card-right .sales-card-metrics,.sales-card-payment{justify-content:flex-start}.sales-card-right .sales-card-metrics>div{align-items:flex-start}}
+
+/* V29.42.19: estado de cobranza sin importes duplicados y margen sin costo por verificar. */
+.sales-card-right .sales-margin-alert:has(strong){min-width:96px}
+.sales-card-right .sales-margin-alert strong{font-size:1rem;white-space:nowrap}
+.sales-card-payment{min-height:23px}
+
+/* V29.42.20: listado de ventas de alta densidad; solo presentación. */
+.sales-list{gap:6px}
+.sales-list .sales-card{border-radius:13px}
+.sales-list .sales-card-main{
+  min-height:58px;
+  padding:7px 13px;
+  column-gap:14px;
+  grid-template-columns:minmax(0,1fr) auto;
+}
+.sales-list .sales-card-main>div:first-child{gap:1px;min-width:0}
+.sales-list .sales-card-main>div:first-child>strong{font-size:.91rem;line-height:1.15}
+.sales-list .sales-card-main>div:first-child>span{font-size:.74rem;line-height:1.15}
+.sales-list .sales-card-main>div.sales-card-right{
+  flex-direction:row;
+  align-items:center;
+  justify-content:flex-end;
+  gap:11px;
+  min-width:0;
+}
+.sales-list .sales-card-right .sales-card-metrics{gap:10px}
+.sales-list .sales-card-right .sales-card-metrics>div{gap:0}
+.sales-list .sales-card-right .sales-card-metrics small{font-size:.62rem;line-height:1.1}
+.sales-list .sales-card-right .sales-card-metrics strong{font-size:.91rem;line-height:1.18}
+.sales-list .sales-card-right .sales-margin-alert{
+  min-width:82px;
+  padding:3px 7px;
+  border-radius:9px;
+}
+.sales-list .sales-card-right .sales-margin-alert:has(strong){min-width:82px}
+.sales-list .sales-card-right .sales-margin-alert strong{font-size:.85rem;line-height:1.2}
+.sales-list .sales-card-payment{min-height:0;flex-wrap:nowrap}
+.sales-list .sales-card-payment .sales-status{padding:3px 7px;font-size:.64rem!important}
+@media(max-width:740px){
+  .sales-list .sales-card-main{grid-template-columns:minmax(0,1fr);gap:5px;min-height:0;padding:9px 11px}
+  .sales-list .sales-card-main>div.sales-card-right{justify-content:space-between;align-items:center;width:100%;gap:8px}
+  .sales-list .sales-card-right .sales-card-metrics{justify-content:flex-start;gap:8px}
+  .sales-list .sales-card-right .sales-card-metrics>div{align-items:flex-start}
+  .sales-list .sales-card-payment{justify-content:flex-end}
+}
