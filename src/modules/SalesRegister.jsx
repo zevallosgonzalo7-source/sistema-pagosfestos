@@ -10,7 +10,7 @@ const today = () => new Date().toISOString().slice(0,10);
 const datePlus = (iso, days=0) => { if(!iso) return ''; const d=new Date(`${iso}T12:00:00`); d.setDate(d.getDate()+(Number(days)||0)); return d.toISOString().slice(0,10); };
 const daysUntil = iso => { if(!iso) return null; const a=new Date(`${today()}T12:00:00`); const b=new Date(`${iso}T12:00:00`); return Math.round((b-a)/86400000); };
 const LOBS_VENTAS = ['GRAFICA PUBLICITARIA','MERCH & GIFTS','ESPACIOS Y ESTRUCTURAS','AGENCIA 360°'];
-const emptyForm = { project_id:'', lob:'', fecha_factura:today(), tipo_documento:'FACTURA', numero_documento:'', valor_venta:'', detraccion_aplica:false, observaciones:'' };
+const emptyForm = { project_id:'', lob:'', fecha_factura:today(), tipo_documento:'FACTURA', numero_documento:'', valor_venta:'', detraccion_aplica:false, porcentaje_detraccion:'12', ejecutivo:'', observaciones:'' };
 const emptyPay = { venta_id:'', tipo:'PAGO_COMERCIAL', fecha_pago:today(), monto:'', medio_pago:'TRANSFERENCIA', observaciones:'' };
 
 function estadoVenta(v){
@@ -31,7 +31,7 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
   const [desde,setDesde]=useState(''); const [hasta,setHasta]=useState(''); const [clienteFiltro,setClienteFiltro]=useState('TODOS'); const [lobFiltro,setLobFiltro]=useState('TODOS'); const [ejecutivoFiltro,setEjecutivoFiltro]=useState('TODOS');
   const [editandoId,setEditandoId]=useState(null);
   const [comprasAbiertas,setComprasAbiertas]=useState(false);
-  const [errorCarga,setErrorCarga]=useState('');
+  const [errorCarga,setErrorCarga]=useState(''); const [adjuntosVenta,setAdjuntosVenta]=useState({}); const [adjuntosPendientes,setAdjuntosPendientes]=useState([]); const [subiendoAdjuntos,setSubiendoAdjuntos]=useState(false);
 
   const cargar=async()=>{
     setErrorCarga('');
@@ -97,12 +97,12 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
   const superaUmbral=precio>700;
   const agenteRetenedor=!!proyecto?.clientes?.agente_retenedor;
   const detraccionActiva=superaUmbral&&!!form.detraccion_aplica;
-  const montoDet=detraccionActiva?Number((precio*0.12).toFixed(2)):0;
+  const montoDet=detraccionActiva?Number((precio*(Number(form.porcentaje_detraccion)||0)/100).toFixed(2)):0;
   const retencionAuto=superaUmbral&&agenteRetenedor&&!detraccionActiva?Number((precio*0.03).toFixed(2)):0;
   const pagoEsperado=Math.max(Number((precio-retencionAuto-montoDet).toFixed(2)),0);
 
-  const abrir=()=>{setEditandoId(null);setForm(emptyForm);setComprasAbiertas(false);setModal(true)};
-  const abrirEditar=(v)=>{
+  const abrir=()=>{setEditandoId(null);setForm({...emptyForm});setAdjuntosPendientes([]);setComprasAbiertas(false);setModal(true)};
+  const abrirEditar=(v)=>{ cargarAdjuntosVenta(v.id);
     const links=v.venta_proyectos||[];
     setEditandoId(v.id);
     setForm({
@@ -114,9 +114,9 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
       numero_documento:v.numero_documento||'',
       valor_venta:String(Number(v.valor_venta)||0),
       detraccion_aplica:!!v.detraccion_aplica||Number(v.detraccion||0)>0,
-      observaciones:v.observaciones||''
+      ejecutivo:String(v.ejecutivo||'').trim().toUpperCase()==='MAR'?'MARJORIE MUÑOZ':(v.ejecutivo||''), porcentaje_detraccion:String(v.porcentaje_detraccion ?? (v.detraccion_aplica?12:12)), observaciones:v.observaciones||''
     });
-    setComprasAbiertas(false); setModal(true);
+    setAdjuntosPendientes([]); setComprasAbiertas(false); setModal(true);
   };
   const esFuncionNoDisponible=(err)=>{
     const msg=String(err?.message||'').toLowerCase();
@@ -164,7 +164,8 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
   };
   const guardar=async e=>{
     e.preventDefault();
-    if(!form.project_id||!form.lob||!form.fecha_factura||!form.numero_documento.trim()||valorVenta<=0) return alert('Completa proyecto, LOB, fecha, número de comprobante y valor venta.');
+    if(!form.project_id||!form.lob||!form.ejecutivo.trim()||!form.fecha_factura||!form.numero_documento.trim()||valorVenta<=0) return alert('Completa proyecto, LOB, fecha, número de comprobante y valor venta.');
+    if(detraccionActiva && (!Number.isFinite(Number(form.porcentaje_detraccion)) || Number(form.porcentaje_detraccion)<=0 || Number(form.porcentaje_detraccion)>100)) return alert('Ingresa un porcentaje de detracción válido entre 0.01 y 100.');
     setCargando(true);
     try{
       const payload={
@@ -173,12 +174,12 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
         p_numero_documento:form.numero_documento.trim(),
         p_valor_venta:valorVenta,
         p_lob:form.lob,
-        p_detraccion_aplica:detraccionActiva,
+        p_detraccion_aplica:detraccionActiva, p_porcentaje_detraccion:detraccionActiva?Number(form.porcentaje_detraccion):0, p_ejecutivo:form.ejecutivo.trim(),
         p_observaciones:form.observaciones.trim()||null
       };
       let data=null; let error=null;
       if(editandoId){
-        ({data,error}=await supabase.rpc('editar_venta_festos_v2',{p_venta_id:editandoId,...payload}));
+        ({data,error}=await supabase.rpc('editar_venta_festos_v3',{p_venta_id:editandoId,...payload}));
         if(error&&esFuncionNoDisponible(error)){
           const actual=ventas.find(x=>x.id===editandoId);
           const pagosVenta=cobros.filter(x=>x.venta_id===editandoId);
@@ -188,7 +189,7 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
           const saldoDet=Math.max(Number((montoDet-detPagada).toFixed(2)),0);
           if(pagado>pagoEsperado+0.01) throw new Error('El nuevo valor venta dejaría pagos comerciales por encima del saldo permitido.');
           if((actual?.venta_proyectos||[]).length>1 && Math.abs(valorVenta-(Number(actual?.valor_venta)||0))>0.01) throw new Error('Factura multiproyecto: el Valor venta total no puede modificarse desde esta edición simple.');
-          const cambios={fecha_factura:form.fecha_factura,fecha_control:form.fecha_factura,tipo_documento:String(form.tipo_documento||'FACTURA').toUpperCase(),numero_documento:form.numero_documento.trim(),lob:form.lob,valor_venta:valorVenta,precio_venta:precio,utilidad:Number(utilidad.toFixed(2)),margen:valorVenta>0?Number(((utilidad/valorVenta)*100).toFixed(4)):0,fecha_vencimiento:fechaVencimiento,retencion:retencionAuto,detraccion:montoDet,detraccion_aplica:detraccionActiva,porcentaje_detraccion:detraccionActiva?12:0,pago_comercial_esperado:pagoEsperado,saldo_comercial:saldoCom,detraccion_pagada:detPagada,saldo_detraccion:saldoDet,saldo:saldoCom+saldoDet,estado_detraccion:montoDet<=0?'NO APLICA':(saldoDet<=0.01?'PAGADA':'PENDIENTE'),porcentaje_comision:0,comision:0,observaciones:form.observaciones.trim()||null,updated_at:new Date().toISOString()};
+          const cambios={fecha_factura:form.fecha_factura,fecha_control:form.fecha_factura,tipo_documento:String(form.tipo_documento||'FACTURA').toUpperCase(),numero_documento:form.numero_documento.trim(),lob:form.lob,ejecutivo:form.ejecutivo.trim(),valor_venta:valorVenta,precio_venta:precio,utilidad:Number(utilidad.toFixed(2)),margen:valorVenta>0?Number(((utilidad/valorVenta)*100).toFixed(4)):0,fecha_vencimiento:fechaVencimiento,retencion:retencionAuto,detraccion:montoDet,detraccion_aplica:detraccionActiva,porcentaje_detraccion:detraccionActiva?Number(form.porcentaje_detraccion):0,pago_comercial_esperado:pagoEsperado,saldo_comercial:saldoCom,detraccion_pagada:detPagada,saldo_detraccion:saldoDet,saldo:saldoCom+saldoDet,estado_detraccion:montoDet<=0?'NO APLICA':(saldoDet<=0.01?'PAGADA':'PENDIENTE'),porcentaje_comision:0,comision:0,observaciones:form.observaciones.trim()||null,updated_at:new Date().toISOString()};
           const {data:updated,error:updateError}=await supabase.from('ventas').update(cambios).eq('id',editandoId).select('id').single();
           if(updateError) throw updateError;
           const pids=Array.from(new Set([actual?.project_id,...(actual?.venta_proyectos||[]).map(x=>x.project_id)].filter(Boolean)));
@@ -199,15 +200,58 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
           data={ok:true,venta_id:updated?.id||editandoId,saldo:saldoCom+saldoDet}; error=null;
         }
       }else{
-        ({data,error}=await supabase.rpc('registrar_venta_festos_v2',{p_project_id:form.project_id,...payload,p_created_by:usuario||null}));
+        ({data,error}=await supabase.rpc('registrar_venta_festos_v3',{p_project_id:form.project_id,...payload,p_created_by:usuario||null}));
       }
       if(error) throw error;
+      const ventaId=editandoId||data?.venta_id;
+      if(ventaId && adjuntosPendientes.length) {
+        const resultado=await subirArchivosVenta(ventaId,adjuntosPendientes);
+        if(resultado.errores.length) alert(`Venta guardada, pero algunos adjuntos fallaron: ${resultado.errores.join('; ')}`);
+      }
       onNotify(editandoId?'Venta actualizada':'Venta registrada y cobranza programada','nuevo'); onAudit(editandoId?'Edición':'Creación',`Registro de venta ${form.numero_documento} · ${proyecto?.nombre||''} · ${money(precio)}`);
-      const eraEdicion=!!editandoId; setModal(false); setForm(emptyForm); setEditandoId(null); await cargar();
+      const eraEdicion=!!editandoId; setModal(false); setForm({...emptyForm}); setAdjuntosPendientes([]); setEditandoId(null); await cargar();
       if(!eraEdicion) alert(`Venta registrada. Vence: ${data?.fecha_vencimiento||fechaVencimiento}. Pago comercial esperado: ${money(data?.pago_comercial_esperado??pagoEsperado)}${Number(data?.detraccion||0)>0?` · Detracción: ${money(data.detraccion)}`:''}${Number(data?.retencion||0)>0?` · Retención: ${money(data.retencion)}`:''}.`);
     }catch(err){console.error(err);alert(`No se pudo registrar la venta. ${err.message||''}`)}finally{setCargando(false)}
   };
 
+  const cargarAdjuntosVenta=async(ventaId)=>{
+    if(!ventaId) return;
+    const {data,error}=await supabase.from('ventas_adjuntos').select('*').eq('venta_id',ventaId).order('created_at',{ascending:true});
+    if(error){console.error('Adjuntos de venta',error);return;}
+    setAdjuntosVenta(prev=>({...prev,[ventaId]:data||[]}));
+  };
+  const subirArchivosVenta=async(ventaId,archivos)=>{
+    const errores=[]; setSubiendoAdjuntos(true);
+    try{
+      for(const file of archivos){
+        if(file.size>15*1024*1024){errores.push(`${file.name}: máximo 15 MB`);continue;}
+        if(!/\.(pdf|png|jpe?g|webp|docx?|xlsx?)$/i.test(file.name)){errores.push(`${file.name}: formato no admitido`);continue;}
+        const ruta=`${ventaId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const {error:upError}=await supabase.storage.from('ventas-adjuntos').upload(ruta,file,{upsert:false});
+        if(upError){errores.push(`${file.name}: ${upError.message}`);continue;}
+        const {error:dbError}=await supabase.from('ventas_adjuntos').insert({venta_id:ventaId,nombre:file.name,ruta,tamano:file.size,tipo:file.type||null});
+        if(dbError){await supabase.storage.from('ventas-adjuntos').remove([ruta]);errores.push(`${file.name}: ${dbError.message}`);}
+      }
+      await cargarAdjuntosVenta(ventaId);
+    }finally{setSubiendoAdjuntos(false);}
+    return {errores};
+  };
+  const abrirAdjuntoVenta=async(doc)=>{
+    const {data,error}=await supabase.storage.from('ventas-adjuntos').createSignedUrl(doc.ruta,90);
+    if(error||!data?.signedUrl) return alert(error?.message||'No se pudo abrir el archivo');
+    window.open(data.signedUrl,'_blank','noopener,noreferrer');
+  };
+  const quitarAdjuntoVenta=async(doc)=>{
+    if(!window.confirm(`¿Eliminar el archivo ${doc.nombre}?`)) return;
+    const {error}=await supabase.from('ventas_adjuntos').delete().eq('id',doc.id);
+    if(error) return alert(error.message);
+    await supabase.storage.from('ventas-adjuntos').remove([doc.ruta]);
+    await cargarAdjuntosVenta(doc.venta_id);
+  };
+  const archivosVentaUI=(ventaId)=> <div className="sales-attachments"><strong>Adjuntos</strong>
+    {(adjuntosVenta[ventaId]||[]).map(doc=><div className="sales-attachment-item" key={doc.id}><span>{doc.nombre}</span><button type="button" className="btn-secondary" onClick={()=>abrirAdjuntoVenta(doc)}>Abrir / descargar</button>{puedeGestionar&&<button type="button" className="btn-danger" onClick={()=>quitarAdjuntoVenta(doc)}>Eliminar</button>}</div>)}
+    {puedeGestionar&&ventaId&&<label className="sales-attachment-add">Agregar archivos <input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx" disabled={subiendoAdjuntos} onChange={async e=>{const files=[...e.target.files];e.target.value='';const res=await subirArchivosVenta(ventaId,files);if(res.errores.length)alert(res.errores.join('\n'));}}/></label>}
+  </div>;
   const abrirPago=(v,tipo='PAGO_COMERCIAL')=>{
     const pendiente=tipo==='DETRACCION'?Number(v.saldo_detraccion||0):Number(v.saldo_comercial ?? v.saldo ?? 0);
     setPayForm({...emptyPay,venta_id:v.id,tipo,monto:pendiente>0?String(pendiente.toFixed(2)):''}); setPayModal(true);
@@ -265,7 +309,7 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
           { header: 'Ejecutivo', width: 24, value: v => nombreCompletoUsuario(v.ejecutivo, v.ejecutivo || '') },
           { header: 'Valor venta', width: 18, type: 'money', value: v => Number(v.valor_venta) || 0 },
           { header: 'Precio venta', width: 18, type: 'money', value: v => Number(v.precio_venta) || 0 },
-          { header: 'Costo real', width: 18, type: 'money', value: v => Number(v.costo) || 0 },
+          { header: 'Costo total', width: 18, type: 'money', value: v => Number(v.costo) || 0 },
           { header: 'Utilidad', width: 18, type: 'money', value: v => Number(v.utilidad) || 0 },
           { header: 'Margen %', width: 14, value: v => `${Number(v.margen || 0).toFixed(1)}%` },
           { header: 'Condición', width: 16, value: v => v.condicion_pago || '' },
@@ -320,25 +364,25 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
     <div className="glass-card sales-toolbar sales-toolbar-pro"><div className="sales-search-wide"><input className="search-input" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar factura, cliente o proyecto..."/></div><div className="sales-filter-grid"><label><span>Desde</span><input type="date" value={desde} onChange={e=>setDesde(e.target.value)}/></label><label><span>Hasta</span><input type="date" value={hasta} onChange={e=>setHasta(e.target.value)}/></label><label><span>Cliente</span><select value={clienteFiltro} onChange={e=>setClienteFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesClientes.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label><label><span>LOB</span><select value={lobFiltro} onChange={e=>setLobFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesLob.map(x=><option key={x} value={x}>{x}</option>)}</select></label><label><span>Ejecutivo</span><select value={ejecutivoFiltro} onChange={e=>setEjecutivoFiltro(e.target.value)}><option value="TODOS">Todos</option>{opcionesEjecutivo.map(x=><option key={x} value={x}>{nombreCompletoUsuario(x,x)}</option>)}</select></label><label><span>Estado</span><select value={estado} onChange={e=>setEstado(e.target.value)}><option>TODOS</option><option>PENDIENTE</option><option>PARCIAL</option><option>VENCIDO</option><option>PENDIENTE DETRACCIÓN</option><option>COBRADO</option></select></label></div><div className="sales-filter-actions"><span>{filtradas.length} venta{filtradas.length===1?'':'s'} visible{filtradas.length===1?'':'s'}</span><button type="button" className="btn-secondary" onClick={limpiarFiltros}><FestosIcon name="RotateCcw" size={15}/> Limpiar filtros</button></div></div>
 
     {errorCarga&&<div className="glass-card sales-load-error"><strong>No se pudo cargar Registro de Ventas</strong><span>{errorCarga}</span><button type="button" className="btn-secondary" onClick={cargar}>Reintentar</button></div>}
-    <div className="sales-list">{filtradas.length===0?<div className="glass-card empty-card">No hay ventas para este filtro.</div>:filtradas.map(v=>{const st=estadoVenta(v);const abierto=detalle===v.id;const pagosVenta=cobros.filter(c=>c.venta_id===v.id);const d=daysUntil(v.fecha_vencimiento);return <article key={v.id} className="glass-card sales-card"><button type="button" className="sales-card-main" onClick={()=>setDetalle(abierto?null:v.id)}><div><small>{v.fecha_factura} · {v.tipo_documento}</small><strong>{v.numero_documento}</strong><span>{v.clientes?.nombre||'—'} · {(v.venta_proyectos||[]).length>1?`${v.venta_proyectos.length} proyectos`:v.proyectos?.nombre||'—'}</span></div><div><small>POR REGULARIZAR</small><strong>{money(v.saldo)}</strong><span className={`sales-status st-${statusClass(st)}`}>{st}</span></div></button>{abierto&&<div className="sales-open-detail">
+    <div className="sales-list">{filtradas.length===0?<div className="glass-card empty-card">No hay ventas para este filtro.</div>:filtradas.map(v=>{const st=estadoVenta(v);const abierto=detalle===v.id;const pagosVenta=cobros.filter(c=>c.venta_id===v.id);const d=daysUntil(v.fecha_vencimiento);return <article key={v.id} className="glass-card sales-card"><button type="button" className="sales-card-main" onClick={()=>{if(!abierto)cargarAdjuntosVenta(v.id);setDetalle(abierto?null:v.id);}}><div><small>{v.fecha_factura} · {v.tipo_documento}</small><strong>{v.numero_documento}</strong><span>{v.clientes?.nombre||'—'} · {(v.venta_proyectos||[]).length>1?`${v.venta_proyectos.length} proyectos`:v.proyectos?.nombre||'—'}</span></div><div><small>POR REGULARIZAR</small><strong>{money(v.saldo)}</strong><span className={`sales-status st-${statusClass(st)}`}>{st}</span></div></button>{abierto&&<div className="sales-open-detail">
       <div className="sales-detail"><div><span>LOB</span><strong>{v.lob||'—'}</strong></div><div><span>Ejecutivo</span><strong>{nombreCompletoUsuario(v.ejecutivo,v.ejecutivo||'—')}</strong></div><div><span>Precio venta</span><strong>{money(v.precio_venta)}</strong></div><div><span>Valor venta</span><strong>{money(v.valor_venta)}</strong></div><div><span>Costo</span><strong>{money(v.costo)}</strong></div><div><span>Utilidad</span><strong>{money(v.utilidad)}</strong></div><div><span>Retención</span><strong>{money(v.retencion)}</strong></div><div><span>Condición</span><strong>{v.condicion_pago||'CONTADO'} · {v.plazo_dias||0} días</strong></div><div><span>Vencimiento</span><strong>{v.fecha_vencimiento||'—'} {d!=null&&d<0?`· ${Math.abs(d)} días vencido`:d!=null&&d<=7?`· vence en ${d} días`:''}</strong></div><div><span>F. control</span><strong>{v.fecha_control||'—'}</strong></div></div>
       <div className="sales-collection-grid"><section><header><div><span>Pago comercial</span><strong>{money(v.pagado)} / {money(v.pago_comercial_esperado??(Number(v.precio_venta)-Number(v.detraccion||0)-Number(v.retencion||0)))}</strong></div>{Number(v.saldo_comercial??v.saldo)>0.01&&<b>{money(v.saldo_comercial??v.saldo)} pendiente</b>}</header>{puedeGestionar&&Number(v.saldo_comercial??v.saldo)>0.01&&<button type="button" className="btn-secondary" onClick={()=>abrirPago(v,'PAGO_COMERCIAL')}>Registrar pago</button>}</section>
       <section className={Number(v.detraccion||0)>0?'has-detraction':''}><header><div><span>Detracción {Number(v.porcentaje_detraccion||0)>0?`${Number(v.porcentaje_detraccion).toFixed(1)}%`:''}</span><strong>{money(v.detraccion_pagada)} / {money(v.detraccion)}</strong></div><b>{v.estado_detraccion||'NO APLICA'}</b></header>{puedeGestionar&&Number(v.saldo_detraccion||0)>0.01&&<button type="button" className="btn-secondary" onClick={()=>abrirPago(v,'DETRACCION')}>Registrar detracción</button>}</section></div>
       {puedeGestionar&&<div className="sales-record-actions"><button type="button" className="btn-secondary" onClick={()=>abrirEditar(v)}><FestosIcon name="Pencil" size={15}/> Editar venta</button><button type="button" className="btn-danger" onClick={()=>eliminarVenta(v)}><FestosIcon name="Trash2" size={15}/> Eliminar</button></div>}
-      <div className="sales-history"><h5>Historial de pagos</h5>{pagosVenta.length===0?<p className="panel-note">Todavía no hay pagos registrados.</p>:pagosVenta.map(c=><div key={c.id} className="sales-history-row"><span>{c.fecha_pago}</span><strong>{c.tipo==='DETRACCION'?'Detracción':'Pago comercial'}</strong><span>{c.medio_pago||'—'}</span><b>{money(c.monto)}</b></div>)}</div>
+      {archivosVentaUI(v.id)}<div className="sales-history"><h5>Historial de pagos</h5>{pagosVenta.length===0?<p className="panel-note">Todavía no hay pagos registrados.</p>:pagosVenta.map(c=><div key={c.id} className="sales-history-row"><span>{c.fecha_pago}</span><strong>{c.tipo==='DETRACCION'?'Detracción':'Pago comercial'}</strong><span>{c.medio_pago||'—'}</span><b>{money(c.monto)}</b></div>)}</div>
     </div>}</article>})}</div>
 
     {modal&&<div className="sales-editor-overlay" onClick={()=>!cargando&&setModal(false)}><aside className="sales-editor-drawer" onClick={e=>e.stopPropagation()}><div className="section-header sales-editor-header"><div><h3 className="section-title"><FestosIcon name="ReceiptText" size={21}/> {editandoId?'Editar venta':'Registrar venta'}</h3><p className="panel-note">{editandoId?'Actualiza los datos del comprobante sin perder su historial de cobros.':'El plazo se toma automáticamente de Clientes y queda guardado como histórico.'}</p></div><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}><FestosIcon name="ArrowLeft" size={16}/> Volver</button></div><form className="glass-card form-card sales-editor-form" onSubmit={guardar}>
       <div className="form-row"><label>Proyecto *</label><SearchableSelect value={form.project_id} onChange={value=>!editandoId&&setForm(f=>({...f,project_id:value,lob:''}))} placeholder="Selecciona un proyecto..." ariaLabel="Seleccionar proyecto a facturar" options={[{value:'',label:'Selecciona un proyecto...'},...proyectos.map(p=>({value:p.id,label:`${p.codigo||''} · ${p.nombre}`,searchText:`${p.codigo||''} ${p.nombre||''} ${p.clientes?.nombre||''}`}))]}/></div>
-      {proyecto&&<><div className="sales-impact"><div><span>Cliente</span><strong>{proyecto.clientes?.nombre||'—'}</strong></div><div><span>Condición</span><strong>{condicion}</strong></div><div><span>Plazo</span><strong>{plazo} días</strong></div><div><span>Categoría</span><strong>{proyecto.categoria||'—'}</strong></div><div><span>Compras vinculadas</span><strong>{comprasProyecto.length}</strong></div><div><span>Costo real</span><strong>{money(costoReal)}</strong></div></div>
+      {proyecto&&<><div className="sales-impact"><div><span>Cliente</span><strong>{proyecto.clientes?.nombre||'—'}</strong></div><div><span>Condición</span><strong>{condicion}</strong></div><div><span>Plazo</span><strong>{plazo} días</strong></div><div><span>Categoría</span><strong>{proyecto.categoria||'—'}</strong></div></div>
       <section className="sales-linked-purchases">
         <button type="button" className="sales-linked-purchases-toggle" onClick={()=>setComprasAbiertas(v=>!v)} aria-expanded={comprasAbiertas}>
-          <div><span>Compras vinculadas al proyecto</span><strong>{comprasProyecto.length} {comprasProyecto.length===1?'compra':'compras'} · {money(costoReal)}</strong><small>{comprasProyecto.length?`Se sincronizarán el LOB elegido y la fecha de factura al confirmar.`:'Este proyecto todavía no tiene compras vinculadas.'}</small></div>
+          <div><span>Compras vinculadas al proyecto</span><strong>{comprasProyecto.length} {comprasProyecto.length===1?'compra':'compras'} · {money(costoReal)}</strong></div>
           <FestosIcon name={comprasAbiertas?'ChevronUp':'ChevronDown'} size={19}/>
         </button>
         {comprasAbiertas&&<div className="sales-linked-purchases-body">
           {comprasProyecto.length===0?<div className="sales-linked-empty">No hay compras asociadas a este proyecto. La venta se puede registrar, pero el costo real será S/. 0.00 hasta que existan compras vinculadas.</div>:<>
-            <div className="sales-linked-sync-note"><FestosIcon name="RefreshCw" size={16}/><div><strong>Vista previa de sincronización</strong><span>LOB final: {form.lob||'Pendiente'} · Fecha de control final: {form.fecha_factura||'—'}</span></div></div>
+            
             <div className="sales-linked-purchases-list">{comprasProyecto.map((c,index)=>{const proveedor=c.proveedor_nombre||c.proveedores?.nombre_comercial||c.proveedores?.nombre||'Proveedor sin nombre'; const lobCambia=String(c.lob||'').trim()!==String(form.lob||'').trim(); const fechaFinal=form.fecha_factura; const fechaCambia=String(c.fecha_control||'')!==String(fechaFinal||''); return <article key={c.id} className="sales-linked-purchase-row">
               <div className="sales-linked-purchase-index">{index+1}</div>
               <div className="sales-linked-purchase-main"><strong>{proveedor}</strong><span>{c.tipo_comprobante||'SIN COMPROBANTE'}{c.numero_documento?` · ${c.numero_documento}`:''}{c.descripcion?` · ${c.descripcion}`:''}</span><small>{c.fecha_compra||'Sin fecha de compra'}</small></div>
@@ -349,17 +393,17 @@ export function SalesRegister({ usuario, puedeGestionar = true, proyectoSolicita
           </>}
         </div>}
       </section></>}
-      <div className="form-row"><label>LOB *</label><select value={form.lob} onChange={e=>setForm({...form,lob:e.target.value})} required><option value="">Selecciona LOB...</option>{LOBS_VENTAS.map(lob=><option key={lob} value={lob}>{lob}</option>)}</select><small>El LOB se define en Registro de Ventas y se sincroniza al Proyecto y sus Compras.</small></div>
+      <div className="form-row"><label>LOB *</label><select value={form.lob} onChange={e=>setForm({...form,lob:e.target.value})} required><option value="">Selecciona LOB...</option>{LOBS_VENTAS.map(lob=><option key={lob} value={lob}>{lob}</option>)}</select></div>
       <div className="form-grid-2"><div className="form-row"><label>Fecha factura *</label><input type="date" value={form.fecha_factura} onChange={e=>setForm({...form,fecha_factura:e.target.value})}/></div><div className="form-row"><label>Fecha vencimiento</label><input type="date" value={fechaVencimiento} readOnly/></div></div>
-      <div className="form-grid-2"><div className="form-row"><label>Documento</label><select value={form.tipo_documento} onChange={e=>setForm({...form,tipo_documento:e.target.value})}><option>FACTURA</option><option>BOLETA</option><option>NOTA DE DÉBITO</option><option>OTRO</option></select></div><div className="form-row"><label>Número *</label><input value={form.numero_documento} onChange={e=>setForm({...form,numero_documento:e.target.value})} placeholder="FF01-0000123"/></div></div>
-      <div className="form-row"><label>Valor venta *</label><input type="number" min="0" step="0.01" value={form.valor_venta} onChange={e=>{const next=e.target.value; const p=(Number(next)||0)*1.18; setForm({...form,valor_venta:next,detraccion_aplica:p>700?form.detraccion_aplica:false});}} placeholder="Monto sin IGV"/><small>FESTOS calcula automáticamente el IGV y el Precio venta.</small></div>
-      <div className="sales-preview"><div><span>Valor venta</span><strong>{money(valorVenta)}</strong></div><div><span>IGV 18%</span><strong>{money(igv)}</strong></div><div><span>Precio venta</span><strong>{money(precio)}</strong></div><div><span>Costo real</span><strong>{money(costoReal)}</strong></div><div><span>Utilidad</span><strong>{money(utilidad)}</strong></div><div><span>Margen</span><strong>{margen.toFixed(1)}%</strong></div></div>
-      <div className="sales-detraction-box sales-tax-rules sales-tax-rules-compact"><div><span>Retención</span><strong>{retencionAuto>0?`3% · ${money(retencionAuto)}`:'NO APLICA'}</strong></div><label className="sales-switch"><input type="checkbox" checked={detraccionActiva} disabled={!superaUmbral} onChange={e=>setForm({...form,detraccion_aplica:e.target.checked})}/><span>Detracción 12%</span></label><div><span>Detracción</span><strong>{money(montoDet)}</strong></div><div><span>Pago comercial esperado</span><strong>{money(pagoEsperado)}</strong></div></div>
-      <div className="sales-impact-warning"><FestosIcon name="RefreshCw" size={17}/><div><strong>Impacto al confirmar</strong><span>La Fecha factura también será la Fecha de control de Compras. Se actualizarán {comprasProyecto.length} compras y el Proyecto con el LOB {form.lob||'seleccionado'}.</span></div></div>
-      <div className="form-row"><label>Observaciones</label><textarea rows="2" value={form.observaciones} onChange={e=>setForm({...form,observaciones:e.target.value})}/></div>
+      <div className="form-grid-2"><div className="form-row"><label>Documento</label><select value={form.tipo_documento} onChange={e=>setForm({...form,tipo_documento:e.target.value})}><option>FACTURA</option><option>BOLETA</option><option>NOTA DE CRÉDITO</option><option>NOTA DE DÉBITO</option><option>OTRO</option></select></div><div className="form-row"><label>Número *</label><input value={form.numero_documento} onChange={e=>setForm({...form,numero_documento:e.target.value})} placeholder="FF01-0000123"/></div></div>
+      <div className="form-row"><label>Ejecutivo *</label><select value={form.ejecutivo} onChange={e=>setForm({...form,ejecutivo:e.target.value})} required><option value="">Selecciona un ejecutivo</option><option value="GONZALO">GONZALO</option><option value="MARJORIE MUÑOZ">MARJORIE MUÑOZ</option></select></div><div className="form-row"><label>Valor venta *</label><input type="number" min="0" step="0.01" value={form.valor_venta} onChange={e=>{const next=e.target.value; const p=(Number(next)||0)*1.18; setForm({...form,valor_venta:next,detraccion_aplica:p>700?form.detraccion_aplica:false});}} placeholder="Monto sin IGV"/></div>
+      <div className="sales-preview"><div><span>IGV 18%</span><strong>{money(igv)}</strong></div><div><span>Precio venta</span><strong>{money(precio)}</strong></div><div><span>Costo total</span><strong>{money(costoReal)}</strong></div><div><span>Utilidad</span><strong>{money(utilidad)}</strong></div><div><span>Margen</span><strong>{margen.toFixed(1)}%</strong></div></div>
+      <div className="sales-detraction-box sales-tax-rules sales-tax-rules-compact"><div><span>Retención</span><strong>{retencionAuto>0?`3% · ${money(retencionAuto)}`:'NO APLICA'}</strong></div><label className="sales-switch"><input type="checkbox" checked={detraccionActiva} disabled={!superaUmbral} onChange={e=>setForm({...form,detraccion_aplica:e.target.checked})}/><span>Detracción</span></label>{detraccionActiva&&<label className="sales-detraction-rate">% <input type="number" min="0.01" max="100" step="0.01" value={form.porcentaje_detraccion} onChange={e=>setForm({...form,porcentaje_detraccion:e.target.value})} required/></label>}<div><span>Detracción</span><strong>{money(montoDet)}</strong></div><div><span>Pago comercial esperado</span><strong>{money(pagoEsperado)}</strong></div></div>
+      
+      <div className="form-row sales-attachments-editor"><label>Adjuntos</label><input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx" onChange={e=>setAdjuntosPendientes(prev=>[...prev,...e.target.files])}/>{adjuntosPendientes.map((f,i)=><div key={`${f.name}-${i}`} className="sales-attachment-item"><span>{f.name}</span><button type="button" className="btn-secondary" onClick={()=>setAdjuntosPendientes(a=>a.filter((_,j)=>j!==i))}>Quitar</button></div>)}{editandoId&&archivosVentaUI(editandoId)}</div><div className="form-row"><label>Observaciones</label><textarea rows="2" value={form.observaciones} onChange={e=>setForm({...form,observaciones:e.target.value})}/></div>
       <div className="modal-actions sales-editor-actions"><button className="btn-primary" disabled={cargando}>{cargando?(editandoId?'Guardando...':'Registrando...'):(editandoId?'Guardar cambios':'Confirmar venta')}</button><button type="button" className="btn-secondary" onClick={()=>setModal(false)} disabled={cargando}>Cancelar</button></div>
     </form></aside></div>}
 
-    {payModal&&<div className="modal-overlay" onClick={()=>!guardandoPago&&setPayModal(false)}><form className="glass-card modal-card sales-pay-modal" onSubmit={guardarPago} onClick={e=>e.stopPropagation()}><div className="modal-head"><div><h4 className="panel-title">{payForm.tipo==='DETRACCION'?'Registrar detracción':'Registrar pago'}</h4><p className="panel-note">El historial queda vinculado a la factura.</p></div><button type="button" className="modal-close-btn" onClick={()=>setPayModal(false)}>×</button></div><div className="form-grid-2"><div className="form-row"><label>Fecha *</label><input type="date" value={payForm.fecha_pago} onChange={e=>setPayForm({...payForm,fecha_pago:e.target.value})}/></div><div className="form-row"><label>Monto *</label><input type="number" min="0" step="0.01" value={payForm.monto} onChange={e=>setPayForm({...payForm,monto:e.target.value})}/></div></div><div className="form-row"><label>Medio de pago</label><select value={payForm.medio_pago} onChange={e=>setPayForm({...payForm,medio_pago:e.target.value})}><option>TRANSFERENCIA</option><option>DEPÓSITO</option><option>CHEQUE</option><option>EFECTIVO</option><option>OTRO</option></select></div><div className="form-row"><label>Observaciones</label><textarea rows="2" value={payForm.observaciones} onChange={e=>setPayForm({...payForm,observaciones:e.target.value})}/></div><div className="modal-actions"><button className="btn-primary" disabled={guardandoPago}>{guardandoPago?'Guardando...':'Registrar'}</button><button type="button" className="btn-secondary" onClick={()=>setPayModal(false)}>Cancelar</button></div></form></div>}
+    {payModal&&<div className="modal-overlay" onClick={()=>!guardandoPago&&setPayModal(false)}><form className="glass-card modal-card sales-pay-modal" onSubmit={guardarPago} onClick={e=>e.stopPropagation()}><div className="modal-head"><div><h4 className="panel-title">{payForm.tipo==='DETRACCION'?'Registrar detracción':'Registrar pago'}</h4><p className="panel-note">El historial queda vinculado a la factura.</p></div><button type="button" className="modal-close-btn" onClick={()=>setPayModal(false)}>×</button></div><div className="form-grid-2"><div className="form-row"><label>Fecha *</label><input type="date" value={payForm.fecha_pago} onChange={e=>setPayForm({...payForm,fecha_pago:e.target.value})}/></div><div className="form-row"><label>Monto *</label><input type="number" min="0" step="0.01" value={payForm.monto} onChange={e=>setPayForm({...payForm,monto:e.target.value})}/></div></div><div className="form-row"><label>Medio de pago</label><select value={payForm.medio_pago} onChange={e=>setPayForm({...payForm,medio_pago:e.target.value})}><option>TRANSFERENCIA</option><option>DEPÓSITO</option><option>CHEQUE</option><option>EFECTIVO</option><option>OTRO</option></select></div><div className="form-row sales-attachments-editor"><label>Adjuntos</label><input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx" onChange={e=>setAdjuntosPendientes(prev=>[...prev,...e.target.files])}/>{adjuntosPendientes.map((f,i)=><div key={`${f.name}-${i}`} className="sales-attachment-item"><span>{f.name}</span><button type="button" className="btn-secondary" onClick={()=>setAdjuntosPendientes(a=>a.filter((_,j)=>j!==i))}>Quitar</button></div>)}{editandoId&&archivosVentaUI(editandoId)}</div><div className="form-row"><label>Observaciones</label><textarea rows="2" value={payForm.observaciones} onChange={e=>setPayForm({...payForm,observaciones:e.target.value})}/></div><div className="modal-actions"><button className="btn-primary" disabled={guardandoPago}>{guardandoPago?'Guardando...':'Registrar'}</button><button type="button" className="btn-secondary" onClick={()=>setPayModal(false)}>Cancelar</button></div></form></div>}
   </div>;
 }

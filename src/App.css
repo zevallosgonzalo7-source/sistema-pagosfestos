@@ -1735,9 +1735,9 @@ button, input, select, textarea {
 /* V3: Proyectos - estados, usuario cargador y total de filtros */
 .project-filter-total{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-radius:11px;background:rgba(34,66,72,.06);border:1px solid rgba(34,66,72,.10)}
 .project-filter-total span{font-size:11px;color:#647477;font-weight:700}.project-filter-total strong{font-size:17px;color:#224248;letter-spacing:.1px}
-.project-pro-card.project-status-en-proceso{background:linear-gradient(145deg,rgba(224,247,235,.88),rgba(244,251,247,.76));border-color:rgba(77,171,112,.22)}
+.project-pro-card.project-status-en-proceso{background:linear-gradient(145deg,rgba(255,237,215,.92),rgba(255,247,235,.78));border-color:rgba(221,132,54,.24)}
 .project-pro-card.project-status-finalizado{background:linear-gradient(145deg,rgba(232,237,238,.92),rgba(247,249,249,.78));border-color:rgba(112,128,132,.22)}
-.project-pro-card.project-status-facturado{background:linear-gradient(145deg,rgba(255,237,215,.92),rgba(255,247,235,.78));border-color:rgba(221,132,54,.24)}
+.project-pro-card.project-status-facturado{background:linear-gradient(145deg,rgba(224,247,235,.88),rgba(244,251,247,.76));border-color:rgba(77,171,112,.22)}
 .project-dot-en-proceso{background:#62d8a6;box-shadow:0 0 0 4px rgba(98,216,166,.09),0 0 14px rgba(98,216,166,.24)}
 .project-dot-finalizado{background:#8fa5aa;box-shadow:0 0 0 4px rgba(143,165,170,.07)}
 .project-dot-facturado{background:#e2a04b;box-shadow:0 0 0 4px rgba(226,160,75,.09),0 0 14px rgba(226,160,75,.20)}
@@ -7268,3 +7268,6 @@ input:focus,select:focus,textarea:focus{
   border-radius:7px;
   box-shadow:0 4px 10px rgba(34,66,72,.12);
 }
+
+/* V29.42.15 - Gestión compacta de ventas y adjuntos */
+.sales-attachments{margin-top:12px;padding:12px;border:1px solid #d9e8e6;border-radius:12px}.sales-attachment-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0}.sales-attachment-item span{flex:1;min-width:130px;overflow-wrap:anywhere}.sales-attachment-add{display:inline-flex;align-items:center;gap:8px;padding:8px;cursor:pointer}.sales-detraction-rate{display:flex;align-items:center;gap:6px;max-width:110px}.sales-detraction-rate input{width:75px;min-width:65px;padding:7px}.sales-attachments-editor input[type=file]{max-width:100%}
